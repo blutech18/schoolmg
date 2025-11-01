@@ -48,8 +48,14 @@ interface GradingConfig {
   }>;
 }
 
+interface CalculatedGrades {
+  midterm: number | null;
+  final: number | null;
+  summary: number | null;
+}
+
 interface ScheduleWithGrades extends Schedule {
-  students: Array<Student & { grades: Grade[] }>;
+  students: Array<Student & { grades: Grade[]; calculatedGrades?: CalculatedGrades }>;
   gradingConfig: GradingConfig | null;
 }
 
@@ -108,21 +114,36 @@ export default function DeanGradesPage() {
           const allGrades = Array.isArray(gradesData) ? gradesData : (gradesData.success ? gradesData.data : []);
 
           // Map enrollments to students with their grades
-          const students = enrollments
-            .map((enrollment: any) => {
+          const studentsWithGrades = await Promise.all(
+            enrollments.map(async (enrollment: any) => {
               const student = allStudents.find((s: any) => s.StudentID === enrollment.StudentID);
               if (!student) return null;
 
               const studentGrades = allGrades.filter((g: any) => g.StudentID === student.StudentID);
 
+              // Fetch calculated Filipino grades from API
+              let calculatedGrades: CalculatedGrades = { midterm: null, final: null, summary: null };
+              try {
+                const gradeSummaryRes = await fetch(`/api/grades?role=student&userId=${student.StudentID}`);
+                const gradeSummaryData = gradeSummaryRes.ok ? await gradeSummaryRes.json() : {};
+                if (gradeSummaryData.success && gradeSummaryData.summary && gradeSummaryData.summary[schedule.ScheduleID]) {
+                  calculatedGrades = gradeSummaryData.summary[schedule.ScheduleID];
+                }
+              } catch (error) {
+                console.error(`Error fetching calculated grades for student ${student.StudentID}:`, error);
+              }
+
               return {
                 StudentID: student.StudentID,
                 StudentName: student.FirstName + ' ' + student.LastName,
                 StudentNumber: student.StudentNumber,
-                grades: studentGrades
+                grades: studentGrades,
+                calculatedGrades
               };
             })
-            .filter(Boolean);
+          );
+
+          const students = studentsWithGrades.filter(Boolean);
 
           return {
             ...schedule,
@@ -152,54 +173,6 @@ export default function DeanGradesPage() {
     setExpandedSchedules(newExpanded);
   };
 
-  // Convert percentage to Filipino grading system (1.0-5.0)
-  const convertToFilipinoGrade = (percentage: number): number | null => {
-    if (percentage === 0 || !percentage) return null;
-    if (percentage >= 97) return 1.0;
-    if (percentage >= 94) return 1.25;
-    if (percentage >= 91) return 1.5;
-    if (percentage >= 88) return 1.75;
-    if (percentage >= 85) return 2.0;
-    if (percentage >= 82) return 2.25;
-    if (percentage >= 79) return 2.5;
-    if (percentage >= 76) return 2.75;
-    if (percentage >= 75) return 3.0;  // Passing grade
-    if (percentage >= 72) return 3.25;
-    if (percentage >= 69) return 3.5;
-    if (percentage >= 66) return 3.75;
-    if (percentage >= 60) return 4.0;
-    return 5.0;  // Failed
-  };
-
-  const calculateStudentGrade = (studentGrades: Grade[], term: 'midterm' | 'final'): number => {
-    if (!studentGrades || studentGrades.length === 0) return 0;
-
-    const termGrades = studentGrades.filter(g => g.Term === term);
-    if (termGrades.length === 0) return 0;
-
-    // Group by component
-    const components = termGrades.reduce((acc: any, grade) => {
-      if (!acc[grade.Component]) {
-        acc[grade.Component] = [];
-      }
-      acc[grade.Component].push(grade);
-      return acc;
-    }, {});
-
-    // Calculate average for each component
-    const componentAverages = Object.entries(components).map(([componentName, grades]: [string, any]) => {
-      const totalScore = grades.reduce((sum: number, g: Grade) => sum + g.Score, 0);
-      const totalMaxScore = grades.reduce((sum: number, g: Grade) => sum + g.MaxScore, 0);
-      return totalMaxScore > 0 ? (totalScore / totalMaxScore) * 100 : 0;
-    });
-
-    // Calculate overall average (simple average of components)
-    const overallAverage = componentAverages.length > 0
-      ? componentAverages.reduce((sum, avg) => sum + avg, 0) / componentAverages.length
-      : 0;
-
-    return Math.round(overallAverage * 100) / 100;
-  };
 
   const filteredSchedules = schedules.filter(schedule =>
     schedule.SubjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -351,8 +324,8 @@ export default function DeanGradesPage() {
                                     {component.name} ({component.items})
                                   </TableHead>
                                 ))}
-                                <TableHead className="text-center font-semibold" colSpan={2}>Midterm</TableHead>
-                                <TableHead className="text-center font-semibold" colSpan={2}>Final</TableHead>
+                                <TableHead className="text-center font-semibold">Midterm</TableHead>
+                                <TableHead className="text-center font-semibold">Final</TableHead>
                               </TableRow>
                               <TableRow className="bg-gray-50">
                                 <TableHead></TableHead>
@@ -364,10 +337,8 @@ export default function DeanGradesPage() {
                                     </TableHead>
                                   ))
                                 ))}
-                                <TableHead className="text-center text-xs">%</TableHead>
-                                <TableHead className="text-center text-xs">Grade</TableHead>
-                                <TableHead className="text-center text-xs">%</TableHead>
-                                <TableHead className="text-center text-xs">Grade</TableHead>
+                                <TableHead className="text-center"></TableHead>
+                                <TableHead className="text-center"></TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -382,10 +353,8 @@ export default function DeanGradesPage() {
                                 </TableRow>
                               ) : (
                                 schedule.students.map((student) => {
-                                  const midtermGrade = calculateStudentGrade(student.grades, 'midterm');
-                                  const finalGrade = calculateStudentGrade(student.grades, 'final');
-                                  const midtermFilipinoGrade = convertToFilipinoGrade(midtermGrade);
-                                  const finalFilipinoGrade = convertToFilipinoGrade(finalGrade);
+                                  const midtermGrade = student.calculatedGrades?.midterm ?? null;
+                                  const finalGrade = student.calculatedGrades?.final ?? null;
 
                                   return (
                                     <TableRow key={student.StudentID}>
@@ -424,29 +393,29 @@ export default function DeanGradesPage() {
                                         })
                                       ))}
                                       <TableCell className="text-center font-bold bg-blue-50">
-                                        {midtermGrade > 0 ? `${midtermGrade.toFixed(2)}%` : '-'}
-                                      </TableCell>
-                                      <TableCell className="text-center font-bold bg-blue-50">
-                                        {midtermFilipinoGrade !== null ? (
-                                          <Badge 
-                                            variant={midtermFilipinoGrade <= 3.0 ? "default" : "destructive"}
-                                            className={midtermFilipinoGrade <= 3.0 ? "bg-green-600" : "bg-red-600"}
-                                          >
-                                            {midtermFilipinoGrade.toFixed(2)}
-                                          </Badge>
+                                        {midtermGrade !== null ? (
+                                          <>
+                                            <div className="text-lg font-semibold">{midtermGrade.toFixed(2)}</div>
+                                            <Badge 
+                                              variant={midtermGrade <= 3.0 ? "default" : "destructive"}
+                                              className={`text-xs mt-1 ${midtermGrade <= 3.0 ? "bg-green-600" : "bg-red-600"}`}
+                                            >
+                                              {midtermGrade <= 3.0 ? 'Pass' : 'Fail'}
+                                            </Badge>
+                                          </>
                                         ) : '-'}
                                       </TableCell>
                                       <TableCell className="text-center font-bold bg-green-50">
-                                        {finalGrade > 0 ? `${finalGrade.toFixed(2)}%` : '-'}
-                                      </TableCell>
-                                      <TableCell className="text-center font-bold bg-green-50">
-                                        {finalFilipinoGrade !== null ? (
-                                          <Badge 
-                                            variant={finalFilipinoGrade <= 3.0 ? "default" : "destructive"}
-                                            className={finalFilipinoGrade <= 3.0 ? "bg-green-600" : "bg-red-600"}
-                                          >
-                                            {finalFilipinoGrade.toFixed(2)}
-                                          </Badge>
+                                        {finalGrade !== null ? (
+                                          <>
+                                            <div className="text-lg font-semibold">{finalGrade.toFixed(2)}</div>
+                                            <Badge 
+                                              variant={finalGrade <= 3.0 ? "default" : "destructive"}
+                                              className={`text-xs mt-1 ${finalGrade <= 3.0 ? "bg-green-600" : "bg-red-600"}`}
+                                            >
+                                              {finalGrade <= 3.0 ? 'Pass' : 'Fail'}
+                                            </Badge>
+                                          </>
                                         ) : '-'}
                                       </TableCell>
                                     </TableRow>
