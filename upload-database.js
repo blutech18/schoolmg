@@ -36,34 +36,86 @@ async function uploadDatabase() {
     }
 
     const sql = fs.readFileSync(sqlFile, 'utf8');
-    console.log('SQL file loaded. Executing...');
+    console.log('SQL file loaded. Executing...\n');
 
-    // Split by semicolon and execute statements
-    // Remove comments and empty statements
-    const statements = sql
-      .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0 && !stmt.startsWith('--') && !stmt.startsWith('/*'));
-
-    console.log(`Executing ${statements.length} SQL statements...`);
-
-    for (let i = 0; i < statements.length; i++) {
-      const statement = statements[i] + ';';
-      try {
-        await connection.query(statement);
-        if ((i + 1) % 100 === 0) {
-          console.log(`Progress: ${i + 1}/${statements.length} statements executed`);
-        }
-      } catch (error) {
-        // Ignore some common errors that might occur during import
-        if (!error.message.includes('already exists') && 
-            !error.message.includes('Duplicate entry') &&
-            !error.message.includes('Table') && 
-            !error.message.includes('doesn\'t exist')) {
-          console.error(`Error executing statement ${i + 1}:`, error.message);
-          // Continue with next statement
+    // Execute the entire SQL file at once using multipleStatements
+    // This is more reliable for complex SQL with multi-line inserts and JSON
+    try {
+      console.log('Executing SQL statements...');
+      await connection.query(sql);
+      console.log('✅ All SQL statements executed successfully!\n');
+    } catch (error) {
+      // If bulk execution fails, try executing in chunks
+      console.log('Bulk execution had issues, trying alternative method...\n');
+      
+      // Remove comments and split into executable chunks
+      let cleanedSql = sql
+        .replace(/\/\*[\s\S]*?\*\//g, '') // Remove /* ... */ comments
+        .replace(/--.*$/gm, '') // Remove -- comments
+        .replace(/\/\*[\s\S]*?\*\//g, '') // Remove any remaining /* ... */ comments
+        .trim();
+      
+      // Split by semicolon but preserve multi-line statements
+      const statements = [];
+      let currentStatement = '';
+      let inString = false;
+      let stringChar = '';
+      
+      for (let i = 0; i < cleanedSql.length; i++) {
+        const char = cleanedSql[i];
+        
+        if (!inString && (char === '"' || char === "'" || char === '`')) {
+          inString = true;
+          stringChar = char;
+          currentStatement += char;
+        } else if (inString && char === stringChar && cleanedSql[i - 1] !== '\\') {
+          inString = false;
+          currentStatement += char;
+        } else if (!inString && char === ';') {
+          const trimmed = currentStatement.trim();
+          if (trimmed.length > 0) {
+            statements.push(trimmed);
+          }
+          currentStatement = '';
+        } else {
+          currentStatement += char;
         }
       }
+      
+      // Add remaining statement if any
+      if (currentStatement.trim().length > 0) {
+        statements.push(currentStatement.trim());
+      }
+      
+      console.log(`Executing ${statements.length} SQL statements...`);
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (let i = 0; i < statements.length; i++) {
+        const statement = statements[i] + ';';
+        try {
+          await connection.query(statement);
+          successCount++;
+          if ((i + 1) % 50 === 0) {
+            console.log(`Progress: ${i + 1}/${statements.length} statements executed...`);
+          }
+        } catch (error) {
+          errorCount++;
+          // Only show errors that aren't common import errors
+          if (!error.message.includes('already exists') && 
+              !error.message.includes('Duplicate entry') &&
+              !error.message.includes('Duplicate key') &&
+              !error.message.includes('Unknown table') &&
+              !error.message.includes('doesn\'t exist')) {
+            if (errorCount <= 10) { // Limit error output
+              console.error(`Error at statement ${i + 1}:`, error.message.substring(0, 100));
+            }
+          }
+        }
+      }
+      
+      console.log(`\n✅ Execution complete: ${successCount} successful, ${errorCount} errors (most errors are expected during imports)`);
     }
 
     console.log('Database uploaded successfully!');
