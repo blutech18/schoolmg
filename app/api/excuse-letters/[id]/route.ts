@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import mysql from "mysql2/promise";
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 // PUT - Update excuse letter status (approve/decline) by ID
 export async function PUT(
@@ -37,15 +29,13 @@ export async function PUT(
         );
       }
 
-      const connection = await mysql.createConnection(dbConfig);
-
       const updateQuery = `
         UPDATE excuse_letters
         SET InstructorStatus = ?, InstructorComment = ?, InstructorActionDate = NOW()
         WHERE ExcuseLetterID = ?
       `;
 
-      await connection.execute(updateQuery, [
+      await db.execute(updateQuery, [
         instructorStatus,
         instructorComment || null,
         excuseLetterID,
@@ -58,11 +48,10 @@ export async function PUT(
         WHERE ExcuseLetterID = ?
       `;
 
-      const [statusRows] = await connection.execute(statusQuery, [excuseLetterID]);
+      const [statusRows] = await db.execute(statusQuery, [excuseLetterID]);
       const statusData = (statusRows as any[])[0];
 
       if (!statusData) {
-        await connection.end();
         return NextResponse.json(
           { success: false, error: "Excuse letter not found" },
           { status: 404 }
@@ -86,12 +75,10 @@ export async function PUT(
         overallStatus = "partial";
       }
 
-      await connection.execute(
+      await db.execute(
         "UPDATE excuse_letters SET Status = ? WHERE ExcuseLetterID = ?",
         [overallStatus, excuseLetterID]
       );
-
-      await connection.end();
 
       return NextResponse.json({
         success: true,
@@ -108,8 +95,6 @@ export async function PUT(
         { status: 400 }
       );
     }
-
-    const connection = await mysql.createConnection(dbConfig);
 
     let updateFields = "";
     const params: any[] = [];
@@ -129,7 +114,6 @@ export async function PUT(
         params.push(status, comment || null);
         break;
       default:
-        await connection.end();
         return NextResponse.json(
           { success: false, error: "Invalid user role" },
           { status: 400 }
@@ -144,7 +128,7 @@ export async function PUT(
       WHERE ExcuseLetterID = ?
     `;
 
-    await connection.execute(updateQuery, params);
+    await db.execute(updateQuery, params);
 
     // Update overall status based on all approvals
     const statusQuery = `
@@ -153,11 +137,10 @@ export async function PUT(
       WHERE ExcuseLetterID = ?
     `;
 
-    const [statusRows] = await connection.execute(statusQuery, [excuseLetterID]);
+    const [statusRows] = await db.execute(statusQuery, [excuseLetterID]);
     const statusData = (statusRows as any[])[0];
 
     if (!statusData) {
-      await connection.end();
       return NextResponse.json(
         { success: false, error: "Excuse letter not found" },
         { status: 404 }
@@ -181,21 +164,29 @@ export async function PUT(
       overallStatus = "partial";
     }
 
-    await connection.execute(
+    await db.execute(
       "UPDATE excuse_letters SET Status = ? WHERE ExcuseLetterID = ?",
       [overallStatus, excuseLetterID]
     );
-
-    await connection.end();
 
     return NextResponse.json({
       success: true,
       message: "Excuse letter status updated successfully",
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating excuse letter:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
-      { success: false, error: "Failed to update excuse letter status" },
+      { 
+        success: false, 
+        error: "Failed to update excuse letter status",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     );
   }

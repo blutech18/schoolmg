@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import mysql from "mysql2/promise";
+import { db } from "@/app/lib/db";
 import fs from "fs";
 import path from "path";
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
 
 // GET - View a specific file (for images and PDFs - opens in new tab)
 export async function GET(request: NextRequest) {
@@ -24,8 +16,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const connection = await mysql.createConnection(dbConfig);
-
     const query = `
       SELECT 
         FileName,
@@ -35,8 +25,7 @@ export async function GET(request: NextRequest) {
       WHERE FileID = ?
     `;
 
-    const [rows] = await connection.execute(query, [fileId]);
-    await connection.end();
+    const [rows] = await db.execute(query, [fileId]);
 
     if (!Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json(
@@ -67,10 +56,20 @@ export async function GET(request: NextRequest) {
         // Note: No Content-Disposition header, so browser will try to display the file
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error viewing file:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
-      { success: false, error: "Failed to view file" },
+      { 
+        success: false, 
+        error: "Failed to view file",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     );
   }
