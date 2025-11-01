@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import mysql from "mysql2/promise";
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 // GET - Fetch grades
 export async function GET(request: NextRequest) {
@@ -18,8 +10,6 @@ export async function GET(request: NextRequest) {
     const term = searchParams.get("term"); // midterm or final
     const userRole = searchParams.get("role");
     const userId = searchParams.get("userId");
-
-    const connection = await mysql.createConnection(dbConfig);
 
     let query = `
       SELECT
@@ -70,8 +60,7 @@ export async function GET(request: NextRequest) {
 
     query += " ORDER BY g.Term ASC, g.Component ASC, g.ItemNumber ASC";
 
-    const [rows] = await connection.execute(query, params);
-    await connection.end();
+    const [rows] = await db.execute(query, params);
 
     // Calculate summary grades for student view
     if (userRole === "student") {
@@ -81,11 +70,20 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true, data: rows });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching grades:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
-      { success: false, error: "Failed to fetch grades: " + errorMessage },
+      { 
+        success: false, 
+        error: "Failed to fetch grades",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     );
   }
@@ -122,15 +120,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const connection = await mysql.createConnection(dbConfig);
-
     // Check if record already exists
     const checkQuery = `
       SELECT GradeID FROM grades 
       WHERE StudentID = ? AND ScheduleID = ? AND Term = ? AND Component = ? AND ItemNumber = ?
     `;
 
-    const [existingRows] = await connection.execute(checkQuery, [
+    const [existingRows] = await db.execute(checkQuery, [
       studentId, scheduleId, term, component, itemNumber || 1
     ]);
 
@@ -145,7 +141,7 @@ export async function POST(request: NextRequest) {
         WHERE StudentID = ? AND ScheduleID = ? AND Term = ? AND Component = ? AND ItemNumber = ?
       `;
 
-      result = await connection.execute(updateQuery, [
+      result = await db.execute(updateQuery, [
         maxScore, score, percentage, recordedBy, 
         studentId, scheduleId, term, component, itemNumber || 1
       ]);
@@ -157,23 +153,30 @@ export async function POST(request: NextRequest) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
-      result = await connection.execute(insertQuery, [
+      result = await db.execute(insertQuery, [
         studentId, scheduleId, term, component, itemNumber || 1, 
         maxScore, score, percentage, recordedBy
       ]);
     }
 
-    await connection.end();
-
     return NextResponse.json({
       success: true,
       message: "Grade saved successfully",
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error saving grade:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
-      { success: false, error: "Failed to save grade: " + errorMessage },
+      { 
+        success: false, 
+        error: "Failed to save grade",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     );
   }
@@ -671,8 +674,6 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const connection = await mysql.createConnection(dbConfig);
-
     let updatedCount = 0;
     let insertedCount = 0;
 
@@ -690,7 +691,7 @@ export async function PUT(request: NextRequest) {
         WHERE StudentID = ? AND ScheduleID = ? AND Term = ? AND Component = ? AND ItemNumber = ?
       `;
 
-      const [existingRows] = await connection.execute(checkQuery, [
+      const [existingRows] = await db.execute(checkQuery, [
         studentId, scheduleId, term, component, itemNumber || 1
       ]);
 
@@ -702,7 +703,7 @@ export async function PUT(request: NextRequest) {
           WHERE StudentID = ? AND ScheduleID = ? AND Term = ? AND Component = ? AND ItemNumber = ?
         `;
 
-        await connection.execute(updateQuery, [
+        await db.execute(updateQuery, [
           maxScore, score, percentage, recordedBy,
           studentId, scheduleId, term, component, itemNumber || 1
         ]);
@@ -715,15 +716,13 @@ export async function PUT(request: NextRequest) {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
-        await connection.execute(insertQuery, [
+        await db.execute(insertQuery, [
           studentId, scheduleId, term, component, itemNumber || 1,
           maxScore, score, percentage, recordedBy
         ]);
         insertedCount++;
       }
     }
-
-    await connection.end();
 
     return NextResponse.json({
       success: true,
@@ -734,11 +733,20 @@ export async function PUT(request: NextRequest) {
         total: grades.length
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error bulk updating grades:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
-      { success: false, error: "Failed to bulk update grades: " + errorMessage },
+      { 
+        success: false, 
+        error: "Failed to bulk update grades",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     );
   }
@@ -757,21 +765,27 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const connection = await mysql.createConnection(dbConfig);
-
     const deleteQuery = "DELETE FROM grades WHERE GradeID = ?";
-    await connection.execute(deleteQuery, [gradeId]);
-
-    await connection.end();
+    await db.execute(deleteQuery, [gradeId]);
 
     return NextResponse.json({
       success: true,
       message: "Grade record deleted successfully",
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error deleting grade:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
-      { success: false, error: "Failed to delete grade record" },
+      { 
+        success: false, 
+        error: "Failed to delete grade record",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     );
   }
