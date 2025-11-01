@@ -38,9 +38,12 @@ async function testConnection() {
 
   let connection;
   try {
+    console.log('Attempting connection (this may take up to 60 seconds)...\n');
+    
     connection = await mysql.createConnection({
       ...dbConfig,
-      connectTimeout: 10000,
+      connectTimeout: 60000, // 60 seconds
+      ssl: false,
     });
 
     console.log('✅ Connection successful!\n');

@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import mysql from "mysql2/promise";
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 // GET - Fetch attendance records
 export async function GET(request: NextRequest) {
@@ -94,14 +86,23 @@ export async function GET(request: NextRequest) {
 
     query += " ORDER BY a.Week ASC, a.SessionType ASC, u.LastName ASC, u.FirstName ASC";
 
-    const [rows] = await connection.execute(query, params);
-    await connection.end();
+    const [rows] = await db.execute(query, params);
 
     return NextResponse.json({ success: true, data: rows });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching attendance:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
-      { success: false, error: "Failed to fetch attendance records" },
+      { 
+        success: false, 
+        error: "Failed to fetch attendance records",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     );
   }
@@ -168,7 +169,6 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("Attempting to connect to database...");
-    const connection = await mysql.createConnection(dbConfig);
     console.log("Database connection successful");
 
     // Check if record already exists for this specific date and session type
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
     `;
 
     console.log("Executing check query with params:", [studentId, scheduleId, week, sessionType, date]);
-    const [existingRows] = await connection.execute(checkQuery, [
+    const [existingRows] = await db.execute(checkQuery, [
       studentId, scheduleId, week, sessionType, date
     ]);
     console.log("Check query result:", existingRows);
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
         WHERE StudentID = ? AND ScheduleID = ? AND Week = ? AND SessionType = ? AND Date = ?
       `;
 
-      result = await connection.execute(updateQuery, [
+      result = await db.execute(updateQuery, [
         status, remarks, recordedBy, studentId, scheduleId, week, sessionType, date
       ]);
     } else {
@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
-      result = await connection.execute(insertQuery, [
+      result = await db.execute(insertQuery, [
         studentId, scheduleId, week, sessionType, status, date, remarks, recordedBy
       ]);
     }
@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
           const bulkRemarks = `Automatically marked as ${status === 'D' ? 'Dropped' : 'Failed due to Absences'} across all sessions`;
           
           bulkUpdatePromises.push(
-            connection.execute(bulkUpdateQuery, [
+            db.execute(bulkUpdateQuery, [
               studentId, scheduleId, sessionWeek, sessionTypeToUpdate, status, date, bulkRemarks, recordedBy
             ])
           );
@@ -253,8 +253,6 @@ export async function POST(request: NextRequest) {
       })));
       console.log(`Successfully updated ${status} status across all sessions for student ${studentId}`);
     }
-
-    await connection.end();
 
     return NextResponse.json({
       success: true,
@@ -327,8 +325,6 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const connection = await mysql.createConnection(dbConfig);
-
     let updatedCount = 0;
     let insertedCount = 0;
 
@@ -339,7 +335,7 @@ export async function PUT(request: NextRequest) {
         WHERE StudentID = ? AND ScheduleID = ? AND Week = ? AND SessionType = ?
       `;
 
-      const [existingRows] = await connection.execute(checkQuery, [
+      const [existingRows] = await db.execute(checkQuery, [
         studentId, scheduleId, week, sessionType
       ]);
 
@@ -364,7 +360,7 @@ export async function PUT(request: NextRequest) {
             WHERE StudentID = ? AND ScheduleID = ? AND Week = ? AND SessionType = ?
           `;
 
-          await connection.execute(updateQuery, [
+          await db.execute(updateQuery, [
             status, date, recordedBy, remarks, studentId, scheduleId, week, sessionType
           ]);
           updatedCount++;
@@ -389,14 +385,12 @@ export async function PUT(request: NextRequest) {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
-        await connection.execute(insertQuery, [
+        await db.execute(insertQuery, [
           studentId, scheduleId, week, sessionType, status, date, recordedBy, remarks
         ]);
         insertedCount++;
       }
     }
-
-    await connection.end();
 
     return NextResponse.json({
       success: true,
@@ -407,10 +401,20 @@ export async function PUT(request: NextRequest) {
         total: studentIds.length
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error bulk updating attendance:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
-      { success: false, error: "Failed to bulk update attendance" },
+      { 
+        success: false, 
+        error: "Failed to bulk update attendance",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     );
   }
@@ -429,21 +433,27 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const connection = await mysql.createConnection(dbConfig);
-
     const deleteQuery = "DELETE FROM attendance WHERE AttendanceID = ?";
-    await connection.execute(deleteQuery, [attendanceId]);
-
-    await connection.end();
+    await db.execute(deleteQuery, [attendanceId]);
 
     return NextResponse.json({
       success: true,
       message: "Attendance record deleted successfully",
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error deleting attendance:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
-      { success: false, error: "Failed to delete attendance record" },
+      { 
+        success: false, 
+        error: "Failed to delete attendance record",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     );
   }

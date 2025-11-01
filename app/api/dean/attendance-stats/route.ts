@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import mysql from "mysql2/promise";
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 interface AttendanceStats {
   averageAttendance: number;
@@ -23,10 +15,8 @@ interface AttendanceStats {
 
 export async function GET(request: NextRequest) {
   try {
-    const connection = await mysql.createConnection(dbConfig);
-
     // Get overall attendance statistics
-    const [statsResult] = await connection.execute(`
+    const [statsResult] = await db.execute(`
       SELECT 
         COUNT(*) as totalRecords,
         SUM(CASE WHEN Status = 'P' THEN 1 ELSE 0 END) as presentRecords,
@@ -47,8 +37,6 @@ export async function GET(request: NextRequest) {
     const totalRecords = (stats.totalRecords || 0) - (stats.cancelledRecords || 0); // Exclude CC from total
     const averageAttendance = totalRecords > 0 ? (attendedRecords / totalRecords) * 100 : 0;
 
-    await connection.end();
-
     const attendanceStats: AttendanceStats = {
       averageAttendance: Math.round(averageAttendance * 10) / 10, // Round to 1 decimal place
       totalRecords: totalRecords,
@@ -67,10 +55,20 @@ export async function GET(request: NextRequest) {
       message: "Attendance statistics retrieved successfully"
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching attendance statistics:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
-      { success: false, error: "Failed to fetch attendance statistics" },
+      { 
+        success: false, 
+        error: "Failed to fetch attendance statistics",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     );
   }
