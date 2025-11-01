@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import mysql from "mysql2/promise";
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 // GET - Fetch cancelled sessions
 export async function GET(request: NextRequest) {
@@ -18,8 +10,6 @@ export async function GET(request: NextRequest) {
     if (!scheduleId) {
       return NextResponse.json({ success: false, error: "Schedule ID is required" }, { status: 400 });
     }
-
-    const connection = await mysql.createConnection(dbConfig);
 
     // Query to get all CC records for this schedule and detect cancelled sessions
     const query = `
@@ -38,19 +28,25 @@ export async function GET(request: NextRequest) {
       ORDER BY Week, SessionType
     `;
 
-    const [rows] = await connection.execute(query, [scheduleId]);
-    await connection.end();
+    const [rows] = await db.execute(query, [scheduleId]);
 
     return NextResponse.json({ 
       success: true, 
       data: rows 
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching cancelled sessions:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json({ 
       success: false, 
-      error: "Failed to fetch cancelled sessions" 
+      error: "Failed to fetch cancelled sessions",
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
     }, { status: 500 });
   }
 }
@@ -68,8 +64,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const connection = await mysql.createConnection(dbConfig);
-
     // First, get all students enrolled in this schedule
     const studentsQuery = `
       SELECT DISTINCT StudentID 
@@ -77,11 +71,10 @@ export async function POST(request: NextRequest) {
       WHERE ScheduleID = ?
     `;
     
-    const [students] = await connection.execute(studentsQuery, [scheduleId]);
+    const [students] = await db.execute(studentsQuery, [scheduleId]);
     const studentIds = (students as any[]).map(s => s.StudentID);
 
     if (studentIds.length === 0) {
-      await connection.end();
       return NextResponse.json({ 
         success: false, 
         error: "No students found for this schedule" 
@@ -103,29 +96,29 @@ export async function POST(request: NextRequest) {
     const remarks = reason;
     
     for (const studentId of studentIds) {
-      await connection.execute(insertQuery, [
+      await db.execute(insertQuery, [
         studentId, scheduleId, week, sessionType, remarks, cancelledBy
       ]);
     }
-
-    await connection.end();
 
     return NextResponse.json({ 
       success: true, 
       message: "Session cancellation saved successfully" 
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error saving cancelled session:", error);
-    
-    let errorMessage = "Failed to save cancelled session";
-    if (error instanceof Error) {
-      errorMessage += ": " + error.message;
-    }
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     
     return NextResponse.json({ 
       success: false, 
-      error: errorMessage 
+      error: "Failed to save cancelled session",
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
     }, { status: 500 });
   }
 }
@@ -143,8 +136,6 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const connection = await mysql.createConnection(dbConfig);
-
     // Remove CC records for all students for this specific session
     const deleteQuery = `
       DELETE FROM attendance 
@@ -155,25 +146,26 @@ export async function DELETE(request: NextRequest) {
         AND Remarks LIKE '%Class cancelled%'
     `;
 
-    const result = await connection.execute(deleteQuery, [scheduleId, week, sessionType]);
-    await connection.end();
+    await db.execute(deleteQuery, [scheduleId, week, sessionType]);
 
     return NextResponse.json({ 
       success: true, 
       message: "Session cancellation removed successfully" 
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error removing cancelled session:", error);
-    
-    let errorMessage = "Failed to remove cancelled session";
-    if (error instanceof Error) {
-      errorMessage += ": " + error.message;
-    }
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     
     return NextResponse.json({ 
       success: false, 
-      error: errorMessage 
+      error: "Failed to remove cancelled session",
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
     }, { status: 500 });
   }
 }
