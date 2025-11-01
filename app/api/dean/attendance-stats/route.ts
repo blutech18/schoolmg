@@ -16,17 +16,17 @@ interface AttendanceStats {
 export async function GET(request: NextRequest) {
   try {
     // Get overall attendance statistics
-    // Get all records first, then filter CC in calculation
+    // Calculate based on actual attendance records (excluding cancelled)
     const [statsResult] = await db.execute(`
       SELECT 
-        COUNT(*) as totalRecords,
-        SUM(CASE WHEN Status = 'P' THEN 1 ELSE 0 END) as presentRecords,
-        SUM(CASE WHEN Status = 'A' THEN 1 ELSE 0 END) as absentRecords,
-        SUM(CASE WHEN Status = 'E' THEN 1 ELSE 0 END) as excusedRecords,
-        SUM(CASE WHEN Status = 'L' THEN 1 ELSE 0 END) as lateRecords,
-        SUM(CASE WHEN Status = 'D' THEN 1 ELSE 0 END) as dismissedRecords,
-        SUM(CASE WHEN Status = 'FA' THEN 1 ELSE 0 END) as failedAttendanceRecords,
-        SUM(CASE WHEN Status = 'CC' THEN 1 ELSE 0 END) as cancelledRecords
+        COUNT(CASE WHEN Status != 'CC' THEN 1 END) as totalRecords,
+        COUNT(CASE WHEN Status = 'P' THEN 1 END) as presentRecords,
+        COUNT(CASE WHEN Status = 'A' THEN 1 END) as absentRecords,
+        COUNT(CASE WHEN Status = 'E' THEN 1 END) as excusedRecords,
+        COUNT(CASE WHEN Status = 'L' THEN 1 END) as lateRecords,
+        COUNT(CASE WHEN Status = 'D' THEN 1 END) as dismissedRecords,
+        COUNT(CASE WHEN Status = 'FA' THEN 1 END) as failedAttendanceRecords,
+        COUNT(CASE WHEN Status = 'CC' THEN 1 END) as cancelledRecords
       FROM attendance
     `);
 
@@ -37,19 +37,18 @@ export async function GET(request: NextRequest) {
     // CC (Cancelled) records are excluded from both numerator and denominator
     const attendedRecords = (stats.presentRecords || 0) + (stats.excusedRecords || 0);
     const cancelledRecords = stats.cancelledRecords || 0;
-    const totalRecords = (stats.totalRecords || 0) - cancelledRecords; // Exclude CC from total
+    const totalRecords = stats.totalRecords || 0; // Already excludes CC
     
     // Calculate the actual average attendance based on data
     let averageAttendance = 0;
     if (totalRecords > 0) {
       averageAttendance = (attendedRecords / totalRecords) * 100;
       
-      // Ensure percentage is within valid range (0-100)
-      // Only cap if calculation error causes impossible values
+      // Cap at 100% - each record can only contribute once, so max is 100%
       if (averageAttendance > 100) {
-        console.warn(`Attendance calculation warning: ${averageAttendance}% exceeds 100%. Data may have issues.`);
-        // Don't cap - log the issue for investigation
-        // The calculation should naturally be <= 100% if data is correct
+        console.warn(`Attendance calculation exceeded 100%: ${averageAttendance}%. Capping at 100%.`);
+        console.warn(`Debug: attendedRecords=${attendedRecords}, totalRecords=${totalRecords}`);
+        averageAttendance = 100;
       }
       if (averageAttendance < 0) {
         averageAttendance = 0;
