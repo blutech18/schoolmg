@@ -17,10 +17,17 @@ interface ScheduleAnalytics {
   room: string;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Get query parameters if needed
+    const { searchParams } = new URL(request.url);
+    const schoolYear = searchParams.get('schoolYear');
+    const semester = searchParams.get('semester');
+    
+    console.log('Schedule analytics request:', { schoolYear, semester });
+    
     // Get schedule analytics data
-    const [schedulesResult] = await db.execute(`
+    let query = `
       SELECT 
         sch.ScheduleID,
         COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown') as SubjectCode,
@@ -60,9 +67,30 @@ export async function GET() {
         FROM grades g
         GROUP BY g.ScheduleID
       ) grade_data ON sch.ScheduleID = grade_data.ScheduleID
+      WHERE 1=1
+    `;
+    
+    const params: any[] = [];
+    
+    // Add filters if provided
+    if (schoolYear) {
+      query += ` AND sch.AcademicYear = ?`;
+      params.push(schoolYear);
+    }
+    
+    if (semester) {
+      query += ` AND sch.Semester = ?`;
+      params.push(semester);
+    }
+    
+    query += `
       GROUP BY sch.ScheduleID
       ORDER BY sch.Course, sch.YearLevel, sch.Section, SubjectName
-    `);
+    `;
+    
+    console.log('Executing query with params:', params);
+    const [schedulesResult] = await db.execute(query, params);
+    console.log(`Found ${(schedulesResult as any[]).length} schedules`);
 
     const analytics: ScheduleAnalytics[] = (schedulesResult as any[]).map(row => ({
       scheduleId: row.ScheduleID || 0,
