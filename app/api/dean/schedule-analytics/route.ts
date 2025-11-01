@@ -30,18 +30,18 @@ export async function GET(request: NextRequest) {
     let query = `
       SELECT 
         sch.ScheduleID,
-        COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown') as SubjectCode,
-        COALESCE(sch.SubjectName, sch.SubjectTitle, subj.SubjectName, 'Unknown Subject') as SubjectName,
-        sch.Course,
-        sch.Section,
-        sch.YearLevel,
-        COALESCE(CONCAT(u.FirstName, ' ', u.LastName), 'No Instructor') as instructorName,
+        ANY_VALUE(COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown')) as SubjectCode,
+        ANY_VALUE(COALESCE(sch.SubjectName, sch.SubjectTitle, subj.SubjectName, 'Unknown Subject')) as SubjectName,
+        ANY_VALUE(sch.Course) as Course,
+        ANY_VALUE(sch.Section) as Section,
+        ANY_VALUE(sch.YearLevel) as YearLevel,
+        ANY_VALUE(COALESCE(CONCAT(u.FirstName, ' ', u.LastName), 'No Instructor')) as instructorName,
         COUNT(DISTINCT enrollment_data.StudentID) as totalStudents,
-        COALESCE(attendance_data.attendance_rate, 0) as attendanceRate,
-        COALESCE(grade_data.average_grade, 0) as averageGrade,
-        sch.Day,
-        sch.Time,
-        sch.Room
+        ANY_VALUE(COALESCE(attendance_data.attendance_rate, 0)) as attendanceRate,
+        ANY_VALUE(COALESCE(grade_data.average_grade, 0)) as averageGrade,
+        ANY_VALUE(sch.Day) as Day,
+        ANY_VALUE(sch.Time) as Time,
+        ANY_VALUE(sch.Room) as Room
       FROM schedules sch
       LEFT JOIN subjects subj ON sch.SubjectID = subj.SubjectID
       LEFT JOIN users u ON sch.InstructorID = u.UserID
@@ -84,8 +84,8 @@ export async function GET(request: NextRequest) {
     }
     
     query += `
-      GROUP BY sch.ScheduleID, sch.SubjectCode, sch.SubjectName, sch.SubjectTitle, sch.Course, sch.Section, sch.YearLevel, u.FirstName, u.LastName, sch.Day, sch.Time, sch.Room
-      ORDER BY sch.Course, sch.YearLevel, sch.Section, SubjectName
+      GROUP BY sch.ScheduleID
+      ORDER BY Course, YearLevel, Section, SubjectName
     `;
     
     console.log('Executing query with params:', params);
