@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import mysql from "mysql2/promise";
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 // GET - Fetch files for a specific excuse letter
 export async function GET(request: NextRequest) {
@@ -22,8 +14,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const connection = await mysql.createConnection(dbConfig);
-
     const query = `
       SELECT 
         FileID,
@@ -37,17 +27,26 @@ export async function GET(request: NextRequest) {
       ORDER BY UploadDate ASC
     `;
 
-    const [rows] = await connection.execute(query, [excuseLetterID]);
-    await connection.end();
+    const [rows] = await db.execute(query, [excuseLetterID]);
 
     return NextResponse.json({ 
       success: true, 
       files: rows 
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching excuse letter files:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
-      { success: false, error: "Failed to fetch files" },
+      { 
+        success: false, 
+        error: "Failed to fetch files",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     );
   }
