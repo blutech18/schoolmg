@@ -10,6 +10,9 @@ const dbConfig = {
   password: 'AvngfWibvxTercOiYBiicVYUauOhWdol',
   database: 'railway',
   multipleStatements: true, // Allow multiple SQL statements
+  connectTimeout: 60000, // 60 seconds timeout
+  connectionLimit: 1,
+  ssl: false, // Railway doesn't require SSL for public connections
 };
 
 async function uploadDatabase() {
@@ -17,8 +20,12 @@ async function uploadDatabase() {
   
   try {
     console.log('Connecting to Railway database...');
+    console.log(`Host: ${dbConfig.host}:${dbConfig.port}`);
+    console.log(`Database: ${dbConfig.database}`);
+    console.log('This may take a moment...\n');
+    
     connection = await mysql.createConnection(dbConfig);
-    console.log('Connected successfully!');
+    console.log('✅ Connected successfully!\n');
 
     // Read the SQL file
     const sqlFile = path.join(__dirname, 'schoolmgtdb.sql');
@@ -70,8 +77,34 @@ async function uploadDatabase() {
     });
 
   } catch (error) {
-    console.error('Error uploading database:', error.message);
-    console.error('Full error:', error);
+    console.error('\n❌ Error connecting to Railway database\n');
+    console.error('Error:', error.message);
+    console.error('Code:', error.code);
+    
+    if (error.code === 'ETIMEDOUT') {
+      console.error('\n⚠️  Connection timeout. Possible reasons:');
+      console.error('   1. Railway database may not be publicly accessible');
+      console.error('   2. Firewall or network restrictions');
+      console.error('   3. Railway database service may need configuration');
+      console.error('   4. IP address may need to be whitelisted');
+      console.error('\n💡 Alternative solutions:');
+      console.error('   1. Use Railway Dashboard to upload SQL directly');
+      console.error('   2. Use MySQL Workbench or DBeaver');
+      console.error('   3. Use Railway CLI or Railway web interface');
+      console.error('   4. Check Railway project settings for connection options');
+      console.error('   5. Try using Railway\'s provided connection method');
+    } else if (error.code === 'ECONNREFUSED') {
+      console.error('\n⚠️  Connection refused. Check:');
+      console.error('   - Railway database service is running');
+      console.error('   - Port number is correct');
+      console.error('   - Host address is correct');
+    } else if (error.code === 'ENOTFOUND') {
+      console.error('\n⚠️  Host not found. Check:');
+      console.error('   - Railway host address is correct');
+      console.error('   - Internet connection is active');
+    }
+    
+    console.error('\nFor detailed setup instructions, see: VERCEL_SETUP.md');
     process.exit(1);
   } finally {
     if (connection) {
