@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     }
     
     query += `
-      GROUP BY sch.ScheduleID
+      GROUP BY sch.ScheduleID, sch.SubjectCode, sch.SubjectName, sch.SubjectTitle, sch.Course, sch.Section, sch.YearLevel, u.FirstName, u.LastName, sch.Day, sch.Time, sch.Room
       ORDER BY sch.Course, sch.YearLevel, sch.Section, SubjectName
     `;
     
