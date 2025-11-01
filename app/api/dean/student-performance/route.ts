@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import mysql from "mysql2/promise";
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 interface StudentPerformance {
   StudentID: number;
@@ -23,8 +15,6 @@ interface StudentPerformance {
 
 export async function GET(request: NextRequest) {
   try {
-    const connection = await mysql.createConnection(dbConfig);
-
     // Get all active students with their basic information
     const studentsQuery = `
       SELECT 
@@ -42,7 +32,7 @@ export async function GET(request: NextRequest) {
       ORDER BY u.LastName, u.FirstName
     `;
 
-    const [students] = await connection.execute(studentsQuery);
+    const [students] = await db.execute(studentsQuery);
     console.log(`Found ${(students as any[]).length} active students`);
 
     // Process each student's performance data
@@ -62,7 +52,7 @@ export async function GET(request: NextRequest) {
         };
 
         // Fetch attendance data
-        const [attendanceRows] = await connection.execute(`
+        const [attendanceRows] = await db.execute(`
           SELECT Status, COUNT(*) as count 
           FROM attendance 
           WHERE StudentID = ? 
@@ -95,7 +85,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Fetch excuse letters count
-        const [excuseLettersRows] = await connection.execute(`
+        const [excuseLettersRows] = await db.execute(`
           SELECT COUNT(*) as count 
           FROM excuse_letters 
           WHERE StudentID = ?
@@ -104,7 +94,7 @@ export async function GET(request: NextRequest) {
         performance.ExcuseLettersCount = (excuseLettersRows as any[])[0]?.count || 0;
 
         // Fetch total subjects enrolled
-        const [subjectsRows] = await connection.execute(`
+        const [subjectsRows] = await db.execute(`
           SELECT COUNT(DISTINCT ScheduleID) as count 
           FROM grades 
           WHERE StudentID = ?
@@ -114,7 +104,7 @@ export async function GET(request: NextRequest) {
 
         // If no subjects from grades, try to get from schedules/enrollment
         if (performance.TotalSubjects === 0) {
-          const [enrollmentRows] = await connection.execute(`
+          const [enrollmentRows] = await db.execute(`
             SELECT COUNT(DISTINCT s.ScheduleID) as count
             FROM schedules s
             JOIN students st ON st.Course = s.Course AND st.YearLevel = s.YearLevel
@@ -154,18 +144,26 @@ export async function GET(request: NextRequest) {
       }
     }));
 
-    await connection.end();
-
     return NextResponse.json({ 
       success: true, 
       data: studentPerformance,
       message: `Retrieved performance data for ${studentPerformance.length} students`
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching student performance:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
-      { success: false, error: "Failed to fetch student performance data" },
+      { 
+        success: false, 
+        error: "Failed to fetch student performance data",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     );
   }
