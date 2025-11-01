@@ -53,12 +53,8 @@ export async function GET(request: NextRequest) {
       LEFT JOIN (
         SELECT 
           a.ScheduleID,
-          CASE 
-            WHEN COUNT(*) > 0 THEN ROUND((SUM(CASE WHEN a.Status = 'P' THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2)
-            ELSE 0
-          END as attendance_rate
+          (SUM(CASE WHEN a.Status = 'P' THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN a.Status != 'CC' THEN 1 ELSE 0 END), 0)) * 100 as attendance_rate
         FROM attendance a
-        WHERE a.Status != 'CC'
         GROUP BY a.ScheduleID
       ) attendance_data ON sch.ScheduleID = attendance_data.ScheduleID
       LEFT JOIN (
