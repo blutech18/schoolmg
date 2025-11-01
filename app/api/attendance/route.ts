@@ -12,8 +12,6 @@ export async function GET(request: NextRequest) {
     const userRole = searchParams.get("role");
     const userId = searchParams.get("userId");
 
-    const connection = await mysql.createConnection(dbConfig);
-
     let query = `
       SELECT 
         a.*,
