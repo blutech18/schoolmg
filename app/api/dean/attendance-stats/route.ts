@@ -16,7 +16,7 @@ interface AttendanceStats {
 export async function GET(request: NextRequest) {
   try {
     // Get overall attendance statistics
-    // Filter out cancelled records and count distinct attendance sessions
+    // Get all records first, then filter CC in calculation
     const [statsResult] = await db.execute(`
       SELECT 
         COUNT(*) as totalRecords,
@@ -28,24 +28,28 @@ export async function GET(request: NextRequest) {
         SUM(CASE WHEN Status = 'FA' THEN 1 ELSE 0 END) as failedAttendanceRecords,
         SUM(CASE WHEN Status = 'CC' THEN 1 ELSE 0 END) as cancelledRecords
       FROM attendance
-      WHERE Status != 'CC'
     `);
 
     const stats = (statsResult as any[])[0];
     
     // Calculate average attendance percentage
-    // Present (P) and Excused (E) are considered "attended", CC is excluded from calculations
+    // Present (P) and Excused (E) are considered "attended"
+    // CC (Cancelled) records are excluded from both numerator and denominator
     const attendedRecords = (stats.presentRecords || 0) + (stats.excusedRecords || 0);
-    const totalRecords = stats.totalRecords || 0; // Already excludes CC from WHERE clause
+    const cancelledRecords = stats.cancelledRecords || 0;
+    const totalRecords = (stats.totalRecords || 0) - cancelledRecords; // Exclude CC from total
     
-    // Calculate percentage and cap it at 100% to prevent values exceeding 100%
+    // Calculate the actual average attendance based on data
     let averageAttendance = 0;
     if (totalRecords > 0) {
       averageAttendance = (attendedRecords / totalRecords) * 100;
-      // Cap at 100% to handle any data inconsistencies or calculation errors
+      
+      // Ensure percentage is within valid range (0-100)
+      // Only cap if calculation error causes impossible values
       if (averageAttendance > 100) {
-        console.warn(`Attendance percentage exceeded 100%: ${averageAttendance}%. Capping at 100%.`);
-        averageAttendance = 100;
+        console.warn(`Attendance calculation warning: ${averageAttendance}% exceeds 100%. Data may have issues.`);
+        // Don't cap - log the issue for investigation
+        // The calculation should naturally be <= 100% if data is correct
       }
       if (averageAttendance < 0) {
         averageAttendance = 0;
@@ -61,7 +65,7 @@ export async function GET(request: NextRequest) {
       lateRecords: stats.lateRecords || 0,
       dismissedRecords: stats.dismissedRecords || 0,
       failedAttendanceRecords: stats.failedAttendanceRecords || 0,
-      cancelledRecords: stats.cancelledRecords || 0
+      cancelledRecords: cancelledRecords
     };
 
     return NextResponse.json({ 
