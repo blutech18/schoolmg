@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 interface CourseAnalytics {
   courseCode: string;
@@ -20,15 +12,12 @@ interface CourseAnalytics {
 }
 
 export async function GET() {
-  let connection: any = null;
-  
   try {
     console.log("Starting courses analytics API call...");
-    connection = await mysql.createConnection(dbConfig);
     console.log("Database connection established");
 
     // Get basic courses data
-    const [coursesResult] = await connection.execute(`
+    const [coursesResult] = await db.execute(`
       SELECT 
         CourseCode,
         CourseName
@@ -49,30 +38,26 @@ export async function GET() {
       department: 'General' // Default department since it's not in the courses table
     }));
 
-    await connection.end();
-
     return NextResponse.json({
       success: true,
       data: analytics,
       message: "Courses analytics retrieved successfully"
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching courses analytics:', error);
-    
-    if (connection) {
-      try {
-        await connection.end();
-      } catch (endError) {
-        console.error('Error closing connection:', endError);
-      }
-    }
-    
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
       { 
         success: false, 
         error: 'Failed to fetch courses analytics',
-        data: []
+        data: [],
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },
       { status: 500 }
     );

@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 interface SectionAnalytics {
   course: string;
@@ -22,10 +14,8 @@ interface SectionAnalytics {
 
 export async function GET() {
   try {
-    const connection = await mysql.createConnection(dbConfig);
-
     // Get sections analytics data
-    const [sectionsResult] = await connection.execute(`
+    const [sectionsResult] = await db.execute(`
       SELECT 
         s.Course,
         s.Section,
@@ -79,21 +69,26 @@ export async function GET() {
       atRiskStudents: row.atRiskStudents || 0
     }));
 
-    await connection.end();
-
     return NextResponse.json({
       success: true,
       data: analytics,
       message: "Sections analytics retrieved successfully"
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching sections analytics:', error);
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
       { 
         success: false, 
         error: 'Failed to fetch sections analytics',
-        data: []
+        data: [],
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },
       { status: 500 }
     );

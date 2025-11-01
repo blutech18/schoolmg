@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 interface SubjectAnalytics {
   subjectCode: string;
@@ -21,10 +13,8 @@ interface SubjectAnalytics {
 
 export async function GET() {
   try {
-    const connection = await mysql.createConnection(dbConfig);
-
     // Get subjects analytics data
-    const [subjectsResult] = await connection.execute(`
+    const [subjectsResult] = await db.execute(`
       SELECT 
         COALESCE(subj.SubjectCode, sch.SubjectCode, 'Unknown') as SubjectCode,
         COALESCE(subj.SubjectName, sch.SubjectName, sch.SubjectTitle, 'Unknown Subject') as SubjectName,
@@ -73,21 +63,26 @@ export async function GET() {
       instructorName: row.instructorName || 'No Instructor'
     }));
 
-    await connection.end();
-
     return NextResponse.json({
       success: true,
       data: analytics,
       message: "Subjects analytics retrieved successfully"
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching subjects analytics:', error);
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
       { 
         success: false, 
         error: 'Failed to fetch subjects analytics',
-        data: []
+        data: [],
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },
       { status: 500 }
     );

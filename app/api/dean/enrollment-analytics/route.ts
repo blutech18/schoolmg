@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import mysql from "mysql2/promise";
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 interface EnrollmentAnalytics {
   year: number;
@@ -22,15 +14,12 @@ interface EnrollmentAnalytics {
 }
 
 export async function GET(request: NextRequest) {
-  let connection: any = null;
-  
   try {
     console.log("Starting enrollment analytics API call...");
-    connection = await mysql.createConnection(dbConfig);
     console.log("Database connection established");
 
     // Get enrollment data by year level
-    const [enrollmentResult] = await connection.execute(`
+    const [enrollmentResult] = await db.execute(`
       SELECT 
         s.YearLevel as year,
         COUNT(DISTINCT s.StudentID) as totalEnrolled,
@@ -47,7 +36,7 @@ export async function GET(request: NextRequest) {
     `);
 
     // Get course breakdown
-    const [courseBreakdownResult] = await connection.execute(`
+    const [courseBreakdownResult] = await db.execute(`
       SELECT 
         s.Course,
         COUNT(DISTINCT s.StudentID) as enrolled
@@ -88,30 +77,26 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    await connection.end();
-
     return NextResponse.json({
       success: true,
       data: enrollmentData,
       message: "Enrollment analytics retrieved successfully"
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching enrollment analytics:', error);
-    
-    if (connection) {
-      try {
-        await connection.end();
-      } catch (endError) {
-        console.error('Error closing connection:', endError);
-      }
-    }
-    
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
       { 
         success: false, 
         error: 'Failed to fetch enrollment analytics',
-        data: []
+        data: [],
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },
       { status: 500 }
     );

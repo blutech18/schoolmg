@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 interface ScheduleAnalytics {
   scheduleId: number;
@@ -27,10 +19,8 @@ interface ScheduleAnalytics {
 
 export async function GET() {
   try {
-    const connection = await mysql.createConnection(dbConfig);
-
     // Get schedule analytics data
-    const [schedulesResult] = await connection.execute(`
+    const [schedulesResult] = await db.execute(`
       SELECT 
         sch.ScheduleID,
         COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown') as SubjectCode,
@@ -90,21 +80,26 @@ export async function GET() {
       room: row.Room || ''
     }));
 
-    await connection.end();
-
     return NextResponse.json({
       success: true,
       data: analytics,
       message: "Schedule analytics retrieved successfully"
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching schedule analytics:', error);
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
       { 
         success: false, 
         error: 'Failed to fetch schedule analytics',
-        data: []
+        data: [],
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },
       { status: 500 }
     );
