@@ -120,7 +120,7 @@ export default function LoginForm() {
         }}
         minLength={8}
         maxLength={32}
-        placeholder="example@cca.edu.ph (8–32 characters)"
+        placeholder="example@cca.edu.ph"
       />
 
       <p className="text-lg mt-5 mb-1 font-bold">Password</p>
@@ -139,7 +139,7 @@ export default function LoginForm() {
         }}
         minLength={8}
         maxLength={32}
-        placeholder="8–32 characters"
+        placeholder="Password"
       />
       {password && (password.length < 8 || password.length > 32) && (
         <p className="text-xs text-red-600 mt-1">
