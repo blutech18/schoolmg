@@ -9,6 +9,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing email or password' }, { status: 400 })
     }
 
+    // Enforce email and password length between 8 and 32 characters
+    const trimmedEmail = String(email).trim()
+    const passwordStr = String(password)
+
+    if (trimmedEmail.length < 8 || trimmedEmail.length > 32) {
+      return NextResponse.json(
+        { success: false, error: 'Email must be between 8 and 32 characters long' },
+        { status: 400 }
+      )
+    }
+
+    if (passwordStr.length < 8 || passwordStr.length > 32) {
+      return NextResponse.json(
+        { success: false, error: 'Password must be between 8 and 32 characters long' },
+        { status: 400 }
+      )
+    }
+
     const [rows]: any = await db.query('SELECT * FROM users WHERE EmailAddress = ? LIMIT 1', [email])
     if (!rows.length) {
       return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 })

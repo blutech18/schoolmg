@@ -19,16 +19,25 @@ export default function LoginForm() {
     setIsLoading(true);
     setErrorMessage('');
 
+    const trimmedEmail = email.trim();
+
+    // Basic email length validation
+    if (!trimmedEmail || trimmedEmail.length < 8 || trimmedEmail.length > 32) {
+      alert('Email must be between 8 and 32 characters long');
+      setIsLoading(false);
+      return;
+    }
+
     // Validate email domain
-    if (email && !email.toLowerCase().endsWith('@cca.edu.ph')) {
+    if (!trimmedEmail.toLowerCase().endsWith('@cca.edu.ph')) {
       alert('Please use an email address ending with @cca.edu.ph');
       setIsLoading(false);
       return;
     }
 
-    // Validate password minimum length
-    if (password && password.length < 20) {
-      alert('Password must be at least 20 characters long');
+    // Validate password length
+    if (!password || password.length < 8 || password.length > 32) {
+      alert('Password must be between 8 and 32 characters long');
       setIsLoading(false);
       return;
     }
@@ -98,11 +107,20 @@ export default function LoginForm() {
         onChange={(e) => setEmail(e.target.value)}
         onBlur={(e) => {
           const emailValue = e.target.value.trim();
-          if (emailValue && !emailValue.toLowerCase().endsWith('@cca.edu.ph')) {
+          if (!emailValue) return;
+
+          if (emailValue.length < 8 || emailValue.length > 32) {
+            alert('Email must be between 8 and 32 characters long');
+            return;
+          }
+
+          if (!emailValue.toLowerCase().endsWith('@cca.edu.ph')) {
             alert('Please use an email address ending with @cca.edu.ph');
           }
         }}
-        placeholder="example@cca.edu.ph"
+        minLength={8}
+        maxLength={32}
+        placeholder="example@cca.edu.ph (8–32 characters)"
       />
 
       <p className="text-lg mt-5 mb-1 font-bold">Password</p>
@@ -113,16 +131,19 @@ export default function LoginForm() {
         onChange={(e) => setPassword(e.target.value)}
         onBlur={(e) => {
           const passwordValue = e.target.value;
-          if (passwordValue && passwordValue.length < 20) {
-            alert('Password must be at least 20 characters long');
+          if (!passwordValue) return;
+
+          if (passwordValue.length < 8 || passwordValue.length > 32) {
+            alert('Password must be between 8 and 32 characters long');
           }
         }}
-        minLength={20}
-        placeholder="Minimum 20 characters"
+        minLength={8}
+        maxLength={32}
+        placeholder="8–32 characters"
       />
-      {password && password.length < 20 && (
+      {password && (password.length < 8 || password.length > 32) && (
         <p className="text-xs text-red-600 mt-1">
-          Password must be at least 20 characters (currently {password.length})
+          Password must be between 8 and 32 characters (currently {password.length})
         </p>
       )}
 
