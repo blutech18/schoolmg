@@ -33,11 +33,13 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoadingCourses, setIsLoadingCourses] = useState(false)
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({})
+  const [emailManuallyEdited, setEmailManuallyEdited] = useState(false)
   
   // Fetch courses when modal opens
   useEffect(() => {
     if (open) {
       fetchCourses()
+      setEmailManuallyEdited(false)
     }
   }, [open])
 
@@ -89,6 +91,52 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
       return 'Email must end with @cca.edu.ph'
     }
     return ''
+  }
+
+  const makeStudentEmail = (first: string, last: string): string => {
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '')
+    const fi = norm(first)
+    const ln = norm(last)
+    if (!fi && !ln) return ''
+    // Use firstname.lastname format, same as instructors
+    return `${fi}.${ln}@cca.edu.ph`
+  }
+  
+  // Function to check if email exists and generate unique variant
+  const generateUniqueEmail = async (baseEmail: string): Promise<string> => {
+    try {
+      const response = await fetch(`/api/users?email=${encodeURIComponent(baseEmail)}`)
+      const data = await response.json()
+      
+      if (!data.exists) {
+        return baseEmail
+      }
+      
+      // Email exists, try with number suffix
+      const [localPart, domain] = baseEmail.split('@')
+      let counter = 1
+      let newEmail = `${localPart}${counter}@${domain}`
+      
+      // Try up to 100 variations
+      while (counter < 100) {
+        const checkResponse = await fetch(`/api/users?email=${encodeURIComponent(newEmail)}`)
+        const checkData = await checkResponse.json()
+        
+        if (!checkData.exists) {
+          return newEmail
+        }
+        
+        counter++
+        newEmail = `${localPart}${counter}@${domain}`
+      }
+      
+      // Fallback: use timestamp
+      return `${localPart}${Date.now().toString().slice(-4)}@${domain}`
+    } catch (error) {
+      // If API fails, return base email and let backend handle it
+      console.error('Email check failed:', error)
+      return baseEmail
+    }
   }
 
   const validateContactNumber = (contact: string): string => {
@@ -161,8 +209,25 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
 
     setForm(updatedForm)
 
+    // Auto-generate email when typing name if user hasn't edited email manually
+    if ((name === 'FirstName' || name === 'LastName') && !emailManuallyEdited) {
+      const suggested = makeStudentEmail(
+        name === 'FirstName' ? value : updatedForm.FirstName,
+        name === 'LastName' ? value : updatedForm.LastName
+      )
+      if (suggested) {
+        // Check for duplicates and generate unique email
+        generateUniqueEmail(suggested).then((uniqueEmail) => {
+          setForm(prev => ({ ...prev, EmailAddress: uniqueEmail }))
+          const emailError = validateEmail(uniqueEmail)
+          setValidationErrors(prev => ({ ...prev, EmailAddress: emailError || '' }))
+        })
+      }
+    }
+
     // Validate email or contact number in real-time
     if (name === 'EmailAddress') {
+      setEmailManuallyEdited(true)
       const emailError = validateEmail(updatedForm.EmailAddress);
       setValidationErrors(prev => ({
         ...prev,
@@ -216,6 +281,7 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
       Address: '',
     })
     setValidationErrors({})
+    setEmailManuallyEdited(false)
   }
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -235,7 +301,11 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
         body: JSON.stringify(form),
       })
 
-      if (!res.ok) throw new Error('Failed to create student')
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Server error:', errorData);
+        throw new Error(errorData.details || errorData.error || 'Failed to create student');
+      }
 
       const result = await res.json()
       brandedToast.success(
@@ -245,6 +315,7 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
       
       // Reset form and close modal after successful submission
       resetForm()
+      setEmailManuallyEdited(false)
       setOpen(false)
       onAdded()
     } catch (error) {

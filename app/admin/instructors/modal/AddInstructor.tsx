@@ -23,6 +23,7 @@ export default function AddInstructorDialog({ onAdded }: { onAdded: () => void }
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({})
   const [formValid, setFormValid] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [emailManuallyEdited, setEmailManuallyEdited] = useState(false)
   const [form, setForm] = useState<IUser>({
     UserID: 0,
     FirstName: '',
@@ -45,6 +46,14 @@ export default function AddInstructorDialog({ onAdded }: { onAdded: () => void }
       return 'Email must end with @cca.edu.ph'
     }
     return ''
+  }
+
+  const makeInstructorEmail = (first: string, last: string): string => {
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '')
+    const fi = norm(first)
+    const ln = norm(last)
+    if (!fi && !ln) return ''
+    return `${fi}.${ln}@cca.edu.ph`
   }
 
   const validateContactNumber = (contact: string): string => {
@@ -103,8 +112,22 @@ export default function AddInstructorDialog({ onAdded }: { onAdded: () => void }
     
     setForm(updatedForm);
 
+    // Auto-generate email from name if not manually edited
+    if ((name === 'FirstName' || name === 'LastName') && !emailManuallyEdited) {
+      const suggested = makeInstructorEmail(
+        name === 'FirstName' ? processedValue : updatedForm.FirstName,
+        name === 'LastName' ? processedValue : updatedForm.LastName
+      )
+      if (suggested) {
+        setForm(prev => ({ ...prev, EmailAddress: suggested }))
+        const emailError = validateEmail(suggested)
+        setValidationErrors(prev => ({ ...prev, EmailAddress: emailError || '' }))
+      }
+    }
+
     // Validate email or contact number in real-time
     if (name === 'EmailAddress') {
+      setEmailManuallyEdited(true)
       const emailError = validateEmail(updatedForm.EmailAddress);
       setValidationErrors(prev => ({
         ...prev,

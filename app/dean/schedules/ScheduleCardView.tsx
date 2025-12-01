@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import ScheduleCard from './ScheduleCard';
+import ScheduleCard from '@/app/components/ScheduleCard';
 import { ISchedule } from '@/app/models/ISchedule';
 
 interface ISessionData {
@@ -81,12 +81,18 @@ export default function ScheduleCardView() {
   
   console.log('Filtered schedules:', filteredSchedules);
 
+  const getRole = (): 'student' | 'instructor' | 'dean' | 'admin' => {
+    if (session?.role === 'admin' || session?.role === 'dean') return 'dean';
+    if (session?.role === 'instructor') return 'instructor';
+    return 'student';
+  };
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-10">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-10">
       {session &&
         filteredSchedules
           .map((schedule, idx) => (
-            <ScheduleCard key={idx} schedule={schedule} />
+            <ScheduleCard key={idx} schedule={schedule} role={getRole()} showActions={true} />
           ))}
     </div>
   );

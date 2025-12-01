@@ -901,13 +901,14 @@ export const generateGradingPrintContent = (
   students: any[],
   grades: any[],
   gradingConfig: any,
-  term: 'midterm' | 'final' = 'midterm'
+  term: 'midterm' | 'final' = 'midterm',
+  calculatedGrades?: {[key: number]: any}
 ) => {
   const header = generatePrintHeader({
     school: 'College Name',
     course: schedule.Course || 'N/A',
     section: schedule.Section || 'N/A',
-    subject: `${schedule.SubjectCode || 'N/A'} - ${schedule.SubjectTitle || 'N/A'}`,
+    subject: `${schedule.SubjectCode || 'N/A'} - ${schedule.SubjectTitle || schedule.SubjectName || 'N/A'}`,
     instructor: schedule.InstructorName || 'N/A',
     date: new Date().toLocaleDateString(),
     semester: schedule.Semester || 'N/A',
@@ -917,20 +918,29 @@ export const generateGradingPrintContent = (
   const getGradeForStudent = (studentId: number, componentName: string, itemNumber: number) => {
     const grade = grades.find(g => 
       g.StudentID === studentId && 
-      g.ComponentName === componentName && 
+      (g.Component === componentName || g.ComponentName === componentName) && 
       g.ItemNumber === itemNumber &&
       g.Term === term
     );
-    return grade ? grade.Score || '' : '';
+    return grade ? (grade.Score !== null && grade.Score !== undefined ? grade.Score : '') : '';
   };
 
   const getFinalGrade = (studentId: number) => {
+    // Try to get from calculated grades first (more accurate)
+    if (calculatedGrades && calculatedGrades[studentId]) {
+      const termGrade = term === 'midterm' 
+        ? calculatedGrades[studentId].midterm 
+        : calculatedGrades[studentId].final;
+      return termGrade !== null && termGrade !== undefined ? termGrade.toFixed(2) : '';
+    }
+    
+    // Fallback: look for Final Grade in grades array
     const finalGrade = grades.find(g => 
       g.StudentID === studentId && 
-      g.ComponentName === 'Final Grade' &&
+      (g.Component === 'Final Grade' || g.ComponentName === 'Final Grade') &&
       g.Term === term
     );
-    return finalGrade ? finalGrade.Score || '' : '';
+    return finalGrade ? (finalGrade.Score !== null && finalGrade.Score !== undefined ? finalGrade.Score : '') : '';
   };
 
   // Generate component headers
@@ -1096,4 +1106,207 @@ export const getCurrentSemester = (): string => {
   } else {
     return 'Summer';
   }
+};
+
+// Student-specific print functions
+export const generateStudentAttendancePrintContent = (
+  schedule: any,
+  studentName: string,
+  studentNumber: string,
+  attendanceRecords: any[]
+) => {
+  const header = generatePrintHeader({
+    school: 'College Name',
+    course: schedule.Course || 'N/A',
+    section: schedule.Section || 'N/A',
+    subject: `${schedule.SubjectCode || 'N/A'} - ${schedule.SubjectTitle || 'N/A'}`,
+    instructor: schedule.InstructorName || 'N/A',
+    date: new Date().toLocaleDateString(),
+    semester: schedule.Semester || getCurrentSemester(),
+    academicYear: schedule.AcademicYear || getCurrentAcademicYear()
+  });
+
+  const getStatusBadge = (status: string) => {
+    const statusMap = {
+      'P': { class: 'present', text: 'Present' },
+      'A': { class: 'absent', text: 'Absent' },
+      'E': { class: 'excused', text: 'Excused' },
+      'L': { class: 'late', text: 'Late' },
+      'CC': { class: 'cancelled', text: 'Cancelled' },
+      'D': { class: 'absent', text: 'Dropped' },
+      'FA': { class: 'absent', text: 'Failed' }
+    };
+    const statusInfo = statusMap[status as keyof typeof statusMap] || { class: 'absent', text: 'Unknown' };
+    return `<span class="print-status ${statusInfo.class}">${statusInfo.text}</span>`;
+  };
+
+  // Sort attendance by week and date
+  const sortedAttendance = [...attendanceRecords].sort((a, b) => {
+    if (a.Week !== b.Week) return a.Week - b.Week;
+    return new Date(a.Date).getTime() - new Date(b.Date).getTime();
+  });
+
+  const attendanceRows = sortedAttendance.map(record => {
+    return `
+      <tr>
+        <td>${record.Week}</td>
+        <td>${new Date(record.Date).toLocaleDateString()}</td>
+        <td>${getStatusBadge(record.Status)}</td>
+        <td>${record.Remarks || '-'}</td>
+      </tr>
+    `;
+  }).join('');
+
+  // Calculate summary statistics
+  const totalClasses = attendanceRecords.length;
+  const presentCount = attendanceRecords.filter(r => r.Status === 'P' || r.Status === 'E').length;
+  const absentCount = attendanceRecords.filter(r => r.Status === 'A').length;
+  const excusedCount = attendanceRecords.filter(r => r.Status === 'E').length;
+  const lateCount = attendanceRecords.filter(r => r.Status === 'L').length;
+  const attendanceRate = totalClasses > 0 ? Math.round((presentCount / totalClasses) * 100) : 0;
+
+  return `
+    ${header}
+    <div class="no-page-break">
+      <div style="margin: 20px 0; padding: 15px; background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 4px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold;">Student Information</h3>
+        <p style="margin: 5px 0;"><strong>Name:</strong> ${studentName}</p>
+        <p style="margin: 5px 0;"><strong>Student Number:</strong> ${studentNumber}</p>
+      </div>
+      
+      <h3 style="margin: 20px 0 10px 0; font-size: 16px; font-weight: bold;">Attendance Records</h3>
+      <table class="print-attendance-table">
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${attendanceRows || '<tr><td colspan="4" style="text-align: center; padding: 20px;">No attendance records found</td></tr>'}
+        </tbody>
+      </table>
+      
+      <div style="margin: 20px 0; padding: 15px; background-color: #f0f8ff; border: 1px solid #b0d4f1; border-radius: 4px;">
+        <h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">Attendance Summary</h4>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 10px;">
+          <div style="text-align: center;">
+            <p style="margin: 0; font-size: 24px; font-weight: bold; color: #155724;">${presentCount}</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px;">Present/Excused</p>
+          </div>
+          <div style="text-align: center;">
+            <p style="margin: 0; font-size: 24px; font-weight: bold; color: #721c24;">${absentCount}</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px;">Absent</p>
+          </div>
+          <div style="text-align: center;">
+            <p style="margin: 0; font-size: 24px; font-weight: bold; color: #0c5460;">${attendanceRate}%</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px;">Attendance Rate</p>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 15px;">
+          <div style="text-align: center;">
+            <p style="margin: 0; font-size: 18px; font-weight: bold; color: #856404;">${excusedCount}</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px;">Excused</p>
+          </div>
+          <div style="text-align: center;">
+            <p style="margin: 0; font-size: 18px; font-weight: bold; color: #856404;">${lateCount}</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px;">Late</p>
+          </div>
+        </div>
+        <p style="margin: 15px 0 0 0; font-size: 12px; text-align: center;"><strong>Total Classes:</strong> ${totalClasses}</p>
+      </div>
+    </div>
+    <div class="print-footer">
+      <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+    </div>
+  `;
+};
+
+export const generateStudentGradePrintContent = (
+  schedule: any,
+  studentName: string,
+  studentNumber: string,
+  gradeData: any
+) => {
+  const header = generatePrintHeader({
+    school: 'College Name',
+    course: schedule.Course || 'N/A',
+    section: schedule.Section || 'N/A',
+    subject: `${schedule.SubjectCode || 'N/A'} - ${schedule.SubjectTitle || 'N/A'}`,
+    instructor: schedule.InstructorName || 'N/A',
+    date: new Date().toLocaleDateString(),
+    semester: schedule.Semester || getCurrentSemester(),
+    academicYear: schedule.AcademicYear || getCurrentAcademicYear()
+  });
+
+  const getGradeColor = (grade: number | null) => {
+    if (grade === null) return '#666';
+    if (grade >= 90) return '#155724';
+    if (grade >= 80) return '#0c5460';
+    if (grade >= 75) return '#856404';
+    return '#721c24';
+  };
+
+  const formatGrade = (grade: number | null) => {
+    return grade !== null ? grade.toFixed(2) : 'N/A';
+  };
+
+  return `
+    ${header}
+    <div class="no-page-break">
+      <div style="margin: 20px 0; padding: 15px; background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 4px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold;">Student Information</h3>
+        <p style="margin: 5px 0;"><strong>Name:</strong> ${studentName}</p>
+        <p style="margin: 5px 0;"><strong>Student Number:</strong> ${studentNumber}</p>
+        <p style="margin: 5px 0;"><strong>Subject:</strong> ${schedule.SubjectCode} - ${schedule.SubjectTitle}</p>
+        <p style="margin: 5px 0;"><strong>Class Type:</strong> ${gradeData.ClassType || 'N/A'}</p>
+      </div>
+      
+      <h3 style="margin: 20px 0 10px 0; font-size: 16px; font-weight: bold;">Grade Report</h3>
+      <table class="print-grading-table" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <thead>
+          <tr style="background-color: #f0f0f0;">
+            <th style="border: 1px solid #000; padding: 10px; text-align: left; font-weight: bold;">Term</th>
+            <th style="border: 1px solid #000; padding: 10px; text-align: center; font-weight: bold;">Grade</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="border: 1px solid #000; padding: 10px; font-weight: bold;">Midterm Grade</td>
+            <td style="border: 1px solid #000; padding: 10px; text-align: center; font-weight: bold; font-size: 18px; color: ${getGradeColor(gradeData.midterm)};">
+              ${formatGrade(gradeData.midterm)}
+            </td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #000; padding: 10px; font-weight: bold;">Final Grade</td>
+            <td style="border: 1px solid #000; padding: 10px; text-align: center; font-weight: bold; font-size: 18px; color: ${getGradeColor(gradeData.final)};">
+              ${formatGrade(gradeData.final)}
+            </td>
+          </tr>
+          <tr style="background-color: #e8f5e8;">
+            <td style="border: 1px solid #000; padding: 10px; font-weight: bold;">Final Summary Grade</td>
+            <td style="border: 1px solid #000; padding: 10px; text-align: center; font-weight: bold; font-size: 20px; color: ${getGradeColor(gradeData.summary)};">
+              ${formatGrade(gradeData.summary)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      
+      ${gradeData.summary !== null ? `
+      <div style="margin: 20px 0; padding: 15px; background-color: #f0f8ff; border: 1px solid #b0d4f1; border-radius: 4px;">
+        <p style="margin: 0; font-size: 14px; text-align: center;">
+          <strong>Status:</strong> 
+          <span style="color: ${gradeData.summary >= 75 ? '#155724' : '#721c24'}; font-weight: bold;">
+            ${gradeData.summary >= 75 ? 'PASSED' : 'FAILED'}
+          </span>
+        </p>
+      </div>
+      ` : ''}
+    </div>
+    <div class="print-footer">
+      <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+    </div>
+  `;
 };

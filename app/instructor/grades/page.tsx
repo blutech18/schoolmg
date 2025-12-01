@@ -35,6 +35,7 @@ interface Student {
   Course: string;
   YearLevel: number;
   Section: string;
+  StudentNumber?: string;
 }
 
 interface Grade {
@@ -167,7 +168,7 @@ function InstructorGradesContent() {
         StudentID: student.StudentID,
         FirstName: nameParts[0] || '',
         LastName: nameParts.slice(1).join(' ') || '',
-        StudentNumber: ''
+        StudentNumber: student.StudentNumber || student.StudentID?.toString() || ''
       };
     });
 
@@ -176,7 +177,8 @@ function InstructorGradesContent() {
       studentsData,
       grades,
       gradingConfig,
-      selectedTerm
+      selectedTerm,
+      calculatedGrades
     );
 
     printDocument(printContent, `${schedule.SubjectCode} - ${selectedTerm} Grading Sheet`);
@@ -225,7 +227,12 @@ function InstructorGradesContent() {
       const data = await response.json();
       
       if (data.success) {
-        setStudents(data.data);
+        // Filter out students with LOA, Drop, or UW status
+        const filteredStudents = data.data.filter((student: any) => {
+          const status = student.Status?.toLowerCase();
+          return status !== 'loa' && status !== 'drop' && status !== 'uw';
+        });
+        setStudents(filteredStudents);
       }
     } catch (error) {
       console.error('Error fetching students:', error);

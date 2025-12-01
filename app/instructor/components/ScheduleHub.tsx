@@ -194,8 +194,14 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
         const studentsData = result.success ? result.data : result
         const studentsList = Array.isArray(studentsData) ? studentsData : []
         
+        // Filter out students with LOA, Drop, or UW status
+        const filteredStudents = studentsList.filter((student: any) => {
+          const status = student.Status?.toLowerCase();
+          return status !== 'loa' && status !== 'drop' && status !== 'uw';
+        });
+        
         // Check attendance for each student to determine if they're dropped or failed
-        for (const student of studentsList) {
+        for (const student of filteredStudents) {
           const attendanceRes = await fetch(`/api/attendance?scheduleId=${schedule.ScheduleID}&studentId=${student.StudentID}`)
           if (attendanceRes.ok) {
             const attendanceResult = await attendanceRes.json()
@@ -216,7 +222,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
           }
         }
         
-        setStudents(studentsList)
+        setStudents(filteredStudents)
       }
     } catch (error) {
       console.error('Error fetching students:', error)
@@ -543,62 +549,84 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
           body: JSON.stringify(requestBody)
         })
 
-        if (response.ok) {
-          brandedToast.success(`Marked ${getStudentName(ccStudentId)} as cancelled`)
-          
-          // Update local state immediately for UI responsiveness
-          const studentKey = `${ccStudentId}`
-          if (ccSessionType === 'lecture') {
-            setLectureAttendance(prev => ({
-              ...prev,
-              [studentKey]: {
-                ...(prev[studentKey] || {}),
-                [currentSessionNumber]: 'CC'
-              }
-            }))
+                  if (response.ok) {
+            brandedToast.success(`Marked ${getStudentName(ccStudentId)} as cancelled`)
+            
+            // Update local state immediately for UI responsiveness
+            const studentKey = `${ccStudentId}`
+            if (ccSessionType === 'lecture') {
+              setLectureAttendance(prev => ({
+                ...prev,
+                [studentKey]: {
+                  ...(prev[studentKey] || {}),
+                  [currentSessionNumber]: 'CC'
+                }
+              }))
+            } else {
+              setLabAttendance(prev => ({
+                ...prev,
+                [studentKey]: {
+                  ...(prev[studentKey] || {}),
+                  [currentSessionNumber]: 'CC'
+                }
+              }))
+            }
+            // Refresh attendance data from server to ensure it's saved and displayed correctly
+            fetchAttendance()
           } else {
-            setLabAttendance(prev => ({
+            throw new Error('Failed to mark individual cancellation')
+          }
+              } else {
+          // CANCEL THE ENTIRE CLASS SESSION
+          // First, save to server using the cancelled-sessions API
+          const cancelResponse = await fetch('/api/attendance/cancelled-sessions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              scheduleId: schedule.ScheduleID,
+              week: currentSessionNumber,
+              sessionType: ccSessionType,
+              reason: ccReason,
+              cancelledBy: instructorId
+            })
+          })
+          
+          if (!cancelResponse.ok) {
+            throw new Error('Failed to save class cancellation to server')
+          }
+          
+          const sessionKey = `${schedule.ScheduleID}-${ccSessionType}-${currentSessionNumber}`
+          
+          // Update local state to mark session as cancelled
+          const cancellationData = {
+            reason: ccReason,
+            cancelledBy: instructorId,
+            cancelledAt: new Date().toISOString()
+          }
+          
+          setCancelledSessions(prev => {
+            const updated = {
               ...prev,
-              [studentKey]: {
-                ...(prev[studentKey] || {}),
-                [currentSessionNumber]: 'CC'
-              }
-            }))
-          }
-        } else {
-          throw new Error('Failed to mark individual cancellation')
-        }
-      } else {
-        // CANCEL THE ENTIRE CLASS SESSION
-        const sessionKey = `${schedule.ScheduleID}-${ccSessionType}-${currentSessionNumber}`
-        
-        // Update local state to mark session as cancelled
-        const cancellationData = {
-          reason: ccReason,
-          cancelledBy: instructorId,
-          cancelledAt: new Date().toISOString()
-        }
-        
-        setCancelledSessions(prev => {
-          const updated = {
-            ...prev,
-            [sessionKey]: cancellationData
-          }
+              [sessionKey]: cancellationData
+            }
+            
+            console.log('Saving cancellation to localStorage:', updated)
+            
+            // Also save to localStorage as backup
+            try {
+              localStorage.setItem(`cancelled-sessions-${schedule.ScheduleID}`, JSON.stringify(updated))
+              console.log('Successfully saved to localStorage')
+            } catch (error) {
+              console.error('Failed to save to localStorage:', error)
+            }
+            
+            return updated
+          })
           
-          console.log('Saving cancellation to localStorage:', updated)
+          // Refresh attendance data from server to ensure all students' CC status is updated
+          fetchAttendance()
           
-          // Also save to localStorage as backup
-          try {
-            localStorage.setItem(`cancelled-sessions-${schedule.ScheduleID}`, JSON.stringify(updated))
-            console.log('Successfully saved to localStorage')
-          } catch (error) {
-            console.error('Failed to save to localStorage:', error)
-          }
-          
-          return updated
-        })
-        
-        brandedToast.success(`${ccSessionType === 'lecture' ? 'Lecture' : 'Laboratory'} Session ${currentSessionNumber} has been cancelled`)
+          brandedToast.success(`${ccSessionType === 'lecture' ? 'Lecture' : 'Laboratory'} Week ${currentSessionNumber} has been cancelled`)
         
         // Save cancellation to database for persistence
         try {
@@ -645,7 +673,36 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
       const sessionType = getSessionType()
       const sessionKey = `${schedule.ScheduleID}-${sessionType}-${currentSessionNumber}`
       
-      // Remove from cancelled sessions
+      // Remove CC records from database first
+      try {
+        const response = await fetch('/api/attendance/cancelled-sessions', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scheduleId: schedule.ScheduleID,
+            week: currentSessionNumber,
+            sessionType: sessionType
+          })
+        })
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.error || 'Failed to remove cancellation from database')
+        }
+        
+        // After successfully deleting CC records, refresh attendance data
+        await fetchAttendance()
+        
+        // Also refresh cancelled sessions to update the state
+        await fetchCancelledSessions()
+        
+      } catch (error) {
+        console.error('Error removing cancellation from database:', error)
+        brandedToast.error('Failed to remove cancellation from database')
+        return
+      }
+      
+      // Remove from cancelled sessions state (backup cleanup)
       setCancelledSessions(prev => {
         const updated = { ...prev }
         delete updated[sessionKey]
@@ -660,26 +717,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
         return updated
       })
       
-      // Optional: Remove CC records from database
-      try {
-        const response = await fetch('/api/attendance/cancelled-sessions', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            scheduleId: schedule.ScheduleID,
-            week: currentSessionNumber,
-            sessionType: sessionType
-          })
-        })
-        
-        if (!response.ok) {
-          console.warn('Failed to remove cancellation from database, but local state updated')
-        }
-      } catch (error) {
-        console.error('Error removing cancellation from database:', error)
-      }
-      
-      brandedToast.success(`${sessionType === 'lecture' ? 'Lecture' : 'Laboratory'} Session ${currentSessionNumber} has been resumed`)
+      brandedToast.success(`${sessionType === 'lecture' ? 'Lecture' : 'Laboratory'} Week ${currentSessionNumber} has been resumed`)
       
     } catch (error) {
       console.error('Error resuming class:', error)
@@ -743,7 +781,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
             status: 'P',
             date: new Date().toISOString().split('T')[0],
             sessionType: getSessionType(),
-            remarks: `Marked as Present by instructor (bulk action for ${getSessionType()} session ${currentSessionNumber})`,
+            remarks: `Marked as Present by instructor (bulk action for ${getSessionType()} week ${currentSessionNumber})`,
             recordedBy: instructorId
           };
 
@@ -1063,7 +1101,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
       currentSessionNumber
     )
 
-    printDocument(printContent, `${schedule.SubjectCode} - ${sessionType} Session ${currentSessionNumber} Attendance`)
+    printDocument(printContent, `${schedule.SubjectCode} - ${sessionType} Week ${currentSessionNumber} Attendance`)
   }
 
   return (
@@ -1159,10 +1197,10 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                           </div>
                           <div>
                             <CardTitle className="text-lg font-semibold text-slate-800">
-                              Session Management
+                              Week Management
                             </CardTitle>
                             <CardDescription className="text-slate-600 text-sm">
-                              Configure attendance session parameters and manage class activities
+                              Configure attendance week parameters and manage class activities
                             </CardDescription>
                           </div>
                         </div>
@@ -1181,21 +1219,21 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                     <CardContent className="pt-6">
                       {/* All Controls in One Row */}
                       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                        {/* Session Number */}
-                        <div className="space-y-2">
-                          <Label className="text-sm font-semibold text-slate-700">Session Number</Label>
-                          <Select 
-                            value={currentSessionNumber.toString()} 
-                            onValueChange={(value) => setCurrentSessionNumber(parseInt(value))}
-                          >
-                            <SelectTrigger className="h-10 w-full border-gray-300 focus:border-blue-500 focus:ring-blue-500">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Array.from({ length: 20 }, (_, i) => (
-                                <SelectItem key={i + 1} value={(i + 1).toString()}>
-                                  Session {i + 1}
-                                </SelectItem>
+                                                {/* Week Number */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-semibold text-slate-700">Week Number</Label>
+                            <Select 
+                              value={currentSessionNumber.toString()} 
+                              onValueChange={(value) => setCurrentSessionNumber(parseInt(value))}
+                            >
+                              <SelectTrigger className="h-10 w-full border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from({ length: 18 }, (_, i) => (
+                                                                    <SelectItem key={i + 1} value={(i + 1).toString()}>
+                                    Week {i + 1}
+                                  </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>

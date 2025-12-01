@@ -43,7 +43,10 @@ export async function verifyPassword(plain: string, stored: string): Promise<boo
 
 export function isHashed(password: string | null | undefined): boolean {
   if (!password) return false
-  return password.startsWith(SCRYPT_PREFIX) || password.startsWith('$2')
+  // Check for scrypt, bcrypt, and legacy sha256 hashes
+  return password.startsWith(SCRYPT_PREFIX) || 
+         password.startsWith('$2') || 
+         password.startsWith('sha256$')
 }
 
 

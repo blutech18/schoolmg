@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const semester = searchParams.get('semester');
     
     console.log('Schedule analytics request:', { schoolYear, semester });
-    
+
     // Get schedule analytics data
     let query = `
       SELECT 

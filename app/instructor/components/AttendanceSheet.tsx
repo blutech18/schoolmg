@@ -71,6 +71,12 @@ export default function AttendanceSheet({
   onBulkMarking,
   onClassCancellation
 }: AttendanceSheetProps) {
+  // Filter out students with LOA, Drop, or UW status
+  const filteredStudents = students.filter((student: any) => {
+    const status = student.Status?.toLowerCase();
+    return status !== 'loa' && status !== 'drop' && status !== 'uw';
+  });
+  
   const [currentSessionNumber, setCurrentSessionNumber] = useState(1)
   const [currentSessionType, setCurrentSessionType] = useState<'lecture' | 'lab'>('lecture')
   const [lectureAttendance, setLectureAttendance] = useState<{[key: string]: {[sessionNumber: number]: string}}>(propLectureAttendance || {})
@@ -258,7 +264,7 @@ export default function AttendanceSheet({
     try {
       const attendanceDataMap: {[key: string]: {[sessionNumber: number]: string}} = {}
       
-      students.forEach(student => {
+      filteredStudents.forEach(student => {
         const studentKey = `${student.StudentID}`
         const currentAttendanceData = currentSessionType === 'lecture' ? lectureAttendance : labAttendance
         const studentAttendance = currentAttendanceData[studentKey] || {}
@@ -367,16 +373,16 @@ export default function AttendanceSheet({
               </div>
             )}
 
-            {/* Session Number Selector */}
+            {/* Week Number Selector */}
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Session:</span>
+              <span className="text-sm font-medium text-gray-700">Week:</span>
               <Select 
                 value={currentSessionNumber.toString()} 
                 onValueChange={(value) => setCurrentSessionNumber(parseInt(value))}
                 disabled={isCurrentSessionCancelled()}
               >
                 <SelectTrigger className={`w-20 ${isCurrentSessionCancelled() ? 'bg-gray-100 text-gray-500' : ''}`}>
-                  <SelectValue placeholder="Session" />
+                  <SelectValue placeholder="Week" />
                 </SelectTrigger>
                 <SelectContent>
                   {Array.from({ length: 18 }, (_, i) => (
@@ -474,14 +480,14 @@ export default function AttendanceSheet({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {students.length === 0 ? (
+                  {filteredStudents.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
                         No students enrolled in this schedule.
                       </td>
                     </tr>
                   ) : (
-                    students.map((student) => {
+                    filteredStudents.map((student) => {
                       const currentAttendanceData = currentSessionType === 'lecture' ? lectureAttendance : labAttendance
                       const studentAttendance = currentAttendanceData[`${student.StudentID}`] || {}
                       
@@ -631,7 +637,7 @@ export default function AttendanceSheet({
               </div>
             </div>
             <div className="text-sm text-gray-500">
-              Total Students: {students.length}
+              Total Students: {filteredStudents.length}
             </div>
           </div>
         </CardContent>

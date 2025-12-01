@@ -69,6 +69,13 @@ export async function GET(req: NextRequest) {
       if (!instructorIdToUse) {
         return NextResponse.json({ success: false, error: 'Instructor ID is required' }, { status: 400 });
       }
+      
+      // Validate that instructorId is a valid number
+      const parsedInstructorId = parseInt(instructorIdToUse.toString(), 10);
+      if (isNaN(parsedInstructorId)) {
+        return NextResponse.json({ success: false, error: 'Invalid instructor ID format' }, { status: 400 });
+      }
+      
       const query = `
         SELECT
           s.*,
@@ -90,7 +97,7 @@ export async function GET(req: NextRequest) {
         WHERE s.InstructorID = ?
         ORDER BY COALESCE(sub.SubjectCode, s.SubjectCode)
       `;
-      const [rows]: any = await db.query(query, [parseInt(instructorIdToUse)]);
+      const [rows]: any = await db.query(query, [parsedInstructorId]);
       result = rows;
     } else {
       // Get all schedules (admin/dean/coordinator view)
@@ -119,9 +126,20 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, data: result });
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET schedules error:', error);
-    return NextResponse.json({ success: false, error: 'Failed to fetch schedules' }, { status: 500 });
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage,
+      stack: error?.stack
+    });
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Failed to fetch schedules',
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    }, { status: 500 });
   }
 }
 

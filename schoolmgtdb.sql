@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 30, 2025 at 05:17 AM
+-- Generation Time: Nov 06, 2025 at 08:19 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -20,6 +20,42 @@ SET time_zone = "+00:00";
 --
 -- Database: `schoolmgtdb`
 --
+
+DELIMITER $$
+--
+-- Functions
+--
+CREATE DEFINER=`root`@`localhost` FUNCTION `GetNextPrefixedID` (`role_name` VARCHAR(50)) RETURNS VARCHAR(50) CHARSET utf8mb4 COLLATE utf8mb4_general_ci MODIFIES SQL DATA BEGIN
+  DECLARE prefix VARCHAR(10);
+  DECLARE seq_name VARCHAR(100);
+  DECLARE n INT;
+  SET prefix = CASE role_name
+    WHEN 'admin' THEN 'ad'
+    WHEN 'instructor' THEN 'ins'
+    WHEN 'student' THEN 'st'
+    WHEN 'dean' THEN 'dn'
+    WHEN 'programcoor' THEN 'pc'
+    ELSE 'us' END;
+  SET seq_name = CONCAT('prefixed_', prefix);
+  SET n = NextVal(seq_name);
+  RETURN CONCAT(prefix, n);
+END$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `GetNextStudentNumber` (`year_val` INT) RETURNS VARCHAR(20) CHARSET utf8mb4 COLLATE utf8mb4_general_ci MODIFIES SQL DATA BEGIN
+  DECLARE seq_name VARCHAR(100);
+  DECLARE n INT;
+  SET seq_name = CONCAT('studentnum_', year_val);
+  SET n = NextVal(seq_name);
+  RETURN CONCAT(year_val, '-', LPAD(n, 4, '0'));
+END$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `NextVal` (`seq_name` VARCHAR(100)) RETURNS INT(11) MODIFIES SQL DATA BEGIN
+  INSERT INTO sequences(name, val) VALUES (seq_name, 0)
+  ON DUPLICATE KEY UPDATE val = LAST_INSERT_ID(val + 1);
+  RETURN LAST_INSERT_ID();
+END$$
+
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -806,6 +842,32 @@ INSERT INTO `schedules` (`ScheduleID`, `SubjectID`, `Course`, `Lecture`, `Labora
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `sequences`
+--
+
+CREATE TABLE `sequences` (
+  `name` varchar(100) NOT NULL,
+  `val` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `sequences`
+--
+
+INSERT INTO `sequences` (`name`, `val`) VALUES
+('prefixed_ad', 1),
+('prefixed_dn', 1),
+('prefixed_ins', 6),
+('prefixed_pc', 1),
+('prefixed_st', 10),
+('studentnum_2025', 8),
+('user_admin', 5),
+('user_instructor', 1005),
+('user_student', 100009);
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `students`
 --
 
@@ -1119,6 +1181,12 @@ ALTER TABLE `grades`
 --
 ALTER TABLE `schedules`
   ADD PRIMARY KEY (`ScheduleID`);
+
+--
+-- Indexes for table `sequences`
+--
+ALTER TABLE `sequences`
+  ADD PRIMARY KEY (`name`);
 
 --
 -- AUTO_INCREMENT for dumped tables

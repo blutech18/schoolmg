@@ -217,6 +217,21 @@ export default function DeanExcuseLettersPage() {
                       Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}
                     </span>
                   </div>
+                  
+                  {/* Approval Status Section */}
+                  <div className="pt-2 border-t border-gray-200">
+                    <div className="flex flex-wrap items-center gap-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600 font-medium text-xs">Instructor:</span>
+                        {getStatusBadge(letter.InstructorStatus || 'pending')}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600 font-medium text-xs">Program Coordinator:</span>
+                        {getStatusBadge(letter.CoordinatorStatus || 'pending')}
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="flex items-center justify-between pt-2">
                     <Button variant="outline" size="sm" onClick={() => setSelectedExcuseLetter(letter)}>View Details</Button>
                     {letter.DeanStatus === 'pending' && (

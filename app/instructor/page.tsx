@@ -34,6 +34,7 @@ import { formatScheduleEntry, formatScheduleForDisplay, type ScheduleDisplayData
 import ScheduleHub from "./components/ScheduleHub";
 import AttendanceSheet from "./components/AttendanceSheet";
 import { NotificationBannerContainer, useNotificationBanner } from "@/components/ui/notification-banner";
+import ScheduleCard from "@/app/components/ScheduleCard";
 
 interface InstructorStats {
   totalSchedules: number;
@@ -696,6 +697,22 @@ export default function InstructorDashboard() {
       }));
 
       brandedToast.success(`Excuse letter ${action} successfully`);
+      
+      // Refresh excuse letters from server to get latest dean/coordinator statuses
+      const sessionCookie = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('userSession='));
+      
+      if (sessionCookie) {
+        try {
+          const session = JSON.parse(decodeURIComponent(sessionCookie.split('=')[1]));
+          if (session.userId) {
+            await fetchExcuseLetters(session.userId);
+          }
+        } catch (e) {
+          console.error('Error refreshing excuse letters:', e);
+        }
+      }
     } catch (error) {
       console.error('Error updating excuse letter:', error);
       brandedToast.error(error instanceof Error ? error.message : 'Failed to update excuse letter');
@@ -751,6 +768,11 @@ export default function InstructorDashboard() {
 
       brandedToast.success(`Excuse letter ${approvalAction} successfully`);
       setShowApprovalModal(false);
+      
+      // Refresh excuse letters from server to get latest dean/coordinator statuses
+      if (instructorId) {
+        await fetchExcuseLetters(instructorId);
+      }
     } catch (error) {
       console.error('Error updating excuse letter:', error);
       brandedToast.error(error instanceof Error ? error.message : 'Failed to update excuse letter');
@@ -986,7 +1008,7 @@ export default function InstructorDashboard() {
           status,
           date: currentDate,
           sessionType: currentSessionType,
-          remarks: `Marked as ${statusText} by instructor (${currentSessionType} session ${currentSessionNumber})`,
+          remarks: `Marked as ${statusText} by instructor (${currentSessionType} week ${currentSessionNumber})`,
           recordedBy: instructorId
         })
       });
@@ -1430,6 +1452,8 @@ export default function InstructorDashboard() {
       setCCStudentId(null);
       setCCNotifyStudents(false);
       
+      // Refresh attendance data from server to ensure it's saved and displayed correctly
+      await fetchSessionAttendance(selectedSchedule.ScheduleID, currentSessionNumber, ccSessionType);
       // Refresh student data to show updated attendance
       await fetchStudentsForSchedule(selectedSchedule.ScheduleID);
     } catch (error) {
@@ -1537,18 +1561,20 @@ export default function InstructorDashboard() {
         brandedToast.info(`All ${eligibleStudents.length} students will be notified about the class cancellation`);
       }
       
-      setShowCCModal(false);
-      setCCReason('');
-      setCCStudentId(null);
-      setCCNotifyStudents(false);
-      
-      // Refresh student data to show updated attendance
-      await fetchStudentsForSchedule(selectedSchedule.ScheduleID);
-    } catch (error) {
-      console.error('Error marking class cancellation for all students:', error);
-      brandedToast.error('Failed to record class cancellation for all students');
-    }
-  };
+              setShowCCModal(false);
+        setCCReason('');
+        setCCStudentId(null);
+        setCCNotifyStudents(false);
+        
+        // Refresh attendance data from server to ensure it's saved and displayed correctly
+        await fetchSessionAttendance(selectedSchedule.ScheduleID, currentSessionNumber, ccSessionType);
+        // Refresh student data to show updated attendance
+        await fetchStudentsForSchedule(selectedSchedule.ScheduleID);
+      } catch (error) {
+        console.error('Error marking class cancellation for all students:', error);
+        brandedToast.error('Failed to record class cancellation for all students');
+      }
+    };
 
   // Attendance handlers for the new AttendanceSheet component
   const handleAttendanceMarked = async (studentId: number, status: string, sessionType: 'lecture' | 'lab', sessionNumber: number) => {
@@ -1989,72 +2015,26 @@ export default function InstructorDashboard() {
             <h2 className="text-xl font-semibold">My Class Schedules</h2>
           </div>
 
-          <div className="grid gap-4">
-            {schedules.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No schedules assigned yet.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              schedules.map((schedule) => (
-                <Card key={schedule.ScheduleID} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openScheduleHub(schedule)}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-lg">
-                          {schedule.SubjectCode} - {schedule.SubjectTitle}
-                        </CardTitle>
-                        <CardDescription>
-                          {schedule.Course} • Year {schedule.YearLevel} • Section {schedule.Section}
-                        </CardDescription>
-                      </div>
-                      <Badge variant="outline">{
-                        schedule.ClassType === 'LECTURE+LAB' ? 'Lecture and Laboratory' : 
-                        schedule.ClassType === 'MAJOR' ? 'Cisco' : 
-                        schedule.ClassType === 'NSTP' ? 'NSTP' : 
-                        schedule.ClassType === 'OJT' ? 'OJT' : 
-                        'Lecture'
-                      }</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-6 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-blue-600" />
-                          <span className="font-medium text-gray-900">
-                            {formatScheduleEntry({
-                              Room: schedule.Room ?? undefined,
-                              Day: schedule.Day ?? undefined,
-                              Time: schedule.Time ?? undefined,
-                              Lecture: schedule.Lecture ?? undefined,
-                              Laboratory: schedule.Laboratory ?? undefined,
-                              ClassType: schedule.ClassType ?? undefined
-                            })}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="font-medium text-gray-900">{schedule.Room}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-blue-600" />
-                          <span className="font-medium text-gray-900">{schedule.EnrolledStudents}/{schedule.TotalSeats} students</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          Click to Manage All
-                        </Badge>
-                      </div>
-                    </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {schedules.length === 0 ? (
+                <Card className="col-span-full">
+                  <CardContent className="text-center py-8">
+                    <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No schedules assigned yet.</p>
                   </CardContent>
                 </Card>
-              ))
-            )}
-          </div>
+              ) : (
+                schedules.map((schedule) => (
+                  <ScheduleCard
+                    key={schedule.ScheduleID}
+                    schedule={schedule}
+                    role="instructor"
+                    onClick={() => openScheduleHub(schedule)}
+                    showActions={false}
+                  />
+                ))
+              )}
+            </div>
         </TabsContent>
 
         {/* Attendance Tab */}
@@ -2147,65 +2127,91 @@ export default function InstructorDashboard() {
           ) : (
             <div className="grid gap-4">
               {excuseLetters.filter(el => el.InstructorStatus === 'pending').map((letter) => (
-                <Card key={letter.ExcuseLetterID} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg">
-                          {letter.SubjectCode} - {letter.SubjectTitle}
-                        </CardTitle>
-                        <CardDescription className="mt-1">
-                          <span className="flex items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            {letter.StudentName}
-                          </span>
-                          <span className="flex items-center gap-2 mt-1">
-                            {letter.Course} - Section {letter.Section}
-                          </span>
-                        </CardDescription>
-                      </div>
-                      <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                        Pending
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-700">Reason:</p>
-                        <p className="text-sm text-gray-600">{letter.Reason}</p>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          <span>{new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}</span>
+                                  <Card key={letter.ExcuseLetterID} className="hover:shadow-md transition-shadow">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">
+                            {letter.SubjectCode} - {letter.SubjectTitle}
+                          </CardTitle>
+                          <CardDescription className="mt-1">
+                            <span className="flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              {letter.StudentName}
+                            </span>
+                            <span className="flex items-center gap-2 mt-1">
+                              {letter.Course} - Section {letter.Section}
+                            </span>
+                          </CardDescription>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}</span>
+                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                          Pending
+                        </Badge>
+                      </div>
+                      {/* Show Dean and Coordinator Approval Status - Prominent Display */}
+                      <div className="flex items-center gap-3 mt-3 pt-3 border-t">
+                        <span className="text-sm font-semibold text-gray-700">Approval Status:</span>
+                        <div className="flex items-center gap-2">
+                          <Badge className={`flex items-center gap-1 ${
+                            letter.DeanStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
+                            letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
+                            'bg-gray-100 text-gray-700 border border-gray-300'
+                          }`}>
+                            {letter.DeanStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
+                            {letter.DeanStatus === 'declined' && <XCircle className="h-3 w-3" />}
+                            {(!letter.DeanStatus || letter.DeanStatus === 'pending') && <Clock className="h-3 w-3" />}
+                            <span className="font-medium">Dean: {letter.DeanStatus || 'pending'}</span>
+                          </Badge>
+                          <Badge className={`flex items-center gap-1 ${
+                            letter.CoordinatorStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
+                            letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
+                            'bg-gray-100 text-gray-700 border border-gray-300'
+                          }`}>
+                            {letter.CoordinatorStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
+                            {letter.CoordinatorStatus === 'declined' && <XCircle className="h-3 w-3" />}
+                            {(!letter.CoordinatorStatus || letter.CoordinatorStatus === 'pending') && <Clock className="h-3 w-3" />}
+                            <span className="font-medium">Coordinator: {letter.CoordinatorStatus || 'pending'}</span>
+                          </Badge>
                         </div>
                       </div>
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewExcuseLetter(letter)}
-                          className="flex-1"
-                        >
-                          <FileText className="h-4 w-4 mr-1" />
-                          View Details
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleApproveExcuseLetter(letter)}
-                          className="flex-1 bg-blue-600 hover:bg-blue-700"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Review
-                        </Button>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Reason:</p>
+                            <p className="text-sm text-gray-600">{letter.Reason}</p>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-gray-600">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              <span>{new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              <span>Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        <div className="flex gap-2 pt-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleViewExcuseLetter(letter)}
+                            className="flex-1"
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            View Details
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleApproveExcuseLetter(letter)}
+                            className="flex-1 bg-blue-600 hover:bg-blue-700"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Review
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
+                    </CardContent>
                 </Card>
               ))}
             </div>
@@ -2219,47 +2225,73 @@ export default function InstructorDashboard() {
               </div>
               <div className="grid gap-4">
                 {excuseLetters.filter(el => el.InstructorStatus === 'approved' || el.InstructorStatus === 'rejected').map((letter) => (
-                  <Card key={letter.ExcuseLetterID} className="hover:shadow-md transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg">
-                            {letter.SubjectCode} - {letter.SubjectTitle}
-                          </CardTitle>
-                          <CardDescription className="mt-1">
-                            <span className="flex items-center gap-2">
-                              <Users className="h-4 w-4" />
-                              {letter.StudentName}
-                            </span>
-                          </CardDescription>
+                                      <Card key={letter.ExcuseLetterID} className="hover:shadow-md transition-shadow">
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg">
+                              {letter.SubjectCode} - {letter.SubjectTitle}
+                            </CardTitle>
+                            <CardDescription className="mt-1">
+                              <span className="flex items-center gap-2">
+                                <Users className="h-4 w-4" />
+                                {letter.StudentName}
+                              </span>
+                            </CardDescription>
+                          </div>
+                          <Badge variant={letter.InstructorStatus === 'approved' ? 'default' : 'destructive'}>
+                            {letter.InstructorStatus === 'approved' ? 'Approved' : 'Rejected'}
+                          </Badge>
                         </div>
-                        <Badge variant={letter.InstructorStatus === 'approved' ? 'default' : 'destructive'}>
-                          {letter.InstructorStatus === 'approved' ? 'Approved' : 'Rejected'}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-sm font-medium text-gray-700">Reason:</p>
-                          <p className="text-sm text-gray-600">{letter.Reason}</p>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            <span>{new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}</span>
+                        {/* Show Dean and Coordinator Approval Status - Prominent Display */}
+                        <div className="flex items-center gap-3 mt-3 pt-3 border-t">
+                          <span className="text-sm font-semibold text-gray-700">Approval Status:</span>
+                          <div className="flex items-center gap-2">
+                            <Badge className={`flex items-center gap-1 ${
+                              letter.DeanStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
+                              letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
+                              'bg-gray-100 text-gray-700 border border-gray-300'
+                            }`}>
+                              {letter.DeanStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
+                              {letter.DeanStatus === 'declined' && <XCircle className="h-3 w-3" />}
+                              {(!letter.DeanStatus || letter.DeanStatus === 'pending') && <Clock className="h-3 w-3" />}
+                              <span className="font-medium">Dean: {letter.DeanStatus || 'pending'}</span>
+                            </Badge>
+                            <Badge className={`flex items-center gap-1 ${
+                              letter.CoordinatorStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
+                              letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
+                              'bg-gray-100 text-gray-700 border border-gray-300'
+                            }`}>
+                              {letter.CoordinatorStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
+                              {letter.CoordinatorStatus === 'declined' && <XCircle className="h-3 w-3" />}
+                              {(!letter.CoordinatorStatus || letter.CoordinatorStatus === 'pending') && <Clock className="h-3 w-3" />}
+                              <span className="font-medium">Coordinator: {letter.CoordinatorStatus || 'pending'}</span>
+                            </Badge>
                           </div>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewExcuseLetter(letter)}
-                        >
-                          <FileText className="h-4 w-4 mr-1" />
-                          View Details
-                        </Button>
-                      </div>
-                    </CardContent>
+                      </CardHeader>
+                                            <CardContent>
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">Reason:</p>
+                              <p className="text-sm text-gray-600">{letter.Reason}</p>
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                <span>{new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleViewExcuseLetter(letter)}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            View Details
+                          </Button>
+                        </div>
+                      </CardContent>
                   </Card>
                 ))}
               </div>
@@ -2387,52 +2419,71 @@ export default function InstructorDashboard() {
                       </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <p className="text-sm text-gray-700">{letter.Reason}</p>
-                      
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          {new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
-                          Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}
-                        </span>
-                      </div>
+                                      <CardContent>
+                      <div className="space-y-4">
+                        <p className="text-sm text-gray-700">{letter.Reason}</p>
+                        
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            {new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-4 w-4" />
+                            Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}
+                          </span>
+                        </div>
 
-                      <div className="flex items-center justify-between pt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedExcuseLetter(letter)}
-                        >
-                          View Details
-                        </Button>
-                        {letter.InstructorStatus === 'pending' && (
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleApprovalAction(letter, 'approved')}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleApprovalAction(letter, 'declined')}
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Decline
-                            </Button>
-                          </div>
-                        )}
+                        {/* Show Dean and Coordinator Approval Status */}
+                        <div className="flex items-center gap-2 pt-2 border-t">
+                          <span className="text-xs font-medium text-gray-600">Other Approvals:</span>
+                          <Badge className={`text-xs ${
+                            letter.DeanStatus === 'approved' ? 'bg-green-100 text-green-700' :
+                            letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            Dean: {letter.DeanStatus || 'pending'}
+                          </Badge>
+                          <Badge className={`text-xs ${
+                            letter.CoordinatorStatus === 'approved' ? 'bg-green-100 text-green-700' :
+                            letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            Coordinator: {letter.CoordinatorStatus || 'pending'}
+                          </Badge>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedExcuseLetter(letter)}
+                          >
+                            View Details
+                          </Button>
+                          {letter.InstructorStatus === 'pending' && (
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleApprovalAction(letter, 'approved')}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleApprovalAction(letter, 'declined')}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Decline
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
+                    </CardContent>
                 </Card>
               ))
             )}

@@ -19,6 +19,20 @@ export default function LoginForm() {
     setIsLoading(true);
     setErrorMessage('');
 
+    // Validate email domain
+    if (email && !email.toLowerCase().endsWith('@cca.edu.ph')) {
+      alert('Please use an email address ending with @cca.edu.ph');
+      setIsLoading(false);
+      return;
+    }
+
+    // Validate password minimum length
+    if (password && password.length < 20) {
+      alert('Password must be at least 20 characters long');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -78,9 +92,17 @@ export default function LoginForm() {
 
       <p className="text-lg mt-5 mb-1 font-bold">Email</p>
       <input
+        type="email"
         className="border px-4 py-2 rounded-lg transition-all bg-white"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        onBlur={(e) => {
+          const emailValue = e.target.value.trim();
+          if (emailValue && !emailValue.toLowerCase().endsWith('@cca.edu.ph')) {
+            alert('Please use an email address ending with @cca.edu.ph');
+          }
+        }}
+        placeholder="example@cca.edu.ph"
       />
 
       <p className="text-lg mt-5 mb-1 font-bold">Password</p>
@@ -89,7 +111,20 @@ export default function LoginForm() {
         className="border px-4 py-2 rounded-lg transition-all bg-white"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        onBlur={(e) => {
+          const passwordValue = e.target.value;
+          if (passwordValue && passwordValue.length < 20) {
+            alert('Password must be at least 20 characters long');
+          }
+        }}
+        minLength={20}
+        placeholder="Minimum 20 characters"
       />
+      {password && password.length < 20 && (
+        <p className="text-xs text-red-600 mt-1">
+          Password must be at least 20 characters (currently {password.length})
+        </p>
+      )}
 
       <div className="flex mt-5 items-center gap-1">
         <input

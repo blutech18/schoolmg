@@ -168,6 +168,144 @@ export function formatMultipleSchedules(schedules: ScheduleDisplayData[]): {
 }
 
 /**
+ * Parses Room field to extract separate Lecture and Laboratory rooms
+ * Handles formats like: "L404, l305" or "Lecture: L404, Lab: l305" or "L404/l305"
+ */
+export function parseRooms(roomString?: string): { lecture?: string; laboratory?: string } {
+  if (!roomString) return {};
+  
+  const room = roomString.trim();
+  
+  // Check for explicit labels
+  const lectureMatch = room.match(/(?:lecture|lec)[\s:]*([A-Za-z0-9]+)/i);
+  const labMatch = room.match(/(?:laboratory|lab)[\s:]*([A-Za-z0-9]+)/i);
+  
+  if (lectureMatch && labMatch) {
+    return {
+      lecture: lectureMatch[1].trim(),
+      laboratory: labMatch[1].trim()
+    };
+  }
+  
+  // Check for comma-separated values (assume first is lecture, second is lab)
+  if (room.includes(',')) {
+    const parts = room.split(',').map(p => p.trim());
+    if (parts.length >= 2) {
+      return {
+        lecture: parts[0],
+        laboratory: parts[1]
+      };
+    }
+  }
+  
+  // Check for slash-separated values
+  if (room.includes('/')) {
+    const parts = room.split('/').map(p => p.trim());
+    if (parts.length >= 2) {
+      return {
+        lecture: parts[0],
+        laboratory: parts[1]
+      };
+    }
+  }
+  
+  // Check for pipe-separated values
+  if (room.includes('|')) {
+    const parts = room.split('|').map(p => p.trim());
+    if (parts.length >= 2) {
+      return {
+        lecture: parts[0],
+        laboratory: parts[1]
+      };
+    }
+  }
+  
+  // If no separator found, return single room for both
+  return { lecture: room, laboratory: room };
+}
+
+/**
+ * Parses Time field to extract separate Lecture and Laboratory times
+ * Handles formats like: "10:00AM - 1:00PM, 12:00PM - 3:00PM" or "Lecture: 10:00AM - 1:00PM, Lab: 12:00PM - 3:00PM"
+ */
+export function parseTimes(timeString?: string): { lecture?: string; laboratory?: string } {
+  if (!timeString) return {};
+  
+  const time = timeString.trim();
+  
+  // Check for explicit labels
+  const lectureMatch = time.match(/(?:lecture|lec)[\s:]*([0-9:APM\s\-]+)/i);
+  const labMatch = time.match(/(?:laboratory|lab)[\s:]*([0-9:APM\s\-]+)/i);
+  
+  if (lectureMatch && labMatch) {
+    return {
+      lecture: lectureMatch[1].trim(),
+      laboratory: labMatch[1].trim()
+    };
+  }
+  
+  // Check for comma-separated time ranges
+  if (time.includes(',')) {
+    const parts = time.split(',').map(p => p.trim());
+    if (parts.length >= 2) {
+      return {
+        lecture: parts[0],
+        laboratory: parts[1]
+      };
+    }
+  }
+  
+  // Check for semicolon-separated time ranges
+  if (time.includes(';')) {
+    const parts = time.split(';').map(p => p.trim());
+    if (parts.length >= 2) {
+      return {
+        lecture: parts[0],
+        laboratory: parts[1]
+      };
+    }
+  }
+  
+  // If no separator found, return single time for both
+  return { lecture: time, laboratory: time };
+}
+
+/**
+ * Parses Day field to extract separate Lecture and Laboratory days
+ * Handles formats like: "Monday, Friday" or "Lecture: Monday, Lab: Friday"
+ */
+export function parseDays(dayString?: string): { lecture?: string; laboratory?: string } {
+  if (!dayString) return {};
+  
+  const day = dayString.trim();
+  
+  // Check for explicit labels
+  const lectureMatch = day.match(/(?:lecture|lec)[\s:]*([A-Za-z]+)/i);
+  const labMatch = day.match(/(?:laboratory|lab)[\s:]*([A-Za-z]+)/i);
+  
+  if (lectureMatch && labMatch) {
+    return {
+      lecture: lectureMatch[1].trim(),
+      laboratory: labMatch[1].trim()
+    };
+  }
+  
+  // Check for comma-separated days
+  if (day.includes(',')) {
+    const parts = day.split(',').map(p => p.trim());
+    if (parts.length >= 2) {
+      return {
+        lecture: parts[0],
+        laboratory: parts[1]
+      };
+    }
+  }
+  
+  // If no separator found, return single day for both
+  return { lecture: day, laboratory: day };
+}
+
+/**
  * Formats schedule display for UI components
  * Returns JSX-friendly format with structured data
  */

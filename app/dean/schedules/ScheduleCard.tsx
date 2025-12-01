@@ -63,24 +63,10 @@ export default function ScheduleCard({ schedule } : IScheduleCardProps) {
     router.push(`/dean/grades?scheduleId=${schedule.ScheduleID}`);
   };
 
-  function cardColor(yearLevel: number) {
-    switch (yearLevel) {
-      case 1:
-        return "bg-blue-500";
-      case 2:
-        return "bg-green-500";
-      case 3:
-        return "bg-yellow-500";
-      case 4:
-        return "bg-red-500";
-      default:
-        return "bg-gray-500";
-    }
-  }
-
   return (
     <div className="border rounded-xl shadow-md overflow-hidden z-1">
-        <div className={`${cardColor(schedule.YearLevel ?? 0)} text-white px-4 py-2 font-semibold rounded-t-lg`}>
+        {/* Header - Using green-800 to match logo/brand */}
+        <div className="bg-green-800 text-white px-4 py-2 font-semibold rounded-t-lg">
           <div className="flex justify-between items-center">
             <span> {schedule.YearLevel} - {schedule.Course}</span>
             <span className='font-semibold text-sm'>{schedule.Day}</span>
@@ -111,7 +97,7 @@ export default function ScheduleCard({ schedule } : IScheduleCardProps) {
         </div>
 
         <div className="bg-gray-100 px-4 py-2 font-semibold rounded-b-lg grid md:grid-cols-3 gap-3">
-            <Button className='w-full bg-green-900' onClick={handleAttendanceClick}>Attendance</Button>
+            <Button className='w-full bg-green-800 hover:bg-green-900' onClick={handleAttendanceClick}>Attendance</Button>
             <EnhancedSeatPlan 
               cols={schedule.SeatCols ?? 0} 
               numberOfSeats={schedule.TotalSeats ?? 0} 
@@ -125,7 +111,7 @@ export default function ScheduleCard({ schedule } : IScheduleCardProps) {
               lecture={schedule.Lecture || 0}
               laboratory={schedule.Laboratory || 0}
             />
-            <Button className='w-full bg-green-900' onClick={handleGradesClick}>Grades</Button>
+            <Button className='w-full bg-green-800 hover:bg-green-900' onClick={handleGradesClick}>Grades</Button>
         </div>
     </div>
   )

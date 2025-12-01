@@ -5,6 +5,15 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(req: NextRequest) {
   try {
     const id = req.nextUrl.searchParams.get('id');
+    const email = req.nextUrl.searchParams.get('email');
+    
+    // Check if email exists (for email validation/generation)
+    if (email) {
+      const [rows]: any = await db.query('SELECT EmailAddress FROM users WHERE EmailAddress = ? LIMIT 1', [email]);
+      return NextResponse.json({ exists: rows.length > 0 });
+    }
+    
+    // Get user(s)
     let result;
 
     if (!id) {
@@ -22,9 +31,19 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(result);
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET users error:', error);
-    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage,
+      stack: error?.stack
+    });
+    return NextResponse.json({ 
+      error: 'Failed to fetch users',
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    }, { status: 500 });
   }
 }
 
@@ -43,58 +62,34 @@ export async function POST(req: NextRequest) {
       ContactNumber,
     } = await req.json();
 
-    // Get next prefixed ID based on role
+    // Start transaction for atomic operations
+    await db.query('START TRANSACTION');
+
+    // Generate IDs via database functions using sequences
+    // Prefer GetNextUserID if available; otherwise compute via NextVal directly
+    let nextUserId: number
+    try {
+      const [idRows]: any = await db.query('SELECT GetNextUserID(?) AS uid', [Role])
+      nextUserId = idRows[0].uid
+    } catch {
+      const thresholds: Record<string, number> = { student: 100000, instructor: 1000 }
+      const threshold = thresholds[Role] ?? 1
+      const seqName = Role === 'student' ? 'user_student' : Role === 'instructor' ? 'user_instructor' : 'user_admin'
+      const [uidRows]: any = await db.query('SELECT GREATEST(?, NextVal(?)) AS uid', [threshold, seqName])
+      nextUserId = uidRows[0].uid
+    }
+    
     let nextPrefixedId: string;
     try {
-      const [nextPrefixedIdResult]: any = await db.query('SELECT GetNextPrefixedID(?) as nextId', [Role]);
-      nextPrefixedId = nextPrefixedIdResult[0].nextId;
+      const [pidRows]: any = await db.query('SELECT GetNextPrefixedID(?) AS pid', [Role])
+      nextPrefixedId = pidRows[0].pid
     } catch (error) {
-      // Fallback: Generate prefixed ID manually
-      console.log('GetNextPrefixedID function not available, generating manually');
-      const prefixMap: {[key: string]: string} = {
-        'admin': 'ad',
-        'instructor': 'ins',
-        'student': 'st',
-        'dean': 'dn',
-        'programcoor': 'pc'
-      };
-      const prefix = prefixMap[Role] || 'us';
-      
-      // Get max number for this role
-      const [existingResult]: any = await db.query(
-        `SELECT MAX(CAST(SUBSTRING(PrefixedID, ${prefix.length + 1}) AS UNSIGNED)) as maxNum 
-         FROM users WHERE PrefixedID LIKE ?`,
-        [`${prefix}%`]
-      );
-      const nextNum = (existingResult[0].maxNum || 0) + 1;
-      nextPrefixedId = `${prefix}${nextNum}`;
-    }
-
-    // Determine the next UserID based on role (using correct role names)
-    let nextUserId: number;
-
-    if (Role === 'instructor') {
-      // Instructors now start from 1000
-      const [maxInstructorResult]: any = await db.query(
-        'SELECT MAX(UserID) as maxId FROM users WHERE Role = "instructor"'
-      );
-      nextUserId = Math.max((maxInstructorResult[0].maxId || 999) + 1, 1000);
-    } else if (Role === 'student') {
-      // Students now start from 100000
-      const [maxStudentResult]: any = await db.query(
-        'SELECT MAX(UserID) as maxId FROM users WHERE Role = "student"'
-      );
-      nextUserId = Math.max((maxStudentResult[0].maxId || 99999) + 1, 100000);
-    } else {
-      // Admin/Dean/Coordinator use range 1-999
-      const [maxAdminResult]: any = await db.query(
-        'SELECT MAX(UserID) as maxId FROM users WHERE Role IN ("admin", "dean", "programcoor")'
-      );
-      nextUserId = Math.max((maxAdminResult[0].maxId || 0) + 1, 1);
-      // Ensure it doesn't exceed 999
-      if (nextUserId >= 1000) {
-        throw new Error('Admin user ID range (1-999) is full');
-      }
+      await db.query('ROLLBACK');
+      console.error('Failed to generate PrefixedID:', error);
+      return NextResponse.json({ 
+        error: 'Failed to generate user ID',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }, { status: 500 });
     }
 
     // Hash password before saving
@@ -107,31 +102,58 @@ export async function POST(req: NextRequest) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    await db.query(insertQuery, [
-      nextUserId,
-      nextPrefixedId,
-      FirstName,
-      LastName,
-      MiddleName,
-      EmailAddress,
-      passwordToStore,
-      Sex,
-      Role,
-      Status,
-      IsPWD ? 'Yes' : 'No',
-      ContactNumber || null
-    ]);
+    try {
+      await db.query(insertQuery, [
+        nextUserId,
+        nextPrefixedId,
+        FirstName,
+        LastName,
+        MiddleName,
+        EmailAddress,
+        passwordToStore,
+        Sex,
+        Role,
+        Status,
+        IsPWD ? 'Yes' : 'No',
+        ContactNumber || null
+      ]);
+    } catch (error: any) {
+      await db.query('ROLLBACK');
+      if (error.code === 'ER_DUP_ENTRY') {
+        if (error.message.includes('uq_users_prefixed')) {
+          return NextResponse.json({ 
+            error: 'Duplicate PrefixedID detected. Please try again.',
+            details: 'A user with this ID already exists'
+          }, { status: 409 });
+        }
+        if (error.message.includes('EmailAddress')) {
+          return NextResponse.json({ 
+            error: 'Email already exists',
+            details: 'This email address is already in use'
+          }, { status: 409 });
+        }
+      }
+      console.error('Failed to insert user:', error);
+      return NextResponse.json({ 
+        error: `Failed to add ${Role}`,
+        details: error.message || 'Unknown error'
+      }, { status: 500 });
+    }
+
+    // Commit transaction
+    await db.query('COMMIT');
 
     return NextResponse.json({
       message: `${Role} added successfully`,
       UserID: nextUserId,
       PrefixedID: nextPrefixedId
     });
-  } catch (err) {
+  } catch (err: any) {
+    await db.query('ROLLBACK').catch(() => {});
     console.error('POST user error:', err);
     return NextResponse.json({ 
-      error: 'Failed to create user',
-      details: err instanceof Error ? err.message : 'Unknown error'
+      error: 'Failed to add user',
+      details: err.message || 'Unknown error'
     }, { status: 500 });
   }
 }

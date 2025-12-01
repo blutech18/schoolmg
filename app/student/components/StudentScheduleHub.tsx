@@ -18,12 +18,14 @@ import {
   MessageSquare,
   CheckCircle,
   XCircle,
-  BookOpen
+  BookOpen,
+  Printer
 } from "lucide-react"
 import { brandedToast } from "@/components/ui/branded-toast"
 import SubmitExcuseLetterModal from "./SubmitExcuseLetterModal"
 import ViewExcuseLetterModal from "./ViewExcuseLetterModal"
 import { formatScheduleEntry, type ScheduleDisplayData } from "@/lib/utils"
+import { printDocument, generateStudentAttendancePrintContent, generateStudentGradePrintContent } from "@/lib/printUtils"
 
 interface Schedule {
   ScheduleID: number;
@@ -84,16 +86,22 @@ interface ExcuseLetter {
 interface StudentScheduleHubProps {
   schedule: Schedule;
   studentId: number;
+  studentName?: string;
+  studentNumber?: string;
   onClose: () => void;
 }
 
-export default function StudentScheduleHub({ schedule, studentId, onClose }: StudentScheduleHubProps) {
+export default function StudentScheduleHub({ schedule, studentId, studentName, studentNumber, onClose }: StudentScheduleHubProps) {
   // State management
   const [attendance, setAttendance] = useState<AttendanceData[]>([])
   const [grades, setGrades] = useState<GradeData[]>([])
   const [excuseLetters, setExcuseLetters] = useState<ExcuseLetter[]>([])
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('attendance')
+  const [studentInfo, setStudentInfo] = useState<{name: string, number: string}>({
+    name: studentName || 'Loading...',
+    number: studentNumber || 'Loading...'
+  })
   
   // Modals
   const [showSubmitExcuseModal, setShowSubmitExcuseModal] = useState(false)
@@ -102,10 +110,43 @@ export default function StudentScheduleHub({ schedule, studentId, onClose }: Stu
 
   // Fetch data when component mounts
   useEffect(() => {
+    fetchStudentInfo()
     fetchAttendance()
     fetchGrades()
     fetchExcuseLetters()
   }, [schedule.ScheduleID, studentId])
+
+  const fetchStudentInfo = async () => {
+    if (studentName && studentNumber) {
+      setStudentInfo({ name: studentName, number: studentNumber })
+      return
+    }
+    
+    try {
+      const sessionCookie = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('userSession='))
+      
+      if (!sessionCookie) return
+      
+      const session = JSON.parse(decodeURIComponent(sessionCookie.split('=')[1]))
+      const res = await fetch(`/api/students?userId=${session.userId}`)
+      
+      if (res.ok) {
+        const data = await res.json()
+        if (Array.isArray(data) && data.length > 0) {
+          const student = data[0]
+          setStudentInfo({
+            name: `${student.FirstName || ''} ${student.LastName || ''}`.trim() || 'N/A',
+            number: student.StudentNumber || 'N/A'
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching student info:', error)
+      setStudentInfo({ name: 'N/A', number: 'N/A' })
+    }
+  }
 
   const fetchAttendance = async () => {
     try {
@@ -194,145 +235,221 @@ export default function StudentScheduleHub({ schedule, studentId, onClose }: Stu
     setShowViewExcuseModal(true)
   }
 
+  const printAttendance = () => {
+    const printContent = generateStudentAttendancePrintContent(
+      schedule,
+      studentInfo.name,
+      studentInfo.number,
+      attendance
+    )
+    printDocument(printContent, `${schedule.SubjectCode} - Attendance Report`)
+  }
+
+  const printGrades = () => {
+    if (grades.length === 0) {
+      brandedToast.error('No grades available to print')
+      return
+    }
+    
+    const gradeData = grades[0] // Get the first grade (should only be one per schedule)
+    const printContent = generateStudentGradePrintContent(
+      schedule,
+      studentInfo.name,
+      studentInfo.number,
+      gradeData
+    )
+    printDocument(printContent, `${schedule.SubjectCode} - Grade Report`)
+  }
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-6xl max-h-[95vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl w-full max-w-7xl max-h-[95vh] overflow-hidden flex flex-col shadow-2xl border border-gray-200">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                {schedule.SubjectCode} - {schedule.SubjectTitle}
-              </h2>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  {schedule.Day}
-                </span>
-                <div className="text-sm text-gray-600">
-                  <div className="font-medium text-gray-900">{schedule.Room}</div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
-                    {formatScheduleEntry({
-                      Room: schedule.Room ?? undefined,
-                      Day: schedule.Day ?? undefined,
-                      Time: schedule.Time ?? undefined,
-                      Lecture: schedule.Lecture ?? undefined,
-                      Laboratory: schedule.Laboratory ?? undefined,
-                      ClassType: schedule.ClassType ?? undefined
-                    })}
+        <div className="bg-gradient-to-r from-slate-50 via-blue-50 to-indigo-50 border-b border-gray-200/60 shadow-sm">
+          <div className="p-6">
+            <div className="flex items-start justify-between">
+              {/* Left Section - Course Info */}
+              <div className="flex-1 pr-6">
+                {/* Title Row */}
+                <div className="mb-3">
+                  <h1 className="text-xl font-bold text-slate-900 mb-1">
+                    {schedule.SubjectCode} - {schedule.SubjectTitle}
+                  </h1>
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="text-slate-600">
+                      {schedule.Course} - Year {schedule.YearLevel} • {schedule.Section}
+                    </span>
                   </div>
                 </div>
-                <span className="flex items-center gap-1">
-                  <GraduationCap className="h-4 w-4" />
-                  {schedule.InstructorName}
-                </span>
+                
+                {/* Schedule Row */}
+                <div className="flex items-center gap-6 text-sm">
+                  <div className="flex items-center gap-2 text-slate-700">
+                    <Clock className="h-4 w-4 text-blue-600" />
+                    <span className="font-semibold text-slate-900">{schedule.Day} {schedule.Time}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-700">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="font-semibold text-slate-900">{schedule.Room} {schedule.ClassType === 'MAJOR' ? 'CISCO' : schedule.ClassType === 'LECTURE+LAB' ? 'LECTURE+LABORATORY' : schedule.ClassType || ''}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-700">
+                    <GraduationCap className="h-4 w-4 text-blue-600" />
+                    <span className="font-semibold text-slate-900">{schedule.InstructorName}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Right Section - Close Button */}
+              <div className="flex-shrink-0">
+                <Button 
+                  variant="outline" 
+                  onClick={onClose} 
+                  className="h-10 px-6 border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-colors"
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Close
+                </Button>
               </div>
             </div>
-            <Button variant="outline" onClick={onClose}>
-              <XCircle className="h-4 w-4 mr-2" />
-              Close
-            </Button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="p-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="attendance" className="flex items-center gap-2">
-                <UserCheck className="h-4 w-4" />
-                Attendance
-              </TabsTrigger>
-              <TabsTrigger value="grading" className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Grades
-              </TabsTrigger>
-              <TabsTrigger value="excuse-letters" className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                Excuse Letters
-                {excuseLetters.filter(letter => letter.Status === 'pending').length > 0 && (
-                  <Badge variant="destructive" className="ml-1">
-                    {excuseLetters.filter(letter => letter.Status === 'pending').length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
+        <div className="flex flex-col flex-1 overflow-hidden bg-gray-50/30">
+          <div className="px-6 pt-6 pb-0 flex-shrink-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3 bg-white border border-gray-200 shadow-sm h-12">
+                <TabsTrigger 
+                  value="attendance" 
+                  className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-blue-200"
+                >
+                  <UserCheck className="h-4 w-4" />
+                  <span>Attendance</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="grading" 
+                  className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-blue-200"
+                >
+                  <TrendingUp className="h-4 w-4" />
+                  <span>Grades</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="excuse-letters" 
+                  className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-blue-200"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Excuse Letters</span>
+                  {excuseLetters.filter(letter => letter.Status === 'pending').length > 0 && (
+                    <Badge variant="destructive" className="ml-1 text-white text-xs px-1.5 py-0.5 min-w-[18px] h-[18px] flex items-center justify-center">
+                      {excuseLetters.filter(letter => letter.Status === 'pending').length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto bg-gray-50/50">
+            <div className="p-6">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
 
             {/* Attendance Tab */}
             <TabsContent value="attendance" className="mt-6">
               <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <UserCheck className="h-5 w-5" />
-                      Attendance Records
-                    </CardTitle>
-                    <CardDescription>
-                      Your attendance history for {schedule.SubjectCode}
-                    </CardDescription>
+                <Card className="border-0 shadow-lg bg-white">
+                  <CardHeader className="pb-4 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <UserCheck className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg font-semibold text-slate-800">
+                            Attendance Records
+                          </CardTitle>
+                          <CardDescription className="text-slate-600 text-sm">
+                            Your attendance history for {schedule.SubjectCode}
+                          </CardDescription>
+                        </div>
+                      </div>
+                      {attendance.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={printAttendance}
+                          className="h-9 w-9 p-0 print-hide border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+                          title="Print Attendance"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-6">
                     {loading ? (
-                      <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                        <p className="text-gray-600">Loading attendance records...</p>
+                      <div className="text-center py-12">
+                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p className="text-slate-600 font-medium">Loading attendance records...</p>
                       </div>
                     ) : attendance.length === 0 ? (
-                      <div className="text-center py-8">
-                        <UserCheck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">No attendance records found</p>
-                        <p className="text-sm text-gray-500 mt-2">
+                      <div className="text-center py-12">
+                        <div className="p-4 bg-gray-100 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                          <UserCheck className="h-10 w-10 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-slate-800 mb-2">No attendance records found</h3>
+                        <p className="text-slate-600">
                           Attendance records will appear here once classes begin
                         </p>
                       </div>
                     ) : (
                       <div className="space-y-4">
                         {attendance.map((record) => (
-                          <div key={record.AttendanceID} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div key={record.AttendanceID} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-white hover:shadow-sm transition-shadow">
                             <div className="flex items-center gap-4">
-                              <div className="text-center">
-                                <p className="text-sm text-gray-500">Week</p>
-                                <p className="font-semibold">{record.Week}</p>
+                              <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
+                                <span className="text-sm font-semibold text-blue-700">
+                                  {record.Week}
+                                </span>
                               </div>
                               <div>
-                                <p className="font-medium">{new Date(record.Date).toLocaleDateString()}</p>
-                                <p className="text-sm text-gray-500">{record.Remarks}</p>
+                                <h4 className="font-semibold text-slate-900">{new Date(record.Date).toLocaleDateString()}</h4>
+                                <p className="text-sm text-slate-600">{record.Remarks}</p>
                               </div>
                             </div>
-                            <Badge className={getStatusColor(record.Status)}>
+                            <Badge className={`${getStatusColor(record.Status)} px-3 py-1 font-semibold`}>
                               {getStatusText(record.Status)}
                             </Badge>
                           </div>
                         ))}
                         
                         {/* Attendance Summary */}
-                        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                          <h4 className="font-semibold mb-3">Attendance Summary</h4>
+                        <div className="mt-6 p-6 bg-gradient-to-r from-slate-50 to-blue-50 rounded-lg border border-gray-200">
+                          <h4 className="font-semibold text-slate-800 mb-4 text-lg">Attendance Summary</h4>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="text-center">
-                              <p className="text-2xl font-bold text-green-600">
+                            <div className="text-center p-4 bg-white rounded-lg border border-gray-200">
+                              <p className="text-3xl font-bold text-green-600">
                                 {attendance.filter(r => r.Status === 'P').length}
                               </p>
-                              <p className="text-sm text-gray-500">Present</p>
+                              <p className="text-sm text-slate-600 font-medium mt-1">Present</p>
                             </div>
-                            <div className="text-center">
-                              <p className="text-2xl font-bold text-red-600">
+                            <div className="text-center p-4 bg-white rounded-lg border border-gray-200">
+                              <p className="text-3xl font-bold text-red-600">
                                 {attendance.filter(r => r.Status === 'A').length}
                               </p>
-                              <p className="text-sm text-gray-500">Absent</p>
+                              <p className="text-sm text-slate-600 font-medium mt-1">Absent</p>
                             </div>
-                            <div className="text-center">
-                              <p className="text-2xl font-bold text-blue-600">
+                            <div className="text-center p-4 bg-white rounded-lg border border-gray-200">
+                              <p className="text-3xl font-bold text-blue-600">
                                 {attendance.filter(r => r.Status === 'E').length}
                               </p>
-                              <p className="text-sm text-gray-500">Excused</p>
+                              <p className="text-sm text-slate-600 font-medium mt-1">Excused</p>
                             </div>
-                            <div className="text-center">
-                              <p className="text-2xl font-bold text-yellow-600">
+                            <div className="text-center p-4 bg-white rounded-lg border border-gray-200">
+                              <p className="text-3xl font-bold text-yellow-600">
                                 {attendance.filter(r => r.Status === 'L').length}
                               </p>
-                              <p className="text-sm text-gray-500">Late</p>
+                              <p className="text-sm text-slate-600 font-medium mt-1">Late</p>
                             </div>
                           </div>
                         </div>
@@ -346,57 +463,106 @@ export default function StudentScheduleHub({ schedule, studentId, onClose }: Stu
             {/* Grades Tab */}
             <TabsContent value="grading" className="mt-6">
               <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5" />
-                      Grade Report
-                    </CardTitle>
-                    <CardDescription>
-                      Your academic performance in {schedule.SubjectCode}
-                    </CardDescription>
+                <Card className="border-0 shadow-lg bg-white">
+                  <CardHeader className="pb-4 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <TrendingUp className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg font-semibold text-slate-800">
+                            Grade Report
+                          </CardTitle>
+                          <CardDescription className="text-slate-600 text-sm">
+                            Your academic performance in {schedule.SubjectCode}
+                          </CardDescription>
+                        </div>
+                      </div>
+                      {grades.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={printGrades}
+                          className="h-9 w-9 p-0 print-hide border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+                          title="Print Grades"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-6">
                     {grades.length === 0 ? (
-                      <div className="text-center py-8">
-                        <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">No grades available yet</p>
-                        <p className="text-sm text-gray-500 mt-2">
+                      <div className="text-center py-12">
+                        <div className="p-4 bg-gray-100 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                          <TrendingUp className="h-10 w-10 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-slate-800 mb-2">No grades available yet</h3>
+                        <p className="text-slate-600">
                           Grades will appear here once they are posted by your instructor
                         </p>
                       </div>
                     ) : (
                       <div className="space-y-6">
                         {grades.map((grade) => (
-                          <div key={grade.ScheduleID} className="border rounded-lg p-6">
+                          <div key={grade.ScheduleID} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-all duration-200 bg-white">
                             <div className="flex items-center justify-between mb-4">
                               <div>
-                                <h4 className="font-semibold text-lg">{grade.SubjectCode} - {grade.SubjectName}</h4>
-                                <p className="text-sm text-gray-500">{grade.ClassType}</p>
+                                <h4 className="font-semibold text-lg text-slate-900">{grade.SubjectCode} - {grade.SubjectName}</h4>
+                                <p className="text-sm text-slate-600">{grade.ClassType}</p>
                               </div>
-                              <Badge variant="outline" className="text-lg px-3 py-1">
-                                {grade.summary || 'N/A'}
+                              <Badge 
+                                variant={grade.summary && grade.summary <= 3.0 ? 'default' : 'destructive'}
+                                className={`text-lg px-3 py-1 font-semibold ${
+                                  grade.summary && grade.summary <= 3.0 ? 'bg-green-500 text-white' : 
+                                  grade.summary ? 'bg-red-500 text-white' : 
+                                  'bg-gray-500 text-white'
+                                }`}
+                              >
+                                {grade.summary ? grade.summary.toFixed(2) : 'N/A'}
                               </Badge>
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                                <p className="text-sm text-gray-500 mb-1">Midterm Grade</p>
-                                <p className={`text-3xl font-bold ${getGradeColor(grade.midterm)}`}>
-                                  {grade.midterm || 'N/A'}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-100">
+                                <p className="text-xs text-slate-600 mb-1 font-medium">Midterm Grade</p>
+                                <p className={`text-2xl font-bold ${getGradeColor(grade.midterm)}`}>
+                                  {grade.midterm ? grade.midterm.toFixed(2) : 'N/A'}
                                 </p>
+                                {grade.midterm && (
+                                  <div className={`text-xs mt-1 px-2 py-0.5 rounded ${
+                                    grade.midterm <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    {grade.midterm <= 3.0 ? 'Passed' : 'Failed'}
+                                  </div>
+                                )}
                               </div>
-                              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                                <p className="text-sm text-gray-500 mb-1">Final Grade</p>
-                                <p className={`text-3xl font-bold ${getGradeColor(grade.final)}`}>
-                                  {grade.final || 'N/A'}
+                              <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-100">
+                                <p className="text-xs text-slate-600 mb-1 font-medium">Final Grade</p>
+                                <p className={`text-2xl font-bold ${getGradeColor(grade.final)}`}>
+                                  {grade.final ? grade.final.toFixed(2) : 'N/A'}
                                 </p>
+                                {grade.final && (
+                                  <div className={`text-xs mt-1 px-2 py-0.5 rounded ${
+                                    grade.final <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    {grade.final <= 3.0 ? 'Passed' : 'Failed'}
+                                  </div>
+                                )}
                               </div>
-                              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                                <p className="text-sm text-gray-500 mb-1">Final Grade</p>
-                                <p className={`text-3xl font-bold ${getGradeColor(grade.summary)}`}>
-                                  {grade.summary || 'N/A'}
+                              <div className="text-center p-4 bg-green-50 rounded-lg border border-green-100">
+                                <p className="text-xs text-slate-600 mb-1 font-medium">Overall Average</p>
+                                <p className={`text-2xl font-bold ${getGradeColor(grade.summary)}`}>
+                                  {grade.summary ? grade.summary.toFixed(2) : 'N/A'}
                                 </p>
+                                {grade.summary && (
+                                  <div className={`text-xs mt-1 px-2 py-0.5 rounded ${
+                                    grade.summary <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    {grade.summary <= 3.0 ? 'Passed' : 'Failed'}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -411,77 +577,85 @@ export default function StudentScheduleHub({ schedule, studentId, onClose }: Stu
             {/* Excuse Letters Tab */}
             <TabsContent value="excuse-letters" className="mt-6">
               <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5" />
-                        Excuse Letters
-                        {excuseLetters.filter(letter => letter.Status === 'pending').length > 0 && (
-                          <Badge variant="destructive">
-                            {excuseLetters.filter(letter => letter.Status === 'pending').length} Pending
-                          </Badge>
-                        )}
+                <Card className="border-0 shadow-lg bg-white">
+                  <CardHeader className="pb-4 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <MessageSquare className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                            Excuse Letters
+                            {excuseLetters.filter(letter => letter.Status === 'pending').length > 0 && (
+                              <Badge variant="destructive" className="ml-2 text-white">
+                                {excuseLetters.filter(letter => letter.Status === 'pending').length} Pending
+                              </Badge>
+                            )}
+                          </CardTitle>
+                          <CardDescription className="text-slate-600 text-sm">
+                            Submit and track excuse letters for {schedule.SubjectCode}
+                          </CardDescription>
+                        </div>
                       </div>
                       <Button
                         size="sm"
                         onClick={() => setShowSubmitExcuseModal(true)}
-                        className="bg-blue-600 hover:bg-blue-700"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 font-medium"
                       >
-                        <FileText className="h-4 w-4 mr-1" />
+                        <FileText className="h-4 w-4 mr-2" />
                         Submit New
                       </Button>
-                    </CardTitle>
-                    <CardDescription>
-                      Submit and track excuse letters for {schedule.SubjectCode}
-                    </CardDescription>
+                    </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-6">
                     {excuseLetters.length === 0 ? (
-                      <div className="text-center py-8">
-                        <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">No excuse letters submitted yet</p>
-                        <p className="text-sm text-gray-500 mt-2 mb-4">
+                      <div className="text-center py-12">
+                        <div className="p-4 bg-gray-100 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                          <MessageSquare className="h-10 w-10 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-slate-800 mb-2">No excuse letters submitted yet</h3>
+                        <p className="text-slate-600 mb-4">
                           Submit an excuse letter if you need to be absent from class
                         </p>
                         <Button
                           onClick={() => setShowSubmitExcuseModal(true)}
-                          className="bg-blue-600 hover:bg-blue-700"
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
                         >
-                          <FileText className="h-4 w-4 mr-1" />
+                          <FileText className="h-4 w-4 mr-2" />
                           Submit Excuse Letter
                         </Button>
                       </div>
                     ) : (
                       <div className="space-y-4">
                         {excuseLetters.map((letter) => (
-                          <div key={letter.ExcuseLetterID} className="border rounded-lg p-4">
+                          <div key={letter.ExcuseLetterID} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 bg-white">
                             <div className="flex items-center justify-between mb-3">
                               <div>
-                                <h4 className="font-medium">{letter.Subject}</h4>
-                                <p className="text-sm text-gray-500">
+                                <h4 className="font-semibold text-slate-900">{letter.Subject}</h4>
+                                <p className="text-sm text-slate-600">
                                   Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}
                                 </p>
                               </div>
-                              <Badge className={getExcuseLetterStatusColor(letter.Status)}>
-                                {letter.Status}
+                              <Badge className={`${getExcuseLetterStatusColor(letter.Status)} px-3 py-1 font-semibold`}>
+                                {letter.Status.charAt(0).toUpperCase() + letter.Status.slice(1)}
                               </Badge>
                             </div>
                             
-                            <div className="text-sm text-gray-600 mb-3">
+                            <div className="text-sm text-slate-700 mb-3 space-y-1">
                               <p><strong>Reason:</strong> {letter.Reason}</p>
                               <p><strong>Date Range:</strong> {new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}</p>
                             </div>
                             
                             <div className="flex items-center justify-between">
                               <div className="flex gap-2">
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs border-gray-300">
                                   Dean: {letter.DeanStatus}
                                 </Badge>
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs border-gray-300">
                                   Coordinator: {letter.CoordinatorStatus}
                                 </Badge>
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs border-gray-300">
                                   Instructor: {letter.InstructorStatus}
                                 </Badge>
                               </div>
@@ -489,6 +663,7 @@ export default function StudentScheduleHub({ schedule, studentId, onClose }: Stu
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleViewExcuseLetter(letter)}
+                                className="border-gray-300 hover:border-gray-400 hover:bg-gray-50"
                               >
                                 <FileText className="h-4 w-4 mr-1" />
                                 View Details
@@ -502,7 +677,9 @@ export default function StudentScheduleHub({ schedule, studentId, onClose }: Stu
                 </Card>
               </div>
             </TabsContent>
-          </Tabs>
+              </Tabs>
+            </div>
+          </div>
         </div>
 
         {/* Modals */}
@@ -532,3 +709,4 @@ export default function StudentScheduleHub({ schedule, studentId, onClose }: Stu
     </div>
   )
 }
+

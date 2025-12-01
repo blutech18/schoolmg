@@ -137,13 +137,13 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Remove CC records for all students for this specific session
+    // Remove the Remarks LIKE condition to ensure all CC records are deleted regardless of remarks format
     const deleteQuery = `
       DELETE FROM attendance 
       WHERE ScheduleID = ? 
         AND Week = ? 
         AND SessionType = ? 
         AND Status = 'CC'
-        AND Remarks LIKE '%Class cancelled%'
     `;
 
     await db.execute(deleteQuery, [scheduleId, week, sessionType]);

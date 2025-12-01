@@ -368,22 +368,18 @@ export default function CoordinatorDashboard() {
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-2 text-sm">
-                            <span>Other Approvals:</span>
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              letter.DeanStatus === 'approved' ? 'bg-green-100 text-green-700' :
-                              letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-700' :
-                              'bg-gray-100 text-gray-700'
-                            }`}>
-                              Dean: {letter.DeanStatus}
-                            </span>
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              letter.InstructorStatus === 'approved' ? 'bg-green-100 text-green-700' :
-                              letter.InstructorStatus === 'declined' ? 'bg-red-100 text-red-700' :
-                              'bg-gray-100 text-gray-700'
-                            }`}>
-                              Instructor: {letter.InstructorStatus}
-                            </span>
+                          {/* Approval Status Section */}
+                          <div className="pt-2 border-t border-gray-200">
+                            <div className="flex flex-wrap items-center gap-3 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-600 font-medium text-xs">Instructor:</span>
+                                {getStatusBadge(letter.InstructorStatus || 'pending')}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-600 font-medium text-xs">Dean:</span>
+                                {getStatusBadge(letter.DeanStatus || 'pending')}
+                              </div>
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-2 pt-2">
@@ -491,6 +487,21 @@ export default function CoordinatorDashboard() {
                       <span>{new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}</span>
                       <span>Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}</span>
                     </div>
+                    
+                    {/* Approval Status Section */}
+                    <div className="pt-2 border-t border-gray-200">
+                      <div className="flex flex-wrap items-center gap-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600 font-medium text-xs">Instructor:</span>
+                          {getStatusBadge(letter.InstructorStatus || 'pending')}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600 font-medium text-xs">Dean:</span>
+                          {getStatusBadge(letter.DeanStatus || 'pending')}
+                        </div>
+                      </div>
+                    </div>
+                    
                     {letter.CoordinatorComment && (
                       <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
                         <strong>Your Comment:</strong> {letter.CoordinatorComment}

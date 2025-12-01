@@ -2,21 +2,35 @@ import { db } from '@/app/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
+  let connection: any = null;
   try {
     const student = await req.json();
 
-    // Get next student UserID (students now start from 100000)
-    const [maxStudentResult]: any = await db.query(
-      'SELECT MAX(UserID) as maxId FROM users WHERE Role = "student"'
-    );
-    const nextStudentId = Math.max((maxStudentResult[0].maxId || 99999) + 1, 100000);
-
-    // Generate prefixed ID manually since the function might not exist
-    const [existingPrefixedResult]: any = await db.query(
-      'SELECT MAX(CAST(SUBSTRING(PrefixedID, 3) AS UNSIGNED)) as maxNum FROM users WHERE PrefixedID LIKE "st%"'
-    );
-    const nextPrefixedNum = (existingPrefixedResult[0].maxNum || 0) + 1;
-    const nextPrefixedId = `st${nextPrefixedNum}`;
+    // Start transaction for atomic operations
+    await db.query('START TRANSACTION');
+    
+    // Generate IDs via DB functions backed by sequences
+    let nextStudentId: number;
+    try {
+      const [idRows]: any = await db.query('SELECT GetNextUserID(?) AS uid', ['student']);
+      nextStudentId = idRows[0].uid;
+    } catch {
+      const [uidRows]: any = await db.query('SELECT GREATEST(100000, NextVal(?)) AS uid', ['user_student']);
+      nextStudentId = uidRows[0].uid;
+    }
+    
+    let nextPrefixedId: string;
+    try {
+      const [pidRows]: any = await db.query('SELECT GetNextPrefixedID(?) AS pid', ['student']);
+      nextPrefixedId = pidRows[0].pid;
+    } catch (error) {
+      await db.query('ROLLBACK');
+      console.error('Failed to generate PrefixedID:', error);
+      return NextResponse.json({ 
+        error: 'Failed to generate student ID',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }, { status: 500 });
+    }
 
     // Insert into users table with prefixed ID for students
     const userQuery = `
@@ -26,35 +40,91 @@ export async function POST(req: NextRequest) {
     const { hashPassword, isHashed } = await import('@/app/lib/passwords')
     const passwordToStore = isHashed(student.Password) ? student.Password : await hashPassword(student.Password)
 
-    await db.query(userQuery, [
-      nextStudentId,
-      nextPrefixedId,
-      student.FirstName,
-      student.LastName,
-      student.MiddleName,
-      student.EmailAddress,
-      passwordToStore,
-      student.Sex,
-      "student",
-      student.Status,
-      student.IsPWD ? 'Yes' : 'No',
-      student.ContactNumber || null
-    ]);
+    try {
+      await db.query(userQuery, [
+        nextStudentId,
+        nextPrefixedId,
+        student.FirstName,
+        student.LastName,
+        student.MiddleName,
+        student.EmailAddress,
+        passwordToStore,
+        student.Sex,
+        "student",
+        student.Status,
+        student.IsPWD ? 'Yes' : 'No',
+        student.ContactNumber || null
+      ]);
+    } catch (error: any) {
+      await db.query('ROLLBACK');
+      if (error.code === 'ER_DUP_ENTRY') {
+        if (error.message.includes('uq_users_prefixed')) {
+          return NextResponse.json({ 
+            error: 'Duplicate PrefixedID detected. Please try again.',
+            details: 'A student with this ID already exists'
+          }, { status: 409 });
+        }
+        if (error.message.includes('EmailAddress')) {
+          return NextResponse.json({ 
+            error: 'Email already exists',
+            details: 'This email address is already in use'
+          }, { status: 409 });
+        }
+      }
+      console.error('Failed to insert user:', error);
+      return NextResponse.json({ 
+        error: 'Failed to create student',
+        details: error.message || 'Unknown error'
+      }, { status: 500 });
+    }
 
     const userId = nextStudentId;
 
-    // Generate student number automatically
+    // Generate student number using sequence per year to avoid races
+    // Ensure uniqueness by checking if the number already exists and retrying if needed
     const currentYear = new Date().getFullYear();
-
-    // Get the count of students for this year to generate sequential number
-    const countQuery = `
-      SELECT COUNT(*) as count
-      FROM students
-      WHERE StudentNumber LIKE ?
-    `;
-    const [countResult]: any = await db.query(countQuery, [`${currentYear}-%`]);
-    const studentCount = countResult[0].count + 1;
-    const studentNumber = `${currentYear}-${studentCount.toString().padStart(4, '0')}`;
+    let studentNumber: string;
+    let attempts = 0;
+    const maxAttempts = 10; // Prevent infinite loops
+    
+    try {
+      do {
+        const [numRows]: any = await db.query('SELECT GetNextStudentNumber(?) AS snum', [currentYear]);
+        studentNumber = numRows[0].snum;
+        
+        // Check if this student number already exists
+        const [existingCheck]: any = await db.query(
+          'SELECT COUNT(*) as count FROM students WHERE StudentNumber = ?',
+          [studentNumber]
+        );
+        
+        if (existingCheck[0].count === 0) {
+          // Student number is unique, break out of loop
+          break;
+        }
+        
+        // If duplicate found, increment attempts and try again
+        attempts++;
+        if (attempts >= maxAttempts) {
+          await db.query('ROLLBACK');
+          console.error('Failed to generate unique StudentNumber after multiple attempts');
+          return NextResponse.json({ 
+            error: 'Failed to generate unique student number',
+            details: 'Unable to generate a unique student number after multiple attempts. Please try again.'
+          }, { status: 500 });
+        }
+        
+        // Log the retry attempt
+        console.warn(`Student number ${studentNumber} already exists, retrying... (attempt ${attempts})`);
+      } while (attempts < maxAttempts);
+    } catch (error) {
+      await db.query('ROLLBACK');
+      console.error('Failed to generate StudentNumber:', error);
+      return NextResponse.json({ 
+        error: 'Failed to generate student number',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }, { status: 500 });
+    }
 
     // Insert into students table with additional fields including prefixed ID
     const studentQuery = `
@@ -64,19 +134,46 @@ export async function POST(req: NextRequest) {
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    await db.query(studentQuery, [
-      userId,
-      nextPrefixedId,
-      studentNumber,
-      student.Course,
-      student.YearLevel,
-      student.Section,
-      student.DateOfEnrollment,
-      student.ContactNumber || null,
-      student.GuardianName || null,
-      student.GuardianContact || null,
-      student.Address || null
-    ]);
+    
+    try {
+      await db.query(studentQuery, [
+        userId,
+        nextPrefixedId,
+        studentNumber,
+        student.Course,
+        student.YearLevel,
+        student.Section,
+        student.DateOfEnrollment,
+        student.ContactNumber || null,
+        student.GuardianName || null,
+        student.GuardianContact || null,
+        student.Address || null
+      ]);
+    } catch (error: any) {
+      await db.query('ROLLBACK');
+      if (error.code === 'ER_DUP_ENTRY') {
+        if (error.message.includes('uq_students_prefixed')) {
+          return NextResponse.json({ 
+            error: 'Duplicate PrefixedStudentID detected. Please try again.',
+            details: 'A student with this ID already exists'
+          }, { status: 409 });
+        }
+        if (error.message.includes('uq_students_studentnumber')) {
+          return NextResponse.json({ 
+            error: 'Duplicate StudentNumber detected. Please try again.',
+            details: 'A student with this number already exists'
+          }, { status: 409 });
+        }
+      }
+      console.error('Failed to insert student:', error);
+      return NextResponse.json({ 
+        error: 'Failed to create student',
+        details: error.message || 'Unknown error'
+      }, { status: 500 });
+    }
+
+    // Commit transaction
+    await db.query('COMMIT');
 
     return NextResponse.json({
       message: "Student created successfully",
@@ -84,9 +181,13 @@ export async function POST(req: NextRequest) {
       PrefixedID: nextPrefixedId,
       StudentNumber: studentNumber
     });
-  } catch (err) {
+  } catch (err: any) {
+    await db.query('ROLLBACK').catch(() => {});
     console.error('POST student error:', err);
-    return NextResponse.json({ error: 'Failed to create student' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to create student',
+      details: err.message || 'Unknown error'
+    }, { status: 500 });
   }
 }
 

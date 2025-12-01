@@ -91,6 +91,46 @@ export async function GET(request: NextRequest) {
         maxItemsPerProject: row.ComponentName.toLowerCase() === 'project' ? parseFloat(row.TotalScore) : undefined,
       }));
 
+      // Ensure all required components are present for LECTURE
+      if (classType === 'LECTURE') {
+        const componentNames = components.map((c: GradingComponent) => c.name.toLowerCase());
+        
+        // Create ordered components array: Quiz → Exam
+        const orderedComponents: GradingComponent[] = [];
+        
+        // Add Quiz component (first)
+        if (componentNames.includes('quiz')) {
+          const quizComponent = components.find((c: GradingComponent) => c.name.toLowerCase() === 'quiz');
+          orderedComponents.push(quizComponent!);
+        } else {
+          orderedComponents.push({
+            name: 'Quiz',
+            weight: 60,
+            items: 15,
+            maxScore: 20,
+            maxItemsPerQuiz: 20
+          });
+        }
+        
+        // Add Exam component (second)
+        if (componentNames.includes('exam')) {
+          const examComponent = components.find((c: GradingComponent) => c.name.toLowerCase() === 'exam');
+          orderedComponents.push(examComponent!);
+        } else {
+          orderedComponents.push({
+            name: 'Exam',
+            weight: 40,
+            items: 1,
+            maxScore: 60,
+            maxItemsPerExam: 60
+          });
+        }
+        
+        // Replace components with ordered array
+        components.length = 0;
+        components.push(...orderedComponents);
+      }
+      
       // Ensure all required components are present for LECTURE+LAB
       if (classType === 'LECTURE+LAB') {
         const componentNames = components.map((c: GradingComponent) => c.name.toLowerCase());

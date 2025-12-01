@@ -19,26 +19,48 @@ function getDbConfig() {
     try {
       // Parse mysql://user:password@host:port/database
       const url = new URL(process.env.DATABASE_URL);
-      return {
+      const config: any = {
         host: url.hostname,
         port: url.port ? Number(url.port) : 3306,
         user: url.username,
-        password: url.password,
         database: url.pathname.slice(1), // Remove leading slash
       };
+      
+      // Only include password if it's actually set (not empty)
+      if (url.password && url.password.trim() !== '') {
+        config.password = url.password;
+      }
+      
+      return config;
     } catch (error) {
       console.error('Error parsing DATABASE_URL:', error);
     }
   }
 
   // Fallback to individual environment variables
-  return {
+  const config: any = {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
     user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'schoolmgtdb',
   };
+  
+  // Only include password if it's actually set (not empty, not undefined, not null)
+  const password = process.env.DB_PASSWORD;
+  if (password !== undefined && password !== null && String(password).trim() !== '') {
+    config.password = password;
+  }
+  
+  // Debug logging (remove in production if needed)
+  console.log('DB Config:', {
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    database: config.database,
+    hasPassword: !!config.password,
+  });
+  
+  return config;
 }
 
 const dbConfig = getDbConfig();
