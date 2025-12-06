@@ -36,8 +36,8 @@ export default function LoginForm() {
     }
 
     // Validate password length
-    if (!password || password.length < 5 || password.length > 32) {
-      alert('Password must be between 5 and 32 characters long');
+    if (!password || password.length < 8 || password.length > 32) {
+      alert('Password must be between 8 and 32 characters long');
       setIsLoading(false);
       return;
     }
@@ -133,17 +133,17 @@ export default function LoginForm() {
           const passwordValue = e.target.value;
           if (!passwordValue) return;
 
-          if (passwordValue.length < 5 || passwordValue.length > 32) {
-            alert('Password must be between 5 and 32 characters long');
+          if (passwordValue.length < 8 || passwordValue.length > 32) {
+            alert('Password must be between 8 and 32 characters long');
           }
         }}
-        minLength={5}
+        minLength={8}
         maxLength={32}
         placeholder="Password"
       />
-      {password && (password.length < 5 || password.length > 32) && (
+      {password && (password.length < 8 || password.length > 32) && (
         <p className="text-xs text-red-600 mt-1">
-          Password must be between 5 and 32 characters (currently {password.length})
+          Password must be between 8 and 32 characters (currently {password.length})
         </p>
       )}
 

@@ -20,9 +20,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (passwordStr.length < 5 || passwordStr.length > 32) {
+    if (passwordStr.length < 8 || passwordStr.length > 32) {
       return NextResponse.json(
-        { success: false, error: 'Password must be between 5 and 32 characters long' },
+        { success: false, error: 'Password must be between 8 and 32 characters long' },
         { status: 400 }
       )
     }

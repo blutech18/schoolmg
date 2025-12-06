@@ -113,18 +113,10 @@ A comprehensive web-based school management system built with Next.js, TypeScrip
 
 4. **Set up the database**
    - Create a MySQL database
-   - Import the database schema:
-     ```bash
-     npm run upload-db
-     ```
-     Or manually import `schoolmgtdb.sql` into your MySQL database
+   - Set up your database schema and tables according to your requirements
+   - Ensure your database connection is properly configured in the `.env` file
 
-5. **Test database connection**
-   ```bash
-   npm run test-db
-   ```
-
-6. **Run the development server**
+5. **Run the development server**
    ```bash
    npm run dev
    ```
@@ -157,12 +149,9 @@ A comprehensive web-based school management system built with Next.js, TypeScrip
    - Add a MySQL service
    - Note the connection details
 
-2. **Upload the database schema**
-   - Use the provided `upload-database.js` script:
-     ```bash
-     npm run upload-db
-     ```
-   - Or use Railway's MySQL service to import `schoolmgtdb.sql`
+2. **Set up the database schema**
+   - Create your database schema and tables according to your requirements
+   - Use Railway's MySQL service or any MySQL client to set up your database
 
 3. **Configure the connection**
    - Update `DATABASE_URL` in your Vercel environment variables with Railway's connection string
@@ -173,8 +162,6 @@ A comprehensive web-based school management system built with Next.js, TypeScrip
 - `npm run build` - Build the application for production
 - `npm run start` - Start the production server
 - `npm run lint` - Run ESLint
-- `npm run upload-db` - Upload database schema to MySQL
-- `npm run test-db` - Test database connection
 
 ## 📁 Project Structure
 
@@ -193,16 +180,16 @@ schoolmgtsystem-main/
 ├── helpers/                # Helper functions
 ├── hooks/                  # Custom React hooks
 ├── lib/                    # Library utilities
-├── public/                 # Static assets
-├── schoolmgtdb.sql         # Database schema
-└── upload-database.js      # Database upload script
+└── public/                 # Static assets
 ```
 
-## 🔐 Default Credentials
+## 🔐 Authentication
 
-After importing the database, you can use the default admin credentials to log in. Please change these credentials immediately after first login.
+The system uses email-based authentication with role-based access control. Users must log in with an email ending in `@cca.edu.ph`. Password requirements:
+- Minimum 8 characters
+- Maximum 32 characters
 
-**Note**: Default credentials are stored in the database. Check the `users` table in your database for initial login credentials.
+**Note**: User credentials are stored in the database. Ensure proper password security practices are followed.
 
 ## 📊 Database Schema
 
