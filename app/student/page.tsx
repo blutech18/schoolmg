@@ -472,30 +472,8 @@ export default function StudentDashboard() {
       console.log("Attendance response:", data);
 
       if (data.success) {
-        // Filter out regular attendance records if a cancelled class record exists
-        let filteredData = data.data || [];
-        
-        // Group records by ScheduleID, Week, SessionType
-        const sessionGroups: {[key: string]: any[]} = {};
-        filteredData.forEach((record: any) => {
-          const key = `${record.ScheduleID}-${record.Week}-${record.SessionType}`;
-          if (!sessionGroups[key]) {
-            sessionGroups[key] = [];
-          }
-          sessionGroups[key].push(record);
-        });
-        
-        // Filter each group: if CC exists, only show CC; otherwise show all
-        filteredData = [];
-        Object.values(sessionGroups).forEach(group => {
-          const hasCancelled = group.some((r: any) => r.Status === 'CC');
-          if (hasCancelled) {
-            filteredData.push(...group.filter((r: any) => r.Status === 'CC'));
-          } else {
-            filteredData.push(...group);
-          }
-        });
-        
+        // Do not collapse non-CC records when CC exists; show what API returns
+        const filteredData = data.data || [];
         if (scheduleId) {
           setScheduleAttendance(filteredData);
         } else {

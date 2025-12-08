@@ -95,6 +95,8 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
   // State management
   const [attendance, setAttendance] = useState<AttendanceData[]>([])
   const [grades, setGrades] = useState<GradeData[]>([])
+  const [detailedGrades, setDetailedGrades] = useState<any[]>([])
+  const [gradeSummary, setGradeSummary] = useState<GradeData | null>(null)
   const [excuseLetters, setExcuseLetters] = useState<ExcuseLetter[]>([])
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('attendance')
@@ -155,7 +157,11 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
       if (res.ok) {
         const result = await res.json()
         const attendanceData = result.success ? result.data : result
-        setAttendance(Array.isArray(attendanceData) ? attendanceData : [])
+        const filtered = Array.isArray(attendanceData) ? attendanceData.filter((rec: any) => {
+          const status = (rec.Status || '').toLowerCase()
+          return status !== 'loa' && status !== 'drop' && status !== 'uw'
+        }) : []
+        setAttendance(filtered)
       }
     } catch (error) {
       console.error('Error fetching attendance:', error)
@@ -167,11 +173,46 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
 
   const fetchGrades = async () => {
     try {
-      const res = await fetch(`/api/grades?studentId=${studentId}&scheduleId=${schedule.ScheduleID}`)
-      if (res.ok) {
-        const result = await res.json()
-        const gradesData = result.success ? result.data : result
-        setGrades(Array.isArray(gradesData) ? gradesData : [])
+      const res = await fetch(`/api/grades?role=student&userId=${studentId}&scheduleId=${schedule.ScheduleID}`)
+      if (!res.ok) return
+
+      const result = await res.json()
+      const rawData = result.success ? result.data : []
+      const summaryMap = result.summary || {}
+      const scheduleKey = schedule.ScheduleID?.toString()
+
+      const filteredRaw = Array.isArray(rawData) ? rawData.filter((row: any) => {
+        const status = (row.Status || '').toLowerCase()
+        return status !== 'loa' && status !== 'drop' && status !== 'uw'
+      }) : []
+
+      setDetailedGrades(filteredRaw)
+
+      if (scheduleKey && summaryMap[scheduleKey]) {
+        const summary = summaryMap[scheduleKey]
+        setGradeSummary({
+          ScheduleID: schedule.ScheduleID,
+          SubjectCode: summary.SubjectCode || schedule.SubjectCode,
+          SubjectName: summary.SubjectName || schedule.SubjectTitle,
+          ClassType: summary.ClassType || schedule.ClassType || 'LECTURE',
+          midterm: summary.midterm ?? null,
+          final: summary.final ?? null,
+          summary: summary.summary ?? null,
+        })
+        setGrades([
+          {
+            ScheduleID: schedule.ScheduleID,
+            SubjectCode: summary.SubjectCode || schedule.SubjectCode,
+            SubjectName: summary.SubjectName || schedule.SubjectTitle,
+            ClassType: summary.ClassType || schedule.ClassType || 'LECTURE',
+            midterm: summary.midterm ?? null,
+            final: summary.final ?? null,
+            summary: summary.summary ?? null,
+          },
+        ])
+      } else {
+        setGradeSummary(null)
+        setGrades([])
       }
     } catch (error) {
       console.error('Error fetching grades:', error)
@@ -213,6 +254,25 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
     }
   }
 
+  // Build session maps for quick lookup: { weekNumber: status }
+  const buildSessionMap = (sessionType: 'lecture' | 'lab') => {
+    const map: Record<number, string> = {}
+    attendance
+      .filter((rec) => (rec as any).SessionType ? (rec as any).SessionType === sessionType : true) // backward compat if SessionType missing
+      .forEach((rec) => {
+        map[rec.Week] = rec.Status
+      })
+    return map
+  }
+
+  const lectureMap = buildSessionMap('lecture')
+  const labMap = buildSessionMap('lab')
+
+  const maxWeek = Math.max(
+    18,
+    ...attendance.map((r) => r.Week || 0)
+  )
+
   const getGradeColor = (grade: number | null) => {
     if (grade === null) return 'text-gray-500'
     if (grade >= 90) return 'text-green-600'
@@ -246,17 +306,16 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
   }
 
   const printGrades = () => {
-    if (grades.length === 0) {
+    if (!gradeSummary) {
       brandedToast.error('No grades available to print')
       return
     }
     
-    const gradeData = grades[0] // Get the first grade (should only be one per schedule)
     const printContent = generateStudentGradePrintContent(
       schedule,
       studentInfo.name,
       studentInfo.number,
-      gradeData
+      gradeSummary
     )
     printDocument(printContent, `${schedule.SubjectCode} - Grade Report`)
   }
@@ -423,6 +482,63 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                           </div>
                         ))}
                         
+                        {/* Full attendance sheet (read-only) */}
+                        <div className="mt-6 p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+                          <h4 className="font-semibold text-slate-800 mb-3 text-lg flex items-center gap-2">
+                            <Clock className="h-5 w-5 text-blue-600" />
+                            Attendance Sheet (Read-only)
+                          </h4>
+                          <p className="text-sm text-slate-600 mb-4">
+                            Status per week for Lecture and Laboratory sessions.
+                          </p>
+
+                          {(() => {
+                            const renderRow = (label: string, map: Record<number, string>) => (
+                              <div className="mb-3">
+                                <div className="text-sm font-semibold text-slate-700 mb-2">{label}</div>
+                                <div className="grid grid-cols-9 gap-2 md:grid-cols-12">
+                                  {Array.from({ length: maxWeek }, (_, idx) => {
+                                    const weekNum = idx + 1
+                                    const status = map[weekNum] || '—'
+                                    const colorClass = getStatusColor(status as any)
+                                    return (
+                                      <div
+                                        key={`${label}-${weekNum}`}
+                                        className={`rounded-lg border text-center py-2 text-xs font-semibold ${status === '—' ? 'bg-gray-50 text-gray-400 border-gray-200' : `${colorClass} border-transparent`} `}
+                                      >
+                                        <div className="text-[10px] uppercase tracking-wide text-gray-500">W{weekNum}</div>
+                                        <div className="text-sm">
+                                          {status === '—' ? '—' : getStatusText(status)}
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )
+
+                            const hasLecture = schedule.Lecture ? schedule.Lecture > 0 || schedule.ClassType?.includes('LECTURE') : true
+                            const hasLab = schedule.Laboratory ? schedule.Laboratory > 0 || schedule.ClassType?.includes('LAB') : false
+
+                            return (
+                              <div className="space-y-4">
+                                {hasLecture && renderRow('Lecture Sessions', lectureMap)}
+                                {hasLab && renderRow('Laboratory Sessions', labMap)}
+                              </div>
+                            )
+                          })()}
+
+                          {/* Legend */}
+                          <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-700">
+                            {['P','A','E','L','CC'].map((s) => (
+                              <div key={s} className="flex items-center gap-2">
+                                <span className={`px-2 py-1 rounded ${getStatusColor(s as any)} font-semibold`}>{s}</span>
+                                <span>{getStatusText(s)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
                         {/* Attendance Summary */}
                         <div className="mt-6 p-6 bg-gradient-to-r from-slate-50 to-blue-50 rounded-lg border border-gray-200">
                           <h4 className="font-semibold text-slate-800 mb-4 text-lg">Attendance Summary</h4>
@@ -505,7 +621,7 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                       </div>
                     ) : (
                       <div className="space-y-6">
-                        {grades.map((grade) => (
+                        {(gradeSummary ? [gradeSummary] : grades).map((grade) => (
                           <div key={grade.ScheduleID} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-all duration-200 bg-white">
                             <div className="flex items-center justify-between mb-4">
                               <div>
@@ -564,6 +680,70 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                                   </div>
                                 )}
                               </div>
+                            </div>
+
+                            {/* Detailed component scores */}
+                            <div className="mt-6">
+                              <h5 className="font-semibold text-slate-900 mb-3 text-sm">Per-component scores</h5>
+                              {['midterm', 'final'].map((term) => {
+                                const termGrades = detailedGrades.filter(
+                                  (g) => (g.Term || '').toLowerCase() === term.toLowerCase()
+                                )
+
+                                if (termGrades.length === 0) {
+                                  return (
+                                    <div key={term} className="text-sm text-slate-500 mb-4">
+                                      {term === 'midterm' ? 'Midterm' : 'Final'} grades not yet available.
+                                    </div>
+                                  )
+                                }
+
+                                // Group by component then sort by item
+                                const grouped: Record<string, any[]> = {}
+                                termGrades.forEach((g) => {
+                                  const comp = g.Component || 'Component'
+                                  if (!grouped[comp]) grouped[comp] = []
+                                  grouped[comp].push(g)
+                                })
+
+                                Object.keys(grouped).forEach((key) => {
+                                  grouped[key].sort((a, b) => (a.ItemNumber || 0) - (b.ItemNumber || 0))
+                                })
+
+                                return (
+                                  <div key={term} className="mb-4">
+                                    <div className="text-sm font-semibold text-slate-800 mb-2 capitalize">{term} breakdown</div>
+                                    <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                                      <table className="w-full text-sm">
+                                        <thead className="bg-gray-50">
+                                          <tr>
+                                            <th className="px-3 py-2 text-left font-semibold text-slate-700 border-b">Component</th>
+                                            <th className="px-3 py-2 text-left font-semibold text-slate-700 border-b">Item</th>
+                                            <th className="px-3 py-2 text-center font-semibold text-slate-700 border-b">Score</th>
+                                            <th className="px-3 py-2 text-center font-semibold text-slate-700 border-b">Max</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {Object.keys(grouped).map((comp) =>
+                                            grouped[comp].map((row, idx) => (
+                                              <tr key={`${comp}-${row.ItemNumber}-${term}-${idx}`} className="odd:bg-white even:bg-gray-50">
+                                                <td className="px-3 py-2 border-b text-slate-800">{comp}</td>
+                                                <td className="px-3 py-2 border-b text-slate-700"># {row.ItemNumber || 1}</td>
+                                                <td className="px-3 py-2 border-b text-center font-semibold text-slate-900">
+                                                  {row.Score !== null && row.Score !== undefined ? Math.round(row.Score) : '—'}
+                                                </td>
+                                                <td className="px-3 py-2 border-b text-center text-slate-700">
+                                                  {row.MaxScore !== null && row.MaxScore !== undefined ? row.MaxScore : '—'}
+                                                </td>
+                                              </tr>
+                                            ))
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                )
+                              })}
                             </div>
                           </div>
                         ))}

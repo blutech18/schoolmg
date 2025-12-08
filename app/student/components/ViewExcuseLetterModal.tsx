@@ -5,7 +5,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Calendar, Clock, FileText, User, BookOpen, Download, Eye } from "lucide-react";
+import { Calendar, Clock, FileText, User, BookOpen, Download, Eye, Pencil } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { brandedToast } from "@/components/ui/branded-toast";
 
 interface ExcuseLetter {
   ExcuseLetterID: number;
@@ -60,12 +63,29 @@ export default function ViewExcuseLetterModal({
   excuseLetter,
   userRole = 'student'
 }: ViewExcuseLetterModalProps) {
+  const formatDateInput = (value: string | Date) => {
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return '';
+    return date.toISOString().split('T')[0];
+  };
+
   const [files, setFiles] = useState<ExcuseLetterFile[]>([]);
   const [excuseLetterSubjects, setExcuseLetterSubjects] = useState<ExcuseLetterSubject[]>([]);
   const [loading, setLoading] = useState(false);
+  const [letterData, setLetterData] = useState<ExcuseLetter | null>(excuseLetter);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formReason, setFormReason] = useState(excuseLetter?.Reason || "");
+  const [formDateFrom, setFormDateFrom] = useState(excuseLetter ? formatDateInput(excuseLetter.DateFrom) : "");
+  const [formDateTo, setFormDateTo] = useState(excuseLetter ? formatDateInput(excuseLetter.DateTo) : "");
 
   useEffect(() => {
     if (isOpen && excuseLetter) {
+      setLetterData(excuseLetter);
+      setFormReason(excuseLetter.Reason || "");
+      setFormDateFrom(formatDateInput(excuseLetter.DateFrom));
+      setFormDateTo(formatDateInput(excuseLetter.DateTo));
+      setEditMode(false);
       fetchFiles();
       if (excuseLetter.IsMultiSubject) {
         fetchSubjects();
@@ -183,7 +203,77 @@ export default function ViewExcuseLetterModal({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  if (!excuseLetter) return null;
+  const isWithin24Hours = () => {
+    if (!letterData) return false;
+    const submitted = new Date(letterData.SubmissionDate);
+    const now = new Date();
+    return now.getTime() - submitted.getTime() <= 24 * 60 * 60 * 1000;
+  };
+
+  const canEdit = () => {
+    if (userRole !== 'student') return false;
+    if (!letterData) return false;
+    if (letterData.Status !== 'pending') return false;
+    return isWithin24Hours();
+  };
+
+  const handleSaveEdits = async () => {
+    if (!letterData) return;
+    setSaving(true);
+    try {
+      const sessionCookie = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('userSession='));
+
+      if (!sessionCookie) {
+        brandedToast.error('Session not found. Please log in again.');
+        return;
+      }
+
+      let session;
+      try {
+        session = JSON.parse(decodeURIComponent(sessionCookie.split('=')[1]));
+      } catch {
+        brandedToast.error('Invalid session data. Please log in again.');
+        return;
+      }
+
+      const res = await fetch(`/api/excuse-letters/${letterData.ExcuseLetterID}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          userRole: 'student',
+          studentId: session.userId,
+          reason: formReason,
+          dateFrom: formDateFrom,
+          dateTo: formDateTo
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        brandedToast.error(data.error || 'Failed to save changes');
+        return;
+      }
+
+      setLetterData(prev => prev ? ({
+        ...prev,
+        Reason: formReason,
+        DateFrom: formDateFrom,
+        DateTo: formDateTo
+      }) : prev);
+      setEditMode(false);
+      brandedToast.success('Excuse letter updated');
+    } catch (error) {
+      console.error('Error saving edits:', error);
+      brandedToast.error('Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!letterData) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -191,10 +281,10 @@ export default function ViewExcuseLetterModal({
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Excuse Letter Details</span>
-            {getStatusBadge(excuseLetter.Status)}
+            {getStatusBadge(letterData.Status)}
           </DialogTitle>
           <DialogDescription>
-            Submitted on {new Date(excuseLetter.SubmissionDate).toLocaleDateString()}
+            Submitted on {new Date(letterData.SubmissionDate).toLocaleDateString()}
           </DialogDescription>
         </DialogHeader>
 
@@ -210,28 +300,62 @@ export default function ViewExcuseLetterModal({
             <CardContent className="space-y-3">
               <div>
                 <label className="text-xs font-medium text-gray-600">Subject/Title:</label>
-                <p className="text-sm mt-1">{excuseLetter.Subject}</p>
+                {editMode ? (
+                  <Input
+                    value={letterData.Subject || ''}
+                    disabled={letterData.IsMultiSubject}
+                    onChange={(e) => setLetterData(prev => prev ? ({ ...prev, Subject: e.target.value }) : prev)}
+                    placeholder="Subject/Title"
+                  />
+                ) : (
+                  <p className="text-sm mt-1">{letterData.Subject}</p>
+                )}
               </div>
               
               <div>
                 <label className="text-xs font-medium text-gray-600">Reason:</label>
-                <p className="text-sm mt-1 whitespace-pre-wrap">{excuseLetter.Reason}</p>
+                {editMode ? (
+                  <Textarea
+                    value={formReason}
+                    onChange={(e) => setFormReason(e.target.value)}
+                    className="mt-1"
+                    placeholder="Enter reason"
+                  />
+                ) : (
+                  <p className="text-sm mt-1 whitespace-pre-wrap">{letterData.Reason}</p>
+                )}
               </div>
               
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-gray-600">Date From:</label>
-                  <p className="text-sm mt-1 flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {new Date(excuseLetter.DateFrom).toLocaleDateString()}
-                  </p>
+                  {editMode ? (
+                    <Input
+                      type="date"
+                      value={formDateFrom}
+                      onChange={(e) => setFormDateFrom(e.target.value)}
+                    />
+                  ) : (
+                    <p className="text-sm mt-1 flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {new Date(letterData.DateFrom).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600">Date To:</label>
-                  <p className="text-sm mt-1 flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {new Date(excuseLetter.DateTo).toLocaleDateString()}
-                  </p>
+                  {editMode ? (
+                    <Input
+                      type="date"
+                      value={formDateTo}
+                      onChange={(e) => setFormDateTo(e.target.value)}
+                    />
+                  ) : (
+                    <p className="text-sm mt-1 flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {new Date(letterData.DateTo).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -242,11 +366,11 @@ export default function ViewExcuseLetterModal({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5" />
-                {excuseLetter.IsMultiSubject ? `Subject Information (${excuseLetter.SubjectCount || 0} subjects)` : 'Subject Information'}
+                {letterData?.IsMultiSubject ? `Subject Information (${letterData.SubjectCount || 0} subjects)` : 'Subject Information'}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {excuseLetter.IsMultiSubject ? (
+              {letterData?.IsMultiSubject ? (
                 // Multi-subject display
                 <div className="space-y-2">
                   {excuseLetterSubjects.length > 0 ? (
@@ -270,7 +394,7 @@ export default function ViewExcuseLetterModal({
                   ) : (
                     <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                       <p className="text-sm text-yellow-800">
-                        Loading subject details... ({excuseLetter.SubjectCount || 0} subjects)
+                        Loading subject details... ({letterData?.SubjectCount || 0} subjects)
                       </p>
                       <p className="text-xs text-yellow-600 mt-1">
                         If this message persists, the subject details may not be available.
@@ -284,18 +408,18 @@ export default function ViewExcuseLetterModal({
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-gray-600">Subject Code:</label>
-                      <p className="text-sm mt-1">{excuseLetter.SubjectCode || 'N/A'}</p>
+                        <p className="text-sm mt-1">{letterData.SubjectCode || 'N/A'}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Subject Name:</label>
-                      <p className="text-sm mt-1">{excuseLetter.SubjectTitle || 'N/A'}</p>
+                        <p className="text-sm mt-1">{letterData.SubjectTitle || 'N/A'}</p>
                     </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Instructor:</label>
                     <p className="text-sm mt-1 flex items-center gap-1">
                       <User className="h-4 w-4" />
-                      {excuseLetter.InstructorName}
+                        {letterData.InstructorName}
                     </p>
                   </div>
                 </div>
@@ -315,15 +439,15 @@ export default function ViewExcuseLetterModal({
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-center">
                   <p className="text-xs font-medium text-gray-600 mb-1">Dean</p>
-                  {getApprovalStatusBadge(excuseLetter.DeanStatus)}
+                  {getApprovalStatusBadge(letterData.DeanStatus)}
                 </div>
                 <div className="text-center">
                   <p className="text-xs font-medium text-gray-600 mb-1">Program Coordinator</p>
-                  {getApprovalStatusBadge(excuseLetter.CoordinatorStatus)}
+                  {getApprovalStatusBadge(letterData.CoordinatorStatus)}
                 </div>
                 <div className="text-center">
                   <p className="text-xs font-medium text-gray-600 mb-1">Subject Instructor</p>
-                  {getApprovalStatusBadge(excuseLetter.InstructorStatus)}
+                  {getApprovalStatusBadge(letterData.InstructorStatus)}
                 </div>
               </div>
             </CardContent>
@@ -377,10 +501,35 @@ export default function ViewExcuseLetterModal({
 
         </div>
 
-        <div className="flex justify-end pt-4">
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
+        <div className="flex justify-between pt-4">
+          <div className="text-xs text-gray-500 flex items-center gap-2">
+            {canEdit() ? (
+              <span>You can edit within 24 hours of submission while pending.</span>
+            ) : (
+              <span>Edit window closed or already processed.</span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {canEdit() && !editMode && (
+              <Button variant="outline" onClick={() => setEditMode(true)} className="flex items-center gap-1">
+                <Pencil className="h-4 w-4" />
+                Edit
+              </Button>
+            )}
+            {editMode && (
+              <>
+                <Button variant="outline" onClick={() => { setEditMode(false); setFormReason(letterData.Reason || ''); setFormDateFrom(formatDateInput(letterData.DateFrom)); setFormDateTo(formatDateInput(letterData.DateTo)); }}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEdits} disabled={saving}>
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </>
+            )}
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

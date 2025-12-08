@@ -47,7 +47,9 @@ export default function DeanExcuseLettersPage() {
 
   const fetchExcuseLetters = async () => {
     try {
-      const response = await fetch("/api/excuse-letters?role=dean");
+      const response = await fetch("/api/excuse-letters?role=dean", {
+        credentials: 'include'
+      });
       const data = await response.json();
       if (data.success) setExcuseLetters(data.data);
     } catch (error) {
@@ -62,6 +64,7 @@ export default function DeanExcuseLettersPage() {
       const response = await fetch("/api/excuse-letters", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ excuseLetterID, userRole: "dean", status: action, comment: comment || null }),
       });
       const data = await response.json();
@@ -83,6 +86,7 @@ export default function DeanExcuseLettersPage() {
       const response = await fetch("/api/excuse-letters", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ 
           excuseLetterID: approvalExcuseLetter.ExcuseLetterID, 
           userRole: "dean", 

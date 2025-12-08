@@ -18,7 +18,8 @@ import {
   BookOpen,
   FlaskConical,
   Calendar,
-  Clock
+  Clock,
+  RotateCcw
 } from "lucide-react"
 import { brandedToast } from "@/components/ui/branded-toast"
 import { printDocument, generateAttendancePrintContent } from "../../lib/printUtils"
@@ -104,20 +105,11 @@ export default function AttendanceSheet({
 
   // Check if current session is cancelled
   const isCurrentSessionCancelled = () => {
-    // Check if any student has CC status for current session
     const currentAttendanceData = currentSessionType === 'lecture' ? lectureAttendance : labAttendance
-    const isCancelled = Object.values(currentAttendanceData).some(studentSessions => 
-      studentSessions[currentSessionNumber] === 'CC'
-    )
-    
-    console.log('Checking if session is cancelled:', {
-      currentSessionType,
-      currentSessionNumber,
-      currentAttendanceData,
-      isCancelled
-    })
-    
-    return isCancelled
+    // A session is cancelled only if ALL records for this session are CC
+    const sessionValues = Object.values(currentAttendanceData).map(s => s[currentSessionNumber]).filter(Boolean)
+    if (sessionValues.length === 0) return false
+    return sessionValues.every(status => status === 'CC')
   }
 
   // Determine available session types based on schedule class type
@@ -244,6 +236,54 @@ export default function AttendanceSheet({
     setCCReason('')
     setCCNotifyStudents(false)
     setShowCCModal(true)
+  }
+
+  // Restore class for current session
+  const restoreClassForSession = async () => {
+    try {
+      const res = await fetch('/api/attendance/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scheduleId: schedule.ScheduleID,
+          week: currentSessionNumber,
+          sessionType: currentSessionType
+        })
+      })
+
+      if (res.ok) {
+        brandedToast.success('Class restored. You can mark attendance again.')
+        // Clear CC statuses locally for this session
+        if (currentSessionType === 'lecture') {
+          setLectureAttendance(prev => {
+            const updated = { ...prev }
+            Object.keys(updated).forEach(studentId => {
+              if (updated[studentId]?.[currentSessionNumber] === 'CC') {
+                const { [currentSessionNumber]: _, ...rest } = updated[studentId]
+                updated[studentId] = rest
+              }
+            })
+            return updated
+          })
+        } else {
+          setLabAttendance(prev => {
+            const updated = { ...prev }
+            Object.keys(updated).forEach(studentId => {
+              if (updated[studentId]?.[currentSessionNumber] === 'CC') {
+                const { [currentSessionNumber]: _, ...rest } = updated[studentId]
+                updated[studentId] = rest
+              }
+            })
+            return updated
+          })
+        }
+      } else {
+        brandedToast.error('Failed to restore class')
+      }
+    } catch (error) {
+      console.error('Error restoring class:', error)
+      brandedToast.error('Error restoring class')
+    }
   }
 
   // Handle CC confirmation
@@ -412,16 +452,27 @@ export default function AttendanceSheet({
                 <Plus className="h-4 w-4" />
                 Mark All Present
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={cancelClassForSession}
-                className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
-                disabled={isCurrentSessionCancelled()}
-              >
-                <AlertCircle className="h-4 w-4" />
-                Cancel Class
-              </Button>
+              {!isCurrentSessionCancelled() ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={cancelClassForSession}
+                  className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  Cancel Class
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={restoreClassForSession}
+                  className="flex items-center gap-2 bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Restore Class
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -453,12 +504,21 @@ export default function AttendanceSheet({
         <CardContent>
           <div className="border rounded-lg overflow-hidden">
             {isCurrentSessionCancelled() && (
-              <div className="bg-gray-50 border-b px-4 py-3">
+              <div className="bg-gray-50 border-b px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <AlertCircle className="h-4 w-4" />
                   <span className="font-medium">This session has been cancelled.</span>
                   <span>All students are marked as CC (Class Cancelled) and attendance cannot be modified.</span>
                 </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={restoreClassForSession}
+                  className="border-green-200 text-green-700 hover:bg-green-50"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Restore
+                </Button>
               </div>
             )}
             <div className="overflow-x-auto">

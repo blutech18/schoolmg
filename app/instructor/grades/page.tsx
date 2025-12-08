@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
@@ -62,6 +62,7 @@ interface Schedule {
 
 function InstructorGradesContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const scheduleId = searchParams.get('scheduleId');
   
   const [schedule, setSchedule] = useState<Schedule | null>(null);
@@ -263,75 +264,92 @@ function InstructorGradesContent() {
     }
   };
 
+  // Build default grading templates by class type to avoid "all quiz" fallbacks
+  const getDefaultConfig = (classType?: string) => {
+    switch ((classType || schedule?.ClassType || '').toUpperCase()) {
+      case 'LECTURE+LAB':
+        return {
+          components: [
+            { name: 'Quiz', weight: 15, items: 5, maxScore: 20 },
+            { name: 'Laboratory', weight: 30, items: 5, maxScore: 20 },
+            { name: 'OLO', weight: 15, items: 5, maxScore: 20 },
+            { name: 'Exam', weight: 40, items: 1, maxScore: 60 },
+          ],
+        };
+      case 'MAJOR':
+        return {
+          components: [
+            { name: 'Quiz', weight: 15, items: 5, maxScore: 20 },
+            { name: 'Laboratory', weight: 40, items: 5, maxScore: 20 },
+            { name: 'OLO', weight: 15, items: 5, maxScore: 20 },
+            { name: 'Exam', weight: 30, items: 1, maxScore: 60 },
+          ],
+        };
+      case 'NSTP':
+        return {
+          components: [
+            { name: 'Quiz', weight: 60, items: 15, maxScore: 20 },
+            { name: 'Exam', weight: 40, items: 1, maxScore: 60 },
+          ],
+        };
+      case 'OJT':
+        return {
+          components: [
+            { name: 'Online Course', weight: 50, items: 5, maxScore: 20 },
+            { name: 'Recitation', weight: 20, items: 5, maxScore: 20 },
+            { name: 'Seatwork', weight: 30, items: 5, maxScore: 20 },
+          ],
+        };
+      case 'LECTURE':
+      default:
+        return {
+          components: [
+            { name: 'Quiz', weight: 60, items: 15, maxScore: 20 },
+            { name: 'Exam', weight: 40, items: 1, maxScore: 60 },
+          ],
+        };
+    }
+  };
+
+  // Validate and normalize grading components from API before using
+  const sanitizeConfig = (config: any, classType?: string) => {
+    if (!config?.components || !Array.isArray(config.components)) return getDefaultConfig(classType);
+
+    const cleanComponents = config.components
+      .map((comp: any) => ({
+        name: comp?.name || '',
+        weight: typeof comp?.weight === 'number' ? comp.weight : Number(comp?.weight) || 0,
+        items: typeof comp?.items === 'number' ? comp.items : Number(comp?.items) || 0,
+        maxScore: typeof comp?.maxScore === 'number' ? comp.maxScore : Number(comp?.maxScore) || 0,
+      }))
+      .filter((comp: any) => comp.name && comp.items > 0 && comp.maxScore > 0);
+
+    if (cleanComponents.length === 0) return getDefaultConfig(classType);
+
+    return { components: cleanComponents };
+  };
+
   const fetchGradingConfig = async () => {
     try {
-      console.log('Fetching grading config for scheduleId:', scheduleId);
       const response = await fetch(`/api/grades/config?scheduleId=${scheduleId}`, {
         credentials: 'include'
       });
       const data = await response.json();
-      
-      console.log('Grading config API response:', data);
-      
+
+      const classType = data?.schedule?.ClassType || schedule?.ClassType || 'LECTURE';
+
       if (data.success) {
-        console.log('Setting grading config:', data.config);
-        console.log('Config components:', data.config?.components);
-        console.log('Components length:', data.config?.components?.length);
-        console.log('Schedule info:', data.schedule);
-        
-        // Ensure we have a valid grading config with components
-        if (data.config && data.config.components && data.config.components.length > 0) {
-          console.log('Using grading config from API with numerical calculations:', data.config);
-          setGradingConfig(data.config);
-        } else {
-          console.warn('Received invalid grading config, using numerical fallback');
-          // Fallback configuration focusing on numerical calculations only - allow 0 scores
-          const fallbackConfig = {
-            components: [
-              {
-                name: 'Component1',
-                weight: 60,
-                items: 10,
-                maxScore: 20
-              },
-              {
-                name: 'Component2',
-                weight: 40,
-                items: 1,
-                maxScore: 60
-              }
-            ]
-          };
-          setGradingConfig(fallbackConfig);
-          console.log('Applied numerical fallback grading config:', fallbackConfig);
-        }
+        const safeConfig = sanitizeConfig(data.config, classType);
+        setGradingConfig(safeConfig);
       } else {
-        console.error('Failed to fetch grading config:', data.error);
         brandedToast.error('Failed to load grading configuration');
+        setGradingConfig(getDefaultConfig(classType));
       }
     } catch (error) {
       console.error('Error fetching grading config:', error);
       brandedToast.error('Error loading grading configuration');
-      
-      // Apply numerical fallback configuration in case of network error - allow 0 scores
-      const fallbackConfig = {
-        components: [
-          {
-            name: 'Component1',
-            weight: 60,
-            items: 10,
-            maxScore: 20
-          },
-          {
-            name: 'Component2',
-            weight: 40,
-            items: 1,
-            maxScore: 60
-          }
-        ]
-      };
-      setGradingConfig(fallbackConfig);
-      console.log('Applied numerical error fallback grading config:', fallbackConfig);
+      const classType = schedule?.ClassType || 'LECTURE';
+      setGradingConfig(getDefaultConfig(classType));
     } finally {
       setLoading(false);
     }
@@ -684,7 +702,13 @@ function InstructorGradesContent() {
           <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600">Schedule not found</p>
           <Button 
-            onClick={() => window.history.back()} 
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.history.length > 1) {
+                router.back();
+              } else {
+                router.push('/instructor');
+              }
+            }} 
             className="mt-4"
             variant="outline"
           >
@@ -702,7 +726,13 @@ function InstructorGradesContent() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button 
-            onClick={() => window.history.back()} 
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.history.length > 1) {
+                router.back();
+              } else {
+                router.push('/instructor');
+              }
+            }} 
             variant="outline" 
             size="sm"
           >

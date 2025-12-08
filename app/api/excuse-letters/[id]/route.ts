@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/app/lib/db";
 
-// PUT - Update excuse letter status (approve/decline) by ID
+// PUT - Update excuse letter status (approve/decline) or student edits within 24 hours
 export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -16,6 +16,67 @@ export async function PUT(
         { success: false, error: "Excuse letter ID is required" },
         { status: 400 }
       );
+    }
+
+    // Student self-edit within 24 hours guard
+    if (body.userRole === "student") {
+      const { studentId, reason, dateFrom, dateTo } = body;
+
+      if (!studentId || !reason || !dateFrom || !dateTo) {
+        return NextResponse.json(
+          { success: false, error: "Missing fields for student edit" },
+          { status: 400 }
+        );
+      }
+
+      // Get existing letter details
+      const [rows] = await db.execute(
+        `SELECT StudentID, SubmissionDate, Status FROM excuse_letters WHERE ExcuseLetterID = ?`,
+        [excuseLetterID]
+      );
+      const letter = (rows as any[])[0];
+
+      if (!letter) {
+        return NextResponse.json(
+          { success: false, error: "Excuse letter not found" },
+          { status: 404 }
+        );
+      }
+
+      if (letter.StudentID !== Number(studentId)) {
+        return NextResponse.json(
+          { success: false, error: "Not authorized to edit this letter" },
+          { status: 403 }
+        );
+      }
+
+      if (letter.Status !== "pending") {
+        return NextResponse.json(
+          { success: false, error: "Cannot edit once processed" },
+          { status: 400 }
+        );
+      }
+
+      const submitted = new Date(letter.SubmissionDate);
+      const now = new Date();
+      if (now.getTime() - submitted.getTime() > 24 * 60 * 60 * 1000) {
+        return NextResponse.json(
+          { success: false, error: "Edit window (24 hrs) has passed" },
+          { status: 400 }
+        );
+      }
+
+      await db.execute(
+        `UPDATE excuse_letters 
+         SET Reason = ?, DateFrom = ?, DateTo = ?, UpdatedAt = NOW()
+         WHERE ExcuseLetterID = ?`,
+        [reason, dateFrom, dateTo, excuseLetterID]
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: "Excuse letter updated",
+      });
     }
 
     // Handle instructor-specific request format

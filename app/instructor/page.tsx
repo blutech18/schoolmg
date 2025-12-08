@@ -294,7 +294,9 @@ export default function InstructorDashboard() {
 
   const fetchExcuseLetters = async (instructorId: number) => {
     try {
-      const response = await fetch(`/api/excuse-letters?role=instructor&userId=${instructorId}`);
+      const response = await fetch(`/api/excuse-letters?role=instructor&userId=${instructorId}`, {
+        credentials: 'include'
+      });
       const data = await response.json();
 
       if (data.success) {

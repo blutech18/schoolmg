@@ -84,17 +84,11 @@ export default function ScheduleCard({
         </div>
         <div className="text-xs mt-1 opacity-95">
           {(() => {
-            // Check if this is a Cisco class (MAJOR type or room contains "cisco")
-            const isCisco = schedule.ClassType === 'MAJOR' || 
-                           (schedule.Room && schedule.Room.toLowerCase().includes('cisco'));
-            
-            // Only apply separate room/time display for Cisco classes with both Lecture and Lab
-            const hasBoth = isCisco &&
-                           (schedule.Lecture && schedule.Lecture > 0) && 
-                           (schedule.Laboratory && schedule.Laboratory > 0);
-            
+            const hasLecture = (schedule.Lecture || 0) > 0;
+            const hasLab = (schedule.Laboratory || 0) > 0;
+            const hasBoth = hasLecture && hasLab;
+
             if (hasBoth) {
-              // Parse separate rooms, times, and days
               const rooms = parseRooms(schedule.Room);
               const times = parseTimes(schedule.Time);
               const days = parseDays(schedule.Day);
@@ -105,15 +99,13 @@ export default function ScheduleCard({
               const labTime = times.laboratory || schedule.Time || 'N/A';
               const lectureDay = days.lecture || schedule.Day || 'N/A';
               const labDay = days.laboratory || schedule.Day || 'N/A';
-              
+
               return (
-                <div className="space-y-1">
-                  <div>Laboratory Room | {labRoom} {labTime} {labDay}</div>
-                  <div>Lecture Room | {lectureRoom} {lectureTime} {lectureDay}</div>
+                <div>
+                  Laboratory Room= {labRoom} {labTime} {labDay} || Lecture Room= {lectureRoom} {lectureTime} {lectureDay}
                 </div>
               );
             } else {
-              // Use standard format for single room/time schedules
               return formatScheduleEntry({
                 Room: schedule.Room ?? undefined,
                 Day: schedule.Day ?? undefined,
@@ -140,38 +132,35 @@ export default function ScheduleCard({
             <strong>Section:</strong> {schedule.Section || 'N/A'}
           </div>
           {(() => {
-            // Check if this is a Cisco class (MAJOR type or room contains "cisco")
-            const isCisco = schedule.ClassType === 'MAJOR' || 
-                           (schedule.Room && schedule.Room.toLowerCase().includes('cisco'));
-            
-            // Only apply separate room display for Cisco classes with both Lecture and Lab
-            const hasBoth = isCisco &&
-                           (schedule.Lecture && schedule.Lecture > 0) && 
-                           (schedule.Laboratory && schedule.Laboratory > 0);
-            
+            const hasLecture = (schedule.Lecture || 0) > 0;
+            const hasLab = (schedule.Laboratory || 0) > 0;
+            const hasBoth = hasLecture && hasLab;
+
             if (hasBoth) {
-              // Parse separate rooms
               const rooms = parseRooms(schedule.Room);
+              const times = parseTimes(schedule.Time);
+              const days = parseDays(schedule.Day);
+
               const lectureRoom = rooms.lecture || schedule.Room || 'N/A';
               const labRoom = rooms.laboratory || schedule.Room || 'N/A';
-              
-              return (
-                <>
-                  <div className="text-gray-700">
-                    <strong>Lecture Room:</strong> {lectureRoom}
-                  </div>
-                  <div className="text-gray-700">
-                    <strong>Laboratory Room:</strong> {labRoom}
-                  </div>
-                </>
-              );
-            } else {
+              const lectureTime = times.lecture || schedule.Time || 'N/A';
+              const labTime = times.laboratory || schedule.Time || 'N/A';
+              const lectureDay = days.lecture || schedule.Day || 'N/A';
+              const labDay = days.laboratory || schedule.Day || 'N/A';
+
               return (
                 <div className="text-gray-700">
-                  <strong>Room:</strong> {schedule.Room || 'N/A'}
+                  <strong>Rooms:</strong>{' '}
+                  Laboratory Room= {labRoom} {labTime} {labDay} || Lecture Room= {lectureRoom} {lectureTime} {lectureDay}
                 </div>
               );
             }
+
+            return (
+              <div className="text-gray-700">
+                <strong>Room:</strong> {schedule.Room || 'N/A'}
+              </div>
+            );
           })()}
           {(role === 'dean' || role === 'instructor' || role === 'admin') && (
             <div className="text-gray-700">

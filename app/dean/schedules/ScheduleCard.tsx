@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import EnhancedSeatPlan from './modal/EnhancedSeatPlan';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { formatScheduleEntry, type ScheduleDisplayData } from '@/lib/utils';
+import { formatScheduleEntry, parseRooms, parseTimes, parseDays } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 interface IScheduleCardProps {
     schedule: ISchedule;
@@ -64,55 +65,158 @@ export default function ScheduleCard({ schedule } : IScheduleCardProps) {
   };
 
   return (
-    <div className="border rounded-xl shadow-md overflow-hidden z-1">
-        {/* Header - Using green-800 to match logo/brand */}
-        <div className="bg-green-800 text-white px-4 py-2 font-semibold rounded-t-lg">
-          <div className="flex justify-between items-center">
-            <span> {schedule.YearLevel} - {schedule.Course}</span>
-            <span className='font-semibold text-sm'>{schedule.Day}</span>
-          </div>
-          <div className="text-xs mt-1">
-            {formatScheduleEntry({
+    <div className="border rounded-xl shadow-md overflow-hidden transition-all hover:shadow-lg">
+      {/* Header - unified brand color */}
+      <div className="bg-green-800 text-white px-4 py-3 font-semibold rounded-t-lg">
+        <div className="flex justify-between items-center">
+          <span className="text-base">
+            {schedule.YearLevel ? `Year ${schedule.YearLevel}` : ''} {schedule.YearLevel && schedule.Course ? '•' : ''} {schedule.Course || ''}
+          </span>
+          <span className="font-semibold text-sm">{schedule.Day || 'N/A'}</span>
+        </div>
+        <div className="text-xs mt-1 opacity-95">
+          {(() => {
+            const hasLecture = (schedule.Lecture || 0) > 0;
+            const hasLab = (schedule.Laboratory || 0) > 0;
+            const hasBoth = hasLecture && hasLab;
+
+            if (hasBoth) {
+              const rooms = parseRooms(schedule.Room ?? undefined);
+              const times = parseTimes(schedule.Time ?? undefined);
+              const days = parseDays(schedule.Day ?? undefined);
+
+              const lectureRoom = rooms.lecture || schedule.Room || 'N/A';
+              const labRoom = rooms.laboratory || schedule.Room || 'N/A';
+              const lectureTime = times.lecture || schedule.Time || 'N/A';
+              const labTime = times.laboratory || schedule.Time || 'N/A';
+              const lectureDay = days.lecture || schedule.Day || 'N/A';
+              const labDay = days.laboratory || schedule.Day || 'N/A';
+
+              return (
+                <div>
+                  Laboratory Room= {labRoom} {labTime} {labDay} || Lecture Room= {lectureRoom} {lectureTime} {lectureDay}
+                </div>
+              );
+            }
+
+            return formatScheduleEntry({
               Room: schedule.Room ?? undefined,
               Day: schedule.Day ?? undefined,
               Time: schedule.Time ?? undefined,
               Lecture: schedule.Lecture ?? undefined,
               Laboratory: schedule.Laboratory ?? undefined,
               ClassType: schedule.ClassType ?? undefined
-            })}
+            });
+          })()}
+        </div>
+      </div>
+
+      {/* Card Body */}
+      <div className="p-4 space-y-2 text-sm bg-white">
+        <div className="space-y-1.5">
+          <div className="font-semibold text-base text-gray-900">
+            {schedule.SubjectCode} - {schedule.SubjectName || 'N/A'}
+          </div>
+          <div className="text-gray-700">
+            <strong>Instructor:</strong> {schedule.InstructorName || `ID: ${schedule.InstructorID || 'N/A'}`}
+          </div>
+          <div className="text-gray-700">
+            <strong>Section:</strong> {schedule.Section || 'N/A'}
+          </div>
+          <div className="text-gray-700">
+            <strong>Rooms:</strong>{' '}
+            {(() => {
+              const hasLecture = (schedule.Lecture || 0) > 0;
+              const hasLab = (schedule.Laboratory || 0) > 0;
+              const hasBoth = hasLecture && hasLab;
+
+              if (hasBoth) {
+                const rooms = parseRooms(schedule.Room ?? undefined);
+                const times = parseTimes(schedule.Time ?? undefined);
+                const days = parseDays(schedule.Day ?? undefined);
+
+                const lectureRoom = rooms.lecture || schedule.Room || 'N/A';
+                const labRoom = rooms.laboratory || schedule.Room || 'N/A';
+                const lectureTime = times.lecture || schedule.Time || 'N/A';
+                const labTime = times.laboratory || schedule.Time || 'N/A';
+                const lectureDay = days.lecture || schedule.Day || 'N/A';
+                const labDay = days.laboratory || schedule.Day || 'N/A';
+
+                return (
+                  <>
+                    Laboratory Room= {labRoom} {labTime} {labDay} || Lecture Room= {lectureRoom} {lectureTime} {lectureDay}
+                  </>
+                );
+              }
+
+              return schedule.Room || 'N/A';
+            })()}
+          </div>
+          <div className="text-gray-700">
+            <strong>Enrolled Students:</strong> {enrolledCount} / {schedule.TotalSeats || 'N/A'}
           </div>
         </div>
 
-        <div className="p-4 space-y-1 text-sm">
-        <div><strong>Subject:</strong> {schedule.SubjectCode} - {schedule.SubjectName}</div>
-        <div><strong>Instructor:</strong> {schedule.InstructorName || `ID: ${schedule.InstructorID}`}</div>
-        <div><strong>Section:</strong> {schedule.Section}</div>
-        <div><strong>Room:</strong> {schedule.Room}</div>
-        <div><strong>Enrolled Students:</strong> {enrolledCount}</div>
-          <div className='grid md:grid-cols-3 gap-3'>
-            <div className='bg-gray-100 rounded-lg p-5 flex flex-col items-center'><b>{schedule.Lecture || 0} hrs</b><small>Lecture</small></div>
-            <div className='bg-gray-100 rounded-lg p-5 flex flex-col items-center'><b>{schedule.Laboratory || 0} hrs</b> <small>Laboratory</small></div>
-            <div className='bg-gray-100 rounded-lg p-5 flex flex-col items-center'><b>{schedule.Units || 0}</b> <small>Units</small></div>
+        {/* Hours/Units Grid */}
+        <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-gray-200">
+          <div className="bg-gray-50 rounded-lg p-3 flex flex-col items-center">
+            <b className="text-base text-gray-900">{schedule.Lecture || 0}</b>
+            <small className="text-xs text-gray-600">Lecture hrs</small>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-3 flex flex-col items-center">
+            <b className="text-base text-gray-900">{schedule.Laboratory || 0}</b>
+            <small className="text-xs text-gray-600">Lab hrs</small>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-3 flex flex-col items-center">
+            <b className="text-base text-gray-900">{schedule.Units || 0}</b>
+            <small className="text-xs text-gray-600">Units</small>
           </div>
         </div>
 
-        <div className="bg-gray-100 px-4 py-2 font-semibold rounded-b-lg grid md:grid-cols-3 gap-3">
-            <Button className='w-full bg-green-800 hover:bg-green-900' onClick={handleAttendanceClick}>Attendance</Button>
-            <EnhancedSeatPlan 
-              cols={schedule.SeatCols ?? 0} 
-              numberOfSeats={schedule.TotalSeats ?? 0} 
-              studentSeatMap={parsedSeatMap} 
-              scheduleId={schedule.ScheduleID}
-              classType={schedule.ClassType}
-              lectureSeatMap={schedule.LectureSeatMap ?? undefined}
-              laboratorySeatMap={schedule.LaboratorySeatMap ?? undefined}
-              lectureSeatCols={schedule.LectureSeatCols || 4}
-              laboratorySeatCols={schedule.LaboratorySeatCols || 2}
-              lecture={schedule.Lecture || 0}
-              laboratory={schedule.Laboratory || 0}
-            />
-            <Button className='w-full bg-green-800 hover:bg-green-900' onClick={handleGradesClick}>Grades</Button>
-        </div>
+        {/* Class Type Badge */}
+        {schedule.ClassType && (
+          <div className="pt-2">
+            <Badge variant="outline" className="text-xs">
+              {schedule.ClassType === 'LECTURE+LAB' || schedule.ClassType === 'LECTURE-LAB' ? 'Lecture + Laboratory' : 
+               schedule.ClassType === 'LECTURE-ONLY' || schedule.ClassType === 'LECTURE' ? 'Lecture Only' :
+               schedule.ClassType === 'LAB-ONLY' || schedule.ClassType === 'LAB' ? 'Laboratory Only' :
+               schedule.ClassType === 'MAJOR' ? 'Cisco' : 
+               schedule.ClassType === 'NSTP' ? 'NSTP' : 
+               schedule.ClassType === 'OJT' ? 'OJT' : 
+               schedule.ClassType}
+            </Badge>
+          </div>
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <div className="bg-gray-100 px-4 py-3 rounded-b-lg grid grid-cols-3 gap-2">
+        <Button 
+          className="w-full bg-green-800 hover:bg-green-900 text-white text-sm" 
+          onClick={handleAttendanceClick}
+        >
+          Attendance
+        </Button>
+        <EnhancedSeatPlan 
+          cols={schedule.SeatCols ?? 0} 
+          numberOfSeats={schedule.TotalSeats ?? 0} 
+          studentSeatMap={parsedSeatMap} 
+          scheduleId={schedule.ScheduleID}
+          classType={schedule.ClassType}
+          lectureSeatMap={schedule.LectureSeatMap ?? undefined}
+          laboratorySeatMap={schedule.LaboratorySeatMap ?? undefined}
+          lectureSeatCols={schedule.LectureSeatCols || 4}
+          laboratorySeatCols={schedule.LaboratorySeatCols || 2}
+          lecture={schedule.Lecture || 0}
+          laboratory={schedule.Laboratory || 0}
+        />
+        <Button 
+          className="w-full bg-green-800 hover:bg-green-900 text-white text-sm" 
+          onClick={handleGradesClick}
+        >
+          Grades
+        </Button>
+      </div>
     </div>
   )
 }
