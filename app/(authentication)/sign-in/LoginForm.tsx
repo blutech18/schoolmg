@@ -5,6 +5,7 @@ import { createSession, ISessionData } from '@/helpers/session';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
+import { brandedToast } from '@/components/ui/branded-toast';
 
 export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -23,21 +24,21 @@ export default function LoginForm() {
 
     // Basic email length validation
     if (!trimmedEmail || trimmedEmail.length < 8 || trimmedEmail.length > 32) {
-      alert('Email must be between 8 and 32 characters long');
+      brandedToast.error('Email must be between 8 and 32 characters long');
       setIsLoading(false);
       return;
     }
 
     // Validate email domain
     if (!trimmedEmail.toLowerCase().endsWith('@cca.edu.ph')) {
-      alert('Please use an email address ending with @cca.edu.ph');
+      brandedToast.error('Please use an email address ending with @cca.edu.ph');
       setIsLoading(false);
       return;
     }
 
     // Validate password length
     if (!password || password.length < 8 || password.length > 32) {
-      alert('Password must be between 8 and 32 characters long');
+      brandedToast.error('Password must be between 8 and 32 characters long');
       setIsLoading(false);
       return;
     }
@@ -110,12 +111,12 @@ export default function LoginForm() {
           if (!emailValue) return;
 
           if (emailValue.length < 8 || emailValue.length > 32) {
-            alert('Email must be between 8 and 32 characters long');
+            brandedToast.error('Email must be between 8 and 32 characters long');
             return;
           }
 
           if (!emailValue.toLowerCase().endsWith('@cca.edu.ph')) {
-            alert('Please use an email address ending with @cca.edu.ph');
+            brandedToast.error('Please use an email address ending with @cca.edu.ph');
           }
         }}
         minLength={8}
@@ -134,7 +135,7 @@ export default function LoginForm() {
           if (!passwordValue) return;
 
           if (passwordValue.length < 8 || passwordValue.length > 32) {
-            alert('Password must be between 8 and 32 characters long');
+            brandedToast.error('Password must be between 8 and 32 characters long');
           }
         }}
         minLength={8}

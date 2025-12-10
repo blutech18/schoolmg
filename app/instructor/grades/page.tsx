@@ -264,69 +264,88 @@ function InstructorGradesContent() {
     }
   };
 
-  // Build default grading templates by class type to avoid "all quiz" fallbacks
+  // Normalized templates to mirror /api/grades/config and prevent "all quiz" fallbacks
+  const TEMPLATE_CONFIG: Record<string, { components: { name: string; weight: number; items: number; maxScore: number }[] }> = {
+    LECTURE: {
+      components: [
+        { name: 'Quiz', weight: 60, items: 15, maxScore: 20 },
+        { name: 'Exam', weight: 40, items: 1, maxScore: 60 },
+      ],
+    },
+    'LECTURE+LAB': {
+      components: [
+        { name: 'Quiz', weight: 15, items: 5, maxScore: 20 },
+        { name: 'Laboratory', weight: 30, items: 5, maxScore: 20 },
+        { name: 'OLO', weight: 15, items: 5, maxScore: 20 },
+        { name: 'Exam', weight: 40, items: 1, maxScore: 60 },
+      ],
+    },
+    MAJOR: {
+      components: [
+        { name: 'Quiz', weight: 15, items: 5, maxScore: 20 },
+        { name: 'Laboratory', weight: 40, items: 5, maxScore: 20 },
+        { name: 'OLO', weight: 15, items: 5, maxScore: 20 },
+        { name: 'Exam', weight: 30, items: 1, maxScore: 60 },
+      ],
+    },
+    NSTP: {
+      components: [
+        { name: 'Quiz', weight: 60, items: 15, maxScore: 20 },
+        { name: 'Exam', weight: 40, items: 1, maxScore: 60 },
+      ],
+    },
+    OJT: {
+      components: [
+        { name: 'Online Course', weight: 50, items: 5, maxScore: 20 },
+        { name: 'Recitation', weight: 20, items: 5, maxScore: 20 },
+        { name: 'Seatwork', weight: 30, items: 5, maxScore: 20 },
+      ],
+    },
+  };
+
+  const normalizeClassType = (classType?: string) => {
+    if (!classType) return 'LECTURE';
+    return classType.replace(/\s+/g, '').toUpperCase();
+  };
+
   const getDefaultConfig = (classType?: string) => {
-    switch ((classType || schedule?.ClassType || '').toUpperCase()) {
-      case 'LECTURE+LAB':
-        return {
-          components: [
-            { name: 'Quiz', weight: 15, items: 5, maxScore: 20 },
-            { name: 'Laboratory', weight: 30, items: 5, maxScore: 20 },
-            { name: 'OLO', weight: 15, items: 5, maxScore: 20 },
-            { name: 'Exam', weight: 40, items: 1, maxScore: 60 },
-          ],
-        };
-      case 'MAJOR':
-        return {
-          components: [
-            { name: 'Quiz', weight: 15, items: 5, maxScore: 20 },
-            { name: 'Laboratory', weight: 40, items: 5, maxScore: 20 },
-            { name: 'OLO', weight: 15, items: 5, maxScore: 20 },
-            { name: 'Exam', weight: 30, items: 1, maxScore: 60 },
-          ],
-        };
-      case 'NSTP':
-        return {
-          components: [
-            { name: 'Quiz', weight: 60, items: 15, maxScore: 20 },
-            { name: 'Exam', weight: 40, items: 1, maxScore: 60 },
-          ],
-        };
-      case 'OJT':
-        return {
-          components: [
-            { name: 'Online Course', weight: 50, items: 5, maxScore: 20 },
-            { name: 'Recitation', weight: 20, items: 5, maxScore: 20 },
-            { name: 'Seatwork', weight: 30, items: 5, maxScore: 20 },
-          ],
-        };
-      case 'LECTURE':
-      default:
-        return {
-          components: [
-            { name: 'Quiz', weight: 60, items: 15, maxScore: 20 },
-            { name: 'Exam', weight: 40, items: 1, maxScore: 60 },
-          ],
-        };
-    }
+    const normalized = normalizeClassType(classType || schedule?.ClassType || 'LECTURE');
+    return TEMPLATE_CONFIG[normalized] || TEMPLATE_CONFIG.LECTURE;
   };
 
   // Validate and normalize grading components from API before using
   const sanitizeConfig = (config: any, classType?: string) => {
-    if (!config?.components || !Array.isArray(config.components)) return getDefaultConfig(classType);
+    const normalized = normalizeClassType(classType);
+    const template = getDefaultConfig(normalized);
 
-    const cleanComponents = config.components
-      .map((comp: any) => ({
-        name: comp?.name || '',
-        weight: typeof comp?.weight === 'number' ? comp.weight : Number(comp?.weight) || 0,
-        items: typeof comp?.items === 'number' ? comp.items : Number(comp?.items) || 0,
-        maxScore: typeof comp?.maxScore === 'number' ? comp.maxScore : Number(comp?.maxScore) || 0,
-      }))
-      .filter((comp: any) => comp.name && comp.items > 0 && comp.maxScore > 0);
+    // If API has no components, fall back to template immediately
+    if (!config?.components || !Array.isArray(config.components)) return template;
 
-    if (cleanComponents.length === 0) return getDefaultConfig(classType);
+    // Map API components by lowercase name for easy lookup
+    const apiComponentsByName = new Map<string, any>();
+    config.components.forEach((comp: any) => {
+      const key = (comp?.name || '').toLowerCase();
+      if (!key) return;
+      apiComponentsByName.set(key, comp);
+    });
 
-    return { components: cleanComponents };
+    // Build ordered components strictly from the template to avoid "all quiz"
+    const mergedComponents = template.components.map((tplComp) => {
+      const apiComp = apiComponentsByName.get(tplComp.name.toLowerCase());
+      const toNumber = (val: any, fallback: number) => {
+        const num = typeof val === 'number' ? val : Number(val);
+        return Number.isFinite(num) && num > 0 ? num : fallback;
+      };
+
+      return {
+        name: tplComp.name,
+        weight: toNumber(apiComp?.weight, tplComp.weight),
+        items: toNumber(apiComp?.items, tplComp.items),
+        maxScore: toNumber(apiComp?.maxScore, tplComp.maxScore),
+      };
+    });
+
+    return { components: mergedComponents };
   };
 
   const fetchGradingConfig = async () => {

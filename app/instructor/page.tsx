@@ -201,6 +201,13 @@ export default function InstructorDashboard() {
     setShowApprovalModal(true);
   };
 
+  const handleDeclineExcuseLetter = (letter: ExcuseLetter) => {
+    setSelectedLetter(letter);
+    setApprovalAction('declined');
+    setApprovalComment('');
+    setShowApprovalModal(true);
+  };
+
   const [instructorId, setInstructorId] = useState<number | null>(null);
 
   const fetchInstructorData = async () => {
@@ -2206,10 +2213,19 @@ export default function InstructorDashboard() {
                           <Button
                             size="sm"
                             onClick={() => handleApproveExcuseLetter(letter)}
-                            className="flex-1 bg-blue-600 hover:bg-blue-700"
+                            className="flex-1 bg-green-600 hover:bg-green-700"
                           >
                             <CheckCircle className="h-4 w-4 mr-1" />
-                            Review
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeclineExcuseLetter(letter)}
+                            className="flex-1"
+                          >
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Decline
                           </Button>
                         </div>
                       </div>
@@ -2220,13 +2236,13 @@ export default function InstructorDashboard() {
           )}
 
           {/* Approved Excuse Letters */}
-          {excuseLetters.filter(el => el.InstructorStatus === 'approved' || el.InstructorStatus === 'rejected').length > 0 && (
+          {excuseLetters.filter(el => el.InstructorStatus === 'approved' || el.InstructorStatus === 'declined').length > 0 && (
             <div className="mt-8">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Processed Excuse Letters</h3>
               </div>
               <div className="grid gap-4">
-                {excuseLetters.filter(el => el.InstructorStatus === 'approved' || el.InstructorStatus === 'rejected').map((letter) => (
+                {excuseLetters.filter(el => el.InstructorStatus === 'approved' || el.InstructorStatus === 'declined').map((letter) => (
                                       <Card key={letter.ExcuseLetterID} className="hover:shadow-md transition-shadow">
                       <CardHeader>
                         <div className="flex items-start justify-between">
@@ -2242,7 +2258,7 @@ export default function InstructorDashboard() {
                             </CardDescription>
                           </div>
                           <Badge variant={letter.InstructorStatus === 'approved' ? 'default' : 'destructive'}>
-                            {letter.InstructorStatus === 'approved' ? 'Approved' : 'Rejected'}
+                            {letter.InstructorStatus === 'approved' ? 'Approved' : 'Declined'}
                           </Badge>
                         </div>
                         {/* Show Dean and Coordinator Approval Status - Prominent Display */}

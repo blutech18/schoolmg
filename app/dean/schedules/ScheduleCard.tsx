@@ -64,6 +64,26 @@ export default function ScheduleCard({ schedule } : IScheduleCardProps) {
     router.push(`/dean/grades?scheduleId=${schedule.ScheduleID}`);
   };
 
+  const hasLecture = (schedule.Lecture || 0) > 0;
+  const hasLab = (schedule.Laboratory || 0) > 0 || (schedule.ClassType || '').toUpperCase().includes('LAB');
+  const hasBoth = hasLecture && hasLab;
+
+  const rooms = parseRooms(schedule.Room ?? undefined);
+  const times = parseTimes(schedule.Time ?? undefined);
+  const days = parseDays(schedule.Day ?? undefined);
+
+  const lectureInfo = {
+    day: days.lecture || schedule.Day || 'N/A',
+    time: times.lecture || schedule.Time || 'N/A',
+    room: rooms.lecture || schedule.Room || 'N/A',
+  };
+
+  const labInfo = {
+    day: days.laboratory || schedule.Day || 'N/A',
+    time: times.laboratory || schedule.Time || 'N/A',
+    room: rooms.laboratory || schedule.Room || 'N/A',
+  };
+
   return (
     <div className="border rounded-xl shadow-md overflow-hidden transition-all hover:shadow-lg">
       {/* Header - unified brand color */}
@@ -75,39 +95,14 @@ export default function ScheduleCard({ schedule } : IScheduleCardProps) {
           <span className="font-semibold text-sm">{schedule.Day || 'N/A'}</span>
         </div>
         <div className="text-xs mt-1 opacity-95">
-          {(() => {
-            const hasLecture = (schedule.Lecture || 0) > 0;
-            const hasLab = (schedule.Laboratory || 0) > 0;
-            const hasBoth = hasLecture && hasLab;
-
-            if (hasBoth) {
-              const rooms = parseRooms(schedule.Room ?? undefined);
-              const times = parseTimes(schedule.Time ?? undefined);
-              const days = parseDays(schedule.Day ?? undefined);
-
-              const lectureRoom = rooms.lecture || schedule.Room || 'N/A';
-              const labRoom = rooms.laboratory || schedule.Room || 'N/A';
-              const lectureTime = times.lecture || schedule.Time || 'N/A';
-              const labTime = times.laboratory || schedule.Time || 'N/A';
-              const lectureDay = days.lecture || schedule.Day || 'N/A';
-              const labDay = days.laboratory || schedule.Day || 'N/A';
-
-              return (
-                <div>
-                  Laboratory Room= {labRoom} {labTime} {labDay} || Lecture Room= {lectureRoom} {lectureTime} {lectureDay}
-                </div>
-              );
-            }
-
-            return formatScheduleEntry({
-              Room: schedule.Room ?? undefined,
-              Day: schedule.Day ?? undefined,
-              Time: schedule.Time ?? undefined,
-              Lecture: schedule.Lecture ?? undefined,
-              Laboratory: schedule.Laboratory ?? undefined,
-              ClassType: schedule.ClassType ?? undefined
-            });
-          })()}
+          {formatScheduleEntry({
+            Room: schedule.Room ?? undefined,
+            Day: schedule.Day ?? undefined,
+            Time: schedule.Time ?? undefined,
+            Lecture: schedule.Lecture ?? undefined,
+            Laboratory: schedule.Laboratory ?? undefined,
+            ClassType: schedule.ClassType ?? undefined
+          })}
         </div>
       </div>
 
@@ -124,36 +119,39 @@ export default function ScheduleCard({ schedule } : IScheduleCardProps) {
             <strong>Section:</strong> {schedule.Section || 'N/A'}
           </div>
           <div className="text-gray-700">
-            <strong>Rooms:</strong>{' '}
-            {(() => {
-              const hasLecture = (schedule.Lecture || 0) > 0;
-              const hasLab = (schedule.Laboratory || 0) > 0;
-              const hasBoth = hasLecture && hasLab;
+            <strong>Schedule:</strong>
+          </div>
+          <div className={`grid ${hasBoth ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'} gap-3`}>
+            {/* Lecture block */}
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-green-800 text-white px-3 py-2 text-sm font-semibold">Lecture</div>
+              <div className="grid grid-cols-3 text-center text-xs border-t border-gray-200">
+                <div className="bg-gray-50 font-semibold p-2">Day</div>
+                <div className="bg-gray-50 font-semibold p-2">Time</div>
+                <div className="bg-gray-50 font-semibold p-2">Room</div>
+                <div className="p-2">{lectureInfo.day}</div>
+                <div className="p-2">{lectureInfo.time}</div>
+                <div className="p-2">{lectureInfo.room}</div>
+              </div>
+            </div>
 
-              if (hasBoth) {
-                const rooms = parseRooms(schedule.Room ?? undefined);
-                const times = parseTimes(schedule.Time ?? undefined);
-                const days = parseDays(schedule.Day ?? undefined);
-
-                const lectureRoom = rooms.lecture || schedule.Room || 'N/A';
-                const labRoom = rooms.laboratory || schedule.Room || 'N/A';
-                const lectureTime = times.lecture || schedule.Time || 'N/A';
-                const labTime = times.laboratory || schedule.Time || 'N/A';
-                const lectureDay = days.lecture || schedule.Day || 'N/A';
-                const labDay = days.laboratory || schedule.Day || 'N/A';
-
-                return (
-                  <>
-                    Laboratory Room= {labRoom} {labTime} {labDay} || Lecture Room= {lectureRoom} {lectureTime} {lectureDay}
-                  </>
-                );
-              }
-
-              return schedule.Room || 'N/A';
-            })()}
+            {/* Laboratory block */}
+            {hasLab && (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-green-800 text-white px-3 py-2 text-sm font-semibold">Laboratory</div>
+                <div className="grid grid-cols-3 text-center text-xs border-t border-gray-200">
+                  <div className="bg-gray-50 font-semibold p-2">Day</div>
+                  <div className="bg-gray-50 font-semibold p-2">Time</div>
+                  <div className="bg-gray-50 font-semibold p-2">Room</div>
+                  <div className="p-2">{labInfo.day}</div>
+                  <div className="p-2">{labInfo.time}</div>
+                  <div className="p-2">{labInfo.room}</div>
+                </div>
+              </div>
+            )}
           </div>
           <div className="text-gray-700">
-            <strong>Enrolled Students:</strong> {enrolledCount} / {schedule.TotalSeats || 'N/A'}
+            <strong>Enrolled Students:</strong> {enrolledCount}
           </div>
         </div>
 

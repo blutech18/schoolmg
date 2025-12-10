@@ -1,5 +1,22 @@
 'use client'
 import React, { useEffect, useState } from 'react'
+
+const TIME_OPTIONS = [
+  '07:00 AM - 08:00 AM',
+  '08:00 AM - 09:00 AM',
+  '09:00 AM - 10:00 AM',
+  '10:00 AM - 11:00 AM',
+  '11:00 AM - 12:00 PM',
+  '12:00 PM - 01:00 PM',
+  '01:00 PM - 02:00 PM',
+  '02:00 PM - 03:00 PM',
+  '03:00 PM - 04:00 PM',
+  '04:00 PM - 05:00 PM',
+  '05:00 PM - 06:00 PM',
+  '06:00 PM - 07:00 PM',
+  '07:00 PM - 08:00 PM',
+  '08:00 PM - 09:00 PM',
+];
 import {
   Dialog,
   DialogTrigger,
@@ -172,14 +189,20 @@ export default function EditScheduleDialog({
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Year Level *</label>
-              <Input 
-                name="YearLevel" 
-                value={form.YearLevel ?? ''} 
-                onChange={handleChange} 
-                type="number" 
-                placeholder="Year Level"
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              />
+              <Select
+                value={form.YearLevel ? String(form.YearLevel) : ''}
+                onValueChange={(value) => setForm(prev => ({ ...prev, YearLevel: Number(value) }))}
+              >
+                <SelectTrigger className="w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                  <SelectValue placeholder="Select Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1st Year</SelectItem>
+                  <SelectItem value="2">2nd Year</SelectItem>
+                  <SelectItem value="3">3rd Year</SelectItem>
+                  <SelectItem value="4">4th Year</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -245,20 +268,28 @@ export default function EditScheduleDialog({
                 className="w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 px-3 py-2"
               >
                 <option value="">Select Day</option>
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
                   <option key={day} value={day}>{day}</option>
                 ))}
               </select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Time *</label>
-              <Input 
-                name="Time" 
-                value={form.Time ?? ''} 
-                onChange={handleChange} 
-                placeholder="Time (e.g. 08:00 - 10:00)"
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              />
+              <Select
+                value={form.Time ?? ''}
+                onValueChange={(value) => setForm(prev => ({ ...prev, Time: value }))}
+              >
+                <SelectTrigger className="w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                  <SelectValue placeholder="Select schedule time" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {TIME_OPTIONS.map(option => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

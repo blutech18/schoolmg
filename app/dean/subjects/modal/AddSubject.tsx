@@ -25,6 +25,12 @@ interface Instructor {
   LastName: string
 }
 
+interface SubjectOption {
+  SubjectID?: number
+  SubjectCode: string
+  SubjectName: string
+}
+
 export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
   const [form, setForm] = useState<Subject>({
     SubjectCode: '',
@@ -37,10 +43,12 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
   })
   const [loading, setLoading] = useState(false)
   const [instructors, setInstructors] = useState<Instructor[]>([])
+  const [subjects, setSubjects] = useState<SubjectOption[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
 
   useEffect(() => {
     fetchInstructors()
+    fetchSubjects()
   }, [])
 
   const fetchInstructors = async () => {
@@ -59,6 +67,26 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
       }
     } catch (error) {
       console.error('Failed to fetch instructors:', error)
+    }
+  }
+
+  const fetchSubjects = async () => {
+    try {
+      const response = await fetch('/api/subjects')
+      if (response.ok) {
+        const result = await response.json()
+        const data = result.success ? result.data : result
+        if (Array.isArray(data)) {
+          const options = data.map((s: any) => ({
+            SubjectID: s.SubjectID,
+            SubjectCode: s.SubjectCode,
+            SubjectName: s.SubjectName,
+          }))
+          setSubjects(options)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch subjects:', error)
     }
   }
 
@@ -166,12 +194,29 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
             required 
           />
           
-          <Input 
-            name="Prerequisites" 
-            placeholder="Prerequisites (optional)" 
-            value={form.Prerequisites} 
-            onChange={handleChange} 
-          />
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Prerequisite (optional)</label>
+            <Select
+              value={form.Prerequisites || 'none'}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, Prerequisites: value === 'none' ? '' : value }))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select prerequisite" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {subjects
+                  .filter((s) => s.SubjectCode !== form.SubjectCode) // avoid self-reference
+                  .map((subject) => (
+                    <SelectItem key={subject.SubjectCode} value={subject.SubjectCode}>
+                      {subject.SubjectCode} - {subject.SubjectName}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
           
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-2">

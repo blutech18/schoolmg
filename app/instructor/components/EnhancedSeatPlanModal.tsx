@@ -410,28 +410,16 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
     printDocument(printContent, `${schedule.SubjectCode} - ${roomType}${displayClassType} Seat Plan`);
   };
 
-  const renderSeatGrid = () => {
-    // For MAJOR class type, always treat as laboratory (Cisco room)
-    // For LECTURE+LABORATORY class type, treat as laboratory
-    // For other cases, use the class type as-is
-    let seatType: 'lecture' | 'laboratory'
-    console.log('🔍 renderSeatGrid: isCiscoRoom:', isCiscoRoom, 'classType:', classType)
-    if (classType === 'MAJOR') {
-      seatType = 'laboratory'
-      console.log('🔍 renderSeatGrid: Using laboratory for MAJOR class type')
-    } else if (classType === 'LECTURE+LABORATORY' || classType === 'LECTURE+LAB') {
-      seatType = 'laboratory'
-      console.log('🔍 renderSeatGrid: Using laboratory for LECTURE+LAB class type')
-    } else if (isCiscoRoom && classType === 'MAJOR') {
-      seatType = 'laboratory'
-      console.log('🔍 renderSeatGrid: Using laboratory for Cisco MAJOR')
-    } else {
-      seatType = classType.toLowerCase() as 'lecture' | 'laboratory'
-      console.log('🔍 renderSeatGrid: Using classType.toLowerCase():', seatType)
-    }
-    console.log('🔍 renderSeatGrid: Final seatType:', seatType)
+  const showBothSeatTypes =
+    hasBothComponents ||
+    classType === 'LECTURE+LAB' ||
+    classType === 'LECTURE+LABORATORY' ||
+    classType === 'MAJOR' ||
+    isCiscoRoom
+
+  const renderSeatSection = (seatType: 'lecture' | 'laboratory') => {
     const assignments = seatType === 'lecture' ? lectureSeatAssignments : laboratorySeatAssignments
-    
+
     // Cisco room specific layout configuration
     let cols: number
     if (isCiscoRoom) {
@@ -439,9 +427,12 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
       cols = 2
     } else {
       // Standard room layout
-      cols = seatType === 'lecture' ? (schedule.LectureSeatCols || schedule.SeatCols || 4) : (schedule.LaboratorySeatCols || schedule.SeatCols || 5)
+      cols =
+        seatType === 'lecture'
+          ? schedule.LectureSeatCols || schedule.SeatCols || 4
+          : schedule.LaboratorySeatCols || schedule.SeatCols || 5
     }
-    
+
     const totalSeats = schedule.TotalSeats || 0
     const assignedCount = assignments.filter(id => id !== 0).length
 
@@ -465,11 +456,11 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
               </div>
             </div>
           </div>
-          
+
           {/* Buttons */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => autoAssignSeats(seatType)}
               disabled={enrolledStudents.length === 0 || loading}
               className="border-blue-300 text-blue-700 hover:bg-blue-50 flex-1 sm:flex-none"
@@ -478,8 +469,8 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
               <span className="hidden sm:inline">Alphabetical</span>
               <span className="sm:hidden">A-Z</span>
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => shuffleSeats(seatType)}
               disabled={enrolledStudents.length === 0 || loading}
               className="border-purple-300 text-purple-700 hover:bg-purple-50 flex-1 sm:flex-none"
@@ -488,8 +479,8 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
               <span className="hidden sm:inline">Shuffle</span>
               <span className="sm:hidden">Random</span>
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setResetType(seatType)
                 setShowResetModal(true)
@@ -500,8 +491,8 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
               <X className="h-4 w-4 mr-2" />
               Reset
             </Button>
-            <Button 
-              onClick={() => saveSeatArrangement(seatType)} 
+            <Button
+              onClick={() => saveSeatArrangement(seatType)}
               disabled={saving || loading}
               className="bg-blue-600 hover:bg-blue-700 shadow-sm flex-1 sm:flex-none"
             >
@@ -509,7 +500,7 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
               <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save Arrangement'}</span>
               <span className="sm:hidden">{saving ? 'Saving...' : 'Save'}</span>
             </Button>
-            <Button 
+            <Button
               variant="outline"
               onClick={printSeatPlan}
               className="border-green-300 text-green-700 hover:bg-green-50 flex-1 sm:flex-none print-hide"
@@ -529,17 +520,12 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2">
                   Cisco Room
                 </span>
-                CISCO Seat Arrangement
+                {seatType === 'lecture' ? 'CISCO Lecture Seat Arrangement' : 'CISCO Laboratory Seat Arrangement'}
               </>
-            ) : (classType === 'LECTURE+LABORATORY' || classType === 'LECTURE+LAB') ? (
-              <>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">
-                  Lecture+Lab Room
-                </span>
-                LECTURE+LABORATORY Seat Arrangement
-              </>
+            ) : seatType === 'lecture' ? (
+              'Lecture Seat Arrangement'
             ) : (
-              `${seatType === 'lecture' ? 'Lecture' : 'Laboratory'} Seat Arrangement`
+              'Laboratory Seat Arrangement'
             )}
           </h3>
           <div className="flex flex-col gap-6">
@@ -553,7 +539,7 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
                       const seat2Index = seat1Index + 1
                       const seat1Number = seat1Index + 1
                       const seat2Number = seat2Index + 1
-                      
+
                       return (
                         <div key={colIndex} className="flex gap-2">
                           {/* First seat in column */}
@@ -562,10 +548,14 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
                               onClick={() => handleSeatClick(seat1Index, seatType)}
                               className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
                                 assignments[seat1Index] && assignments[seat1Index] !== 0
-                                  ? 'bg-green-600 text-white hover:bg-green-700 border-green-500' 
+                                  ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
                                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
                               }`}
-                              title={assignments[seat1Index] && assignments[seat1Index] !== 0 ? `${getStudentLabel(assignments[seat1Index])} - Click to unassign` : `Seat ${seat1Number} - Click to assign student`}
+                              title={
+                                assignments[seat1Index] && assignments[seat1Index] !== 0
+                                  ? `${getStudentLabel(assignments[seat1Index])} - Click to unassign`
+                                  : `Seat ${seat1Number} - Click to assign student`
+                              }
                             >
                               {assignments[seat1Index] && assignments[seat1Index] !== 0 ? (
                                 <div className="text-center">
@@ -577,17 +567,21 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
                               )}
                             </div>
                           )}
-                          
+
                           {/* Second seat in column */}
                           {seat2Index < totalSeats && (
                             <div
                               onClick={() => handleSeatClick(seat2Index, seatType)}
                               className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
                                 assignments[seat2Index] && assignments[seat2Index] !== 0
-                                  ? 'bg-green-600 text-white hover:bg-green-700 border-green-500' 
+                                  ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
                                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
                               }`}
-                              title={assignments[seat2Index] && assignments[seat2Index] !== 0 ? `${getStudentLabel(assignments[seat2Index])} - Click to unassign` : `Seat ${seat2Number} - Click to assign student`}
+                              title={
+                                assignments[seat2Index] && assignments[seat2Index] !== 0
+                                  ? `${getStudentLabel(assignments[seat2Index])} - Click to unassign`
+                                  : `Seat ${seat2Number} - Click to assign student`
+                              }
                             >
                               {assignments[seat2Index] && assignments[seat2Index] !== 0 ? (
                                 <div className="text-center">
@@ -606,169 +600,192 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
                 ))
               ) : (
                 // Standard room layout (existing logic)
-                Array.from({ length: cols === 1 ? Math.ceil(totalSeats / 1) : cols === 2 ? Math.ceil(totalSeats / 8) : Math.ceil(totalSeats / (cols * 2)) }, (_, rowIndex) => (
-              <div key={rowIndex} className="flex justify-center gap-12">
-                {cols === 1 ? (
-                  // Single column layout for Lecture (as requested)
-                  <div className="flex flex-col gap-2">
-                    {Array.from({ length: 1 }, (_, seatIndex) => {
-                      const actualSeatIndex = rowIndex * 1 + seatIndex
-                      const seatNumber = actualSeatIndex + 1
-                      
-                      if (actualSeatIndex >= totalSeats) return null
-                      
-                      return (
-                        <div
-                          key={seatIndex}
-                          onClick={() => handleSeatClick(actualSeatIndex, seatType)}
-                          className={`w-20 h-20 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
-                            assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
-                              ? 'bg-green-600 text-white hover:bg-green-700 border-green-500' 
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                          }`}
-                          title={assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0 ? `${getStudentLabel(assignments[actualSeatIndex])} - Click to unassign` : `Seat ${seatNumber} - Click to assign student`}
-                        >
-                          {assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0 ? (
-                            <div className="text-center">
-                              <div className="font-bold text-sm">{seatNumber}</div>
-                              <div className="text-xs truncate w-16 font-medium">{getStudentLabel(assignments[actualSeatIndex])}</div>
-                            </div>
-                          ) : (
-                            <span className="font-bold text-base">{seatNumber}</span>
-                          )}
+                Array.from(
+                  { length: cols === 1 ? Math.ceil(totalSeats / 1) : cols === 2 ? Math.ceil(totalSeats / 8) : Math.ceil(totalSeats / (cols * 2)) },
+                  (_, rowIndex) => (
+                    <div key={rowIndex} className="flex justify-center gap-12">
+                      {cols === 1 ? (
+                        // Single column layout for Lecture (as requested)
+                        <div className="flex flex-col gap-2">
+                          {Array.from({ length: 1 }, (_, seatIndex) => {
+                            const actualSeatIndex = rowIndex * 1 + seatIndex
+                            const seatNumber = actualSeatIndex + 1
+
+                            if (actualSeatIndex >= totalSeats) return null
+
+                            return (
+                              <div
+                                key={seatIndex}
+                                onClick={() => handleSeatClick(actualSeatIndex, seatType)}
+                                className={`w-20 h-20 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
+                                  assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
+                                    ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                                }`}
+                                title={
+                                  assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
+                                    ? `${getStudentLabel(assignments[actualSeatIndex])} - Click to unassign`
+                                    : `Seat ${seatNumber} - Click to assign student`
+                                }
+                              >
+                                {assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0 ? (
+                                  <div className="text-center">
+                                    <div className="font-bold text-sm">{seatNumber}</div>
+                                    <div className="text-xs truncate w-16 font-medium">{getStudentLabel(assignments[actualSeatIndex])}</div>
+                                  </div>
+                                ) : (
+                                  <span className="font-bold text-base">{seatNumber}</span>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
-                      )
-                    })}
-                  </div>
-                ) : cols === 2 ? (
-                  // Special case for 2 columns: 8 seats per row (4 on each side) with wide aisle
-                  <>
-                    {/* Left side: 4 seats */}
-                    <div className="flex gap-2">
-                      {Array.from({ length: 4 }, (_, seatIndex) => {
-                        const actualSeatIndex = rowIndex * 8 + seatIndex
-                        const seatNumber = actualSeatIndex + 1
-                        
-                        if (actualSeatIndex >= totalSeats) return null
-                        
-                        return (
-                          <div
-                            key={seatIndex}
-                            onClick={() => handleSeatClick(actualSeatIndex, seatType)}
-                            className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
-                              assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
-                                ? 'bg-green-600 text-white hover:bg-green-700 border-green-500' 
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                            }`}
-                            title={assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0 ? `${getStudentLabel(assignments[actualSeatIndex])} - Click to unassign` : `Seat ${seatNumber} - Click to assign student`}
-                          >
-                            {assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0 ? (
-                              <div className="text-center">
-                                <div className="font-bold text-sm">{seatNumber}</div>
-                                <div className="text-xs truncate w-12 font-medium">{getStudentLabel(assignments[actualSeatIndex])}</div>
-                              </div>
-                            ) : (
-                              <span className="font-bold text-base">{seatNumber}</span>
-                            )}
+                      ) : cols === 2 ? (
+                        // Special case for 2 columns: 8 seats per row (4 on each side) with wide aisle
+                        <>
+                          {/* Left side: 4 seats */}
+                          <div className="flex gap-2">
+                            {Array.from({ length: 4 }, (_, seatIndex) => {
+                              const actualSeatIndex = rowIndex * 8 + seatIndex
+                              const seatNumber = actualSeatIndex + 1
+
+                              if (actualSeatIndex >= totalSeats) return null
+
+                              return (
+                                <div
+                                  key={seatIndex}
+                                  onClick={() => handleSeatClick(actualSeatIndex, seatType)}
+                                  className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
+                                    assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
+                                      ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
+                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                                  }`}
+                                  title={
+                                    assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
+                                      ? `${getStudentLabel(assignments[actualSeatIndex])} - Click to unassign`
+                                      : `Seat ${seatNumber} - Click to assign student`
+                                  }
+                                >
+                                  {assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0 ? (
+                                    <div className="text-center">
+                                      <div className="font-bold text-sm">{seatNumber}</div>
+                                      <div className="text-xs truncate w-12 font-medium">{getStudentLabel(assignments[actualSeatIndex])}</div>
+                                    </div>
+                                  ) : (
+                                    <span className="font-bold text-base">{seatNumber}</span>
+                                  )}
+                                </div>
+                              )
+                            })}
                           </div>
-                        )
-                      })}
+
+                          {/* Wide aisle space */}
+                          <div className="w-16"></div>
+
+                          {/* Right side: 4 seats */}
+                          <div className="flex gap-2">
+                            {Array.from({ length: 4 }, (_, seatIndex) => {
+                              const actualSeatIndex = rowIndex * 8 + seatIndex + 4
+                              const seatNumber = actualSeatIndex + 1
+
+                              if (actualSeatIndex >= totalSeats) return null
+
+                              return (
+                                <div
+                                  key={seatIndex}
+                                  onClick={() => handleSeatClick(actualSeatIndex, seatType)}
+                                  className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
+                                    assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
+                                      ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
+                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                                  }`}
+                                  title={
+                                    assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
+                                      ? `${getStudentLabel(assignments[actualSeatIndex])} - Click to unassign`
+                                      : `Seat ${seatNumber} - Click to assign student`
+                                  }
+                                >
+                                  {assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0 ? (
+                                    <div className="text-center">
+                                      <div className="font-bold text-sm">{seatNumber}</div>
+                                      <div className="text-xs truncate w-12 font-medium">{getStudentLabel(assignments[actualSeatIndex])}</div>
+                                    </div>
+                                  ) : (
+                                    <span className="font-bold text-base">{seatNumber}</span>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </>
+                      ) : (
+                        // Normal case for multiple columns: 2 seats per column
+                        Array.from({ length: cols }, (_, colIndex) => {
+                          const seat1Index = rowIndex * (cols * 2) + colIndex * 2
+                          const seat2Index = seat1Index + 1
+                          const seat1Number = seat1Index + 1
+                          const seat2Number = seat2Index + 1
+
+                          return (
+                            <div key={colIndex} className="flex gap-2">
+                              {/* First seat in column */}
+                              {seat1Index < totalSeats && (
+                                <div
+                                  onClick={() => handleSeatClick(seat1Index, seatType)}
+                                  className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
+                                    assignments[seat1Index] && assignments[seat1Index] !== 0
+                                      ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
+                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                                  }`}
+                                  title={
+                                    assignments[seat1Index] && assignments[seat1Index] !== 0
+                                      ? `${getStudentLabel(assignments[seat1Index])} - Click to unassign`
+                                      : `Seat ${seat1Number} - Click to assign student`
+                                  }
+                                >
+                                  {assignments[seat1Index] && assignments[seat1Index] !== 0 ? (
+                                    <div className="text-center">
+                                      <div className="font-bold text-sm">{seat1Number}</div>
+                                      <div className="text-xs truncate w-12 font-medium">{getStudentLabel(assignments[seat1Index])}</div>
+                                    </div>
+                                  ) : (
+                                    <span className="font-bold text-base">{seat1Number}</span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Second seat in column */}
+                              {seat2Index < totalSeats && (
+                                <div
+                                  onClick={() => handleSeatClick(seat2Index, seatType)}
+                                  className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
+                                    assignments[seat2Index] && assignments[seat2Index] !== 0
+                                      ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
+                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                                  }`}
+                                  title={
+                                    assignments[seat2Index] && assignments[seat2Index] !== 0
+                                      ? `${getStudentLabel(assignments[seat2Index])} - Click to unassign`
+                                      : `Seat ${seat2Number} - Click to assign student`
+                                  }
+                                >
+                                  {assignments[seat2Index] && assignments[seat2Index] !== 0 ? (
+                                    <div className="text-center">
+                                      <div className="font-bold text-sm">{seat2Number}</div>
+                                      <div className="text-xs truncate w-12 font-medium">{getStudentLabel(assignments[seat2Index])}</div>
+                                    </div>
+                                  ) : (
+                                    <span className="font-bold text-base">{seat2Number}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
                     </div>
-                    
-                    {/* Wide aisle space */}
-                    <div className="w-16"></div>
-                    
-                    {/* Right side: 4 seats */}
-                    <div className="flex gap-2">
-                      {Array.from({ length: 4 }, (_, seatIndex) => {
-                        const actualSeatIndex = rowIndex * 8 + seatIndex + 4
-                        const seatNumber = actualSeatIndex + 1
-                        
-                        if (actualSeatIndex >= totalSeats) return null
-                        
-                        return (
-                          <div
-                            key={seatIndex}
-                            onClick={() => handleSeatClick(actualSeatIndex, seatType)}
-                            className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
-                              assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
-                                ? 'bg-green-600 text-white hover:bg-green-700 border-green-500' 
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                            }`}
-                            title={assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0 ? `${getStudentLabel(assignments[actualSeatIndex])} - Click to unassign` : `Seat ${seatNumber} - Click to assign student`}
-                          >
-                            {assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0 ? (
-                              <div className="text-center">
-                                <div className="font-bold text-sm">{seatNumber}</div>
-                                <div className="text-xs truncate w-12 font-medium">{getStudentLabel(assignments[actualSeatIndex])}</div>
-                              </div>
-                            ) : (
-                              <span className="font-bold text-base">{seatNumber}</span>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </>
-                ) : (
-                  // Normal case for multiple columns: 2 seats per column
-                  Array.from({ length: cols }, (_, colIndex) => {
-                    const seat1Index = rowIndex * (cols * 2) + colIndex * 2
-                    const seat2Index = seat1Index + 1
-                    const seat1Number = seat1Index + 1
-                    const seat2Number = seat2Index + 1
-                    
-                    return (
-                      <div key={colIndex} className="flex gap-2">
-                        {/* First seat in column */}
-                        {seat1Index < totalSeats && (
-                          <div
-                            onClick={() => handleSeatClick(seat1Index, seatType)}
-                            className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
-                              assignments[seat1Index] && assignments[seat1Index] !== 0
-                                ? 'bg-green-600 text-white hover:bg-green-700 border-green-500' 
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                            }`}
-                            title={assignments[seat1Index] && assignments[seat1Index] !== 0 ? `${getStudentLabel(assignments[seat1Index])} - Click to unassign` : `Seat ${seat1Number} - Click to assign student`}
-                          >
-                            {assignments[seat1Index] && assignments[seat1Index] !== 0 ? (
-                              <div className="text-center">
-                                <div className="font-bold text-sm">{seat1Number}</div>
-                                <div className="text-xs truncate w-12 font-medium">{getStudentLabel(assignments[seat1Index])}</div>
-                              </div>
-                            ) : (
-                              <span className="font-bold text-base">{seat1Number}</span>
-                            )}
-                          </div>
-                        )}
-                        
-                        {/* Second seat in column */}
-                        {seat2Index < totalSeats && (
-                          <div
-                            onClick={() => handleSeatClick(seat2Index, seatType)}
-                            className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
-                              assignments[seat2Index] && assignments[seat2Index] !== 0
-                                ? 'bg-green-600 text-white hover:bg-green-700 border-green-500' 
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                            }`}
-                            title={assignments[seat2Index] && assignments[seat2Index] !== 0 ? `${getStudentLabel(assignments[seat2Index])} - Click to unassign` : `Seat ${seat2Number} - Click to assign student`}
-                          >
-                            {assignments[seat2Index] && assignments[seat2Index] !== 0 ? (
-                              <div className="text-center">
-                                <div className="font-bold text-sm">{seat2Number}</div>
-                                <div className="text-xs truncate w-12 font-medium">{getStudentLabel(assignments[seat2Index])}</div>
-                              </div>
-                            ) : (
-                              <span className="font-bold text-base">{seat2Number}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-            ))
+                  )
+                )
               )
             ) : (
               <div className="text-center py-12 text-gray-500">
@@ -825,6 +842,21 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
         </div>
       </div>
     )
+  }
+
+  const renderSeatGrid = () => {
+    if (showBothSeatTypes) {
+      return (
+        <div className="space-y-10">
+          {renderSeatSection('lecture')}
+          {renderSeatSection('laboratory')}
+        </div>
+      )
+    }
+
+    // Single-component schedules fall back to the class type
+    const seatType = (classType.toLowerCase() as 'lecture' | 'laboratory') || 'lecture'
+    return renderSeatSection(seatType)
   }
 
   const totalSeats = schedule.TotalSeats || 0

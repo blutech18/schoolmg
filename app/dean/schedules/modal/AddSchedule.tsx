@@ -16,6 +16,23 @@ import { brandedToast } from '@/components/ui/branded-toast'
 
 import React, { useEffect, useState } from 'react'
 
+const TIME_OPTIONS = [
+  '07:00 AM - 08:00 AM',
+  '08:00 AM - 09:00 AM',
+  '09:00 AM - 10:00 AM',
+  '10:00 AM - 11:00 AM',
+  '11:00 AM - 12:00 PM',
+  '12:00 PM - 01:00 PM',
+  '01:00 PM - 02:00 PM',
+  '02:00 PM - 03:00 PM',
+  '03:00 PM - 04:00 PM',
+  '04:00 PM - 05:00 PM',
+  '05:00 PM - 06:00 PM',
+  '06:00 PM - 07:00 PM',
+  '07:00 PM - 08:00 PM',
+  '08:00 PM - 09:00 PM',
+];
+
 interface ISubject {
   SubjectID: number;
   SubjectCode: string;
@@ -309,7 +326,7 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
                   <SelectValue placeholder="Select Day" />
                 </SelectTrigger>
                 <SelectContent>
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
                     <SelectItem key={day} value={day}>{day}</SelectItem>
                   ))}
                 </SelectContent>
@@ -324,7 +341,16 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Time</label>
-              <Input name="Time" placeholder="e.g., 8:00-9:00 AM" value={form.Time} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" />
+              <Select value={form.Time} onValueChange={(value) => setForm(prev => ({ ...prev, Time: value }))}>
+                <SelectTrigger className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                  <SelectValue placeholder="Select schedule time" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {TIME_OPTIONS.map(option => (
+                    <SelectItem key={option} value={option}>{option}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
