@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { parseRooms, parseTimes, parseDays } from '@/lib/utils'
 
-type ScheduleLike = ISchedule & {
+type ScheduleLike = Partial<ISchedule> & {
+  ScheduleID: number
   SubjectTitle?: string
   SubjectName?: string
   InstructorName?: string
-  EnrolledStudents?: number
-  TotalSeats?: number
+  EnrolledStudents?: number | null
+  TotalSeats?: number | null
 }
 
 interface ScheduleCardProps {

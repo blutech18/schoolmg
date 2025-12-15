@@ -275,15 +275,6 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Error fetching student details:", error);
 
-    // Ensure connection is closed even if there's an error
-    if (connection) {
-      try {
-        await connection.end();
-      } catch (closeError) {
-        console.error("Error closing database connection:", closeError);
-      }
-    }
-
     return NextResponse.json(
       { success: false, error: "Failed to fetch student details", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
