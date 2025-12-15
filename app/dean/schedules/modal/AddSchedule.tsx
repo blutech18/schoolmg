@@ -33,6 +33,8 @@ const TIME_OPTIONS = [
   '08:00 PM - 09:00 PM',
 ];
 
+const DAY_OPTIONS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 interface ISubject {
   SubjectID: number;
   SubjectCode: string;
@@ -73,6 +75,12 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
     Semester: '',
     AcademicYear: '',
   })
+  const [lectureDay, setLectureDay] = useState('')
+  const [lectureTime, setLectureTime] = useState('')
+  const [lectureRoom, setLectureRoom] = useState('')
+  const [labDay, setLabDay] = useState('')
+  const [labTime, setLabTime] = useState('')
+  const [labRoom, setLabRoom] = useState('')
 
   useEffect(() => {
     async function fetchData() {
@@ -129,6 +137,17 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
     }
 
     try {
+      // Build combined day/time/room strings for lecture + lab
+      const combinedDay = [lectureDay ? `Lecture: ${lectureDay}` : null, labDay ? `Laboratory: ${labDay}` : null]
+        .filter(Boolean)
+        .join(', ');
+      const combinedTime = [lectureTime ? `Lecture: ${lectureTime}` : null, labTime ? `Laboratory: ${labTime}` : null]
+        .filter(Boolean)
+        .join(', ');
+      const combinedRoom = [lectureRoom ? `Lecture: ${lectureRoom}` : null, labRoom ? `Laboratory: ${labRoom}` : null]
+        .filter(Boolean)
+        .join(', ');
+
       // Get the selected subject details to extract units
       const selectedSubject = subjects.find(subject => subject.SubjectID === parseInt(form.SubjectID));
       if (!selectedSubject) {
@@ -143,6 +162,9 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
         Lecture: Number(form.Lecture) || 0,
         Laboratory: Number(form.Laboratory) || 0,
         Units: selectedSubject.Units || 3,
+        Day: combinedDay || form.Day,
+        Time: combinedTime || form.Time,
+        Room: combinedRoom || form.Room,
       };
 
 
@@ -211,6 +233,12 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
       Semester: '',
       AcademicYear: '',
     });
+    setLectureDay('');
+    setLectureTime('');
+    setLectureRoom('');
+    setLabDay('');
+    setLabTime('');
+    setLabRoom('');
   }
 
   return (
@@ -218,7 +246,7 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
       <DialogTrigger asChild>
         <Button>Add Schedule</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl p-6">
+      <DialogContent className="max-w-3xl p-6">
         <DialogHeader>
           <DialogTitle>Add New Schedule</DialogTitle>
           <DialogDescription>
@@ -320,51 +348,24 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Day *</label>
-              <Select value={form.Day} onValueChange={(value) => setForm(prev => ({ ...prev, Day: value }))}>
-                <SelectTrigger className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
-                  <SelectValue placeholder="Select Day" />
-                </SelectTrigger>
-                <SelectContent>
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
-                    <SelectItem key={day} value={day}>{day}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-6 mb-2">
-            <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Academic Year</label>
               <Input name="AcademicYear" placeholder="e.g., 2023-2024" value={form.AcademicYear} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Time</label>
-              <Select value={form.Time} onValueChange={(value) => setForm(prev => ({ ...prev, Time: value }))}>
-                <SelectTrigger className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
-                  <SelectValue placeholder="Select schedule time" />
-                </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  {TIME_OPTIONS.map(option => (
-                    <SelectItem key={option} value={option}>{option}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
+          {/* Seats */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Total Seats</label>
               <Input name="TotalSeats" type="number" value={form.TotalSeats} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Room</label>
-              <Input name="Room" value={form.Room} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" />
+              <label className="text-sm font-medium text-gray-700">Units (auto)</label>
+              <Input value={subjects.find(s => String(s.SubjectID) === form.SubjectID)?.Units || ''} readOnly className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-700" />
             </div>
           </div>
 
+          {/* Hours */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Lecture Hours</label>
@@ -390,7 +391,76 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
             </div>
           </div>
 
+          {/* Lecture / Laboratory panels */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-green-800 text-white px-3 py-2 font-semibold">Lecture</div>
+              <div className="p-3 space-y-2 bg-white">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Day</label>
+                  <Select value={lectureDay} onValueChange={setLectureDay}>
+                    <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DAY_OPTIONS.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Time</label>
+                  <Select value={lectureTime} onValueChange={setLectureTime}>
+                    <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      {TIME_OPTIONS.map(option => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Room</label>
+                  <Input value={lectureRoom} onChange={(e) => setLectureRoom(e.target.value)} placeholder="e.g., R201" className="w-full px-3 py-2 border border-gray-200 rounded-lg" />
+                </div>
+              </div>
+            </div>
 
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-green-800 text-white px-3 py-2 font-semibold">Laboratory</div>
+              <div className="p-3 space-y-2 bg-white">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Day</label>
+                  <Select value={labDay} onValueChange={setLabDay}>
+                    <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DAY_OPTIONS.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Time</label>
+                  <Select value={labTime} onValueChange={setLabTime}>
+                    <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      {TIME_OPTIONS.map(option => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Room</label>
+                  <Input value={labRoom} onChange={(e) => setLabRoom(e.target.value)} placeholder="e.g., CLAB2" className="w-full px-3 py-2 border border-gray-200 rounded-lg" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <DialogFooter className="mt-6 flex justify-end space-x-2">

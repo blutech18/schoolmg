@@ -214,11 +214,12 @@ export default function CoordinatorDashboard() {
 
 
   const filteredExcuseLetters = excuseLetters.filter(letter => {
+    const coordinatorStatus = letter.CoordinatorStatus || letter.Status || 'pending';
     const matchesSearch = letter.StudentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          letter.Subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          letter.SubjectCode.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || letter.CoordinatorStatus === statusFilter;
+    const matchesStatus = statusFilter === 'all' || coordinatorStatus === statusFilter;
     const matchesCourse = courseFilter === 'all' || letter.Course === courseFilter;
     const matchesYear = yearFilter === 'all' || letter.YearLevel.toString() === yearFilter;
     
@@ -477,7 +478,7 @@ export default function CoordinatorDashboard() {
                         {letter.StudentName} • {letter.Course} Year {letter.YearLevel} • {letter.SubjectCode}
                       </CardDescription>
                     </div>
-                    {getStatusBadge(letter.CoordinatorStatus)}
+                    {getStatusBadge(letter.CoordinatorStatus || letter.Status || 'pending')}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -493,11 +494,11 @@ export default function CoordinatorDashboard() {
                       <div className="flex flex-wrap items-center gap-3 text-sm">
                         <div className="flex items-center gap-2">
                           <span className="text-gray-600 font-medium text-xs">Instructor:</span>
-                          {getStatusBadge(letter.InstructorStatus || 'pending')}
+                          {getStatusBadge(letter.InstructorStatus || letter.Status || 'pending')}
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-gray-600 font-medium text-xs">Dean:</span>
-                          {getStatusBadge(letter.DeanStatus || 'pending')}
+                          {getStatusBadge(letter.DeanStatus || letter.Status || 'pending')}
                         </div>
                       </div>
                     </div>
@@ -507,6 +508,17 @@ export default function CoordinatorDashboard() {
                         <strong>Your Comment:</strong> {letter.CoordinatorComment}
                       </div>
                     )}
+
+                        <div className="pt-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedExcuseLetter(letter)}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            View Details
+                          </Button>
+                        </div>
                   </div>
                 </CardContent>
               </Card>

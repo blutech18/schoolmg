@@ -453,15 +453,15 @@ export default function AttendanceSheet({
                 Mark All Present
               </Button>
               {!isCurrentSessionCancelled() ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={cancelClassForSession}
-                  className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
-                >
-                  <AlertCircle className="h-4 w-4" />
-                  Cancel Class
-                </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={cancelClassForSession}
+                className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+              >
+                <AlertCircle className="h-4 w-4" />
+                Cancel Class
+              </Button>
               ) : (
                 <Button
                   variant="outline"

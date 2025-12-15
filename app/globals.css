@@ -303,4 +303,50 @@
       page-break-inside: avoid;
     }
   }
+
+/* Brand green override (scoped via CSS variables, not class wildcards) */
+:root {
+  --brand-green: #566d3a;
+  --primary: var(--brand-green);
+  --sidebar-primary: var(--brand-green);
+  --sidebar-ring: var(--brand-green);
+}
+
+.dark {
+  --primary: var(--brand-green);
+  --sidebar-primary: var(--brand-green);
+  --sidebar-ring: var(--brand-green);
+}
+
+/* Scoped overrides for common green utility shades to use brand green */
+.bg-green-900,
+.bg-green-800,
+.bg-green-700,
+.bg-green-600 {
+  background-color: var(--brand-green) !important;
+}
+.hover\:bg-green-900:hover,
+.hover\:bg-green-800:hover,
+.hover\:bg-green-700:hover,
+.hover\:bg-green-600:hover {
+  background-color: var(--brand-green) !important;
+}
+.text-green-900,
+.text-green-800,
+.text-green-700,
+.text-green-600 {
+  color: var(--brand-green) !important;
+}
+.border-green-900,
+.border-green-800,
+.border-green-700,
+.border-green-600 {
+  border-color: var(--brand-green) !important;
+}
+.ring-green-900,
+.ring-green-800,
+.ring-green-700,
+.ring-green-600 {
+  --tw-ring-color: var(--brand-green) !important;
+}
 }

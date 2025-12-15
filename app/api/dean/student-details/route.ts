@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import mysql from "mysql2/promise";
-
-// Note: Grade calculation functions now use shared utility: app/lib/gradeCalculations.ts
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 interface StudentDetails {
   StudentID: number;
@@ -66,8 +56,6 @@ interface StudentDetails {
 }
 
 export async function GET(request: NextRequest) {
-  let connection: any = null;
-
   try {
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get("studentId");
@@ -88,10 +76,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    connection = await mysql.createConnection(dbConfig);
-
     // Get basic student information
-    const [studentRows] = await connection.execute(`
+    const [studentRows] = await db.execute(`
       SELECT
         u.UserID,
         u.FirstName,
@@ -116,7 +102,6 @@ export async function GET(request: NextRequest) {
     `, [studentIdNum]);
 
     if ((studentRows as any[]).length === 0) {
-      await connection.end();
       return NextResponse.json(
         { success: false, error: "Student not found" },
         { status: 404 }
@@ -125,28 +110,32 @@ export async function GET(request: NextRequest) {
 
     const student = (studentRows as any[])[0];
 
-    // Get enrollments with subject and instructor details
-    const [enrollmentRows] = await connection.execute(`
-      SELECT
-        e.ScheduleID,
-        e.EnrollmentDate,
-        COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown Code') as SubjectCode,
-        COALESCE(sch.SubjectName, sch.SubjectTitle, subj.SubjectName, 'Unknown Subject') as SubjectName,
-        CONCAT(COALESCE(inst.FirstName, ''), ' ', COALESCE(inst.LastName, '')) as InstructorName
-      FROM enrollments e
-      JOIN schedules sch ON e.ScheduleID = sch.ScheduleID
-      LEFT JOIN subjects subj ON sch.SubjectID = subj.SubjectID
-      LEFT JOIN users inst ON sch.InstructorID = inst.UserID
-      WHERE e.StudentID = ?
-      ORDER BY e.EnrollmentDate DESC
-    `, [studentIdNum]);
-
-    // Get grades using the same calculation logic that instructor/student interfaces use
-    // This ensures consistent grade calculations across all interfaces
-    let gradesData: any = {};
-    try {
-      // Get raw grades data with the same structure as the main grades API
-      const [rawGradesRows] = await connection.execute(`
+    // Fetch related datasets in parallel to reduce latency
+    const [
+      [enrollmentRows],
+      [rawGradesRows],
+      [attendanceRows],
+      [excuseLettersRows],
+    ] = await Promise.all([
+      db.execute(
+        `
+        SELECT
+          e.ScheduleID,
+          e.EnrollmentDate,
+          COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown Code') as SubjectCode,
+          COALESCE(sch.SubjectName, sch.SubjectTitle, subj.SubjectName, 'Unknown Subject') as SubjectName,
+          CONCAT(COALESCE(inst.FirstName, ''), ' ', COALESCE(inst.LastName, '')) as InstructorName
+        FROM enrollments e
+        JOIN schedules sch ON e.ScheduleID = sch.ScheduleID
+        LEFT JOIN subjects subj ON sch.SubjectID = subj.SubjectID
+        LEFT JOIN users inst ON sch.InstructorID = inst.UserID
+        WHERE e.StudentID = ?
+        ORDER BY e.EnrollmentDate DESC
+        `,
+        [studentIdNum],
+      ),
+      db.execute(
+        `
         SELECT
           g.*,
           COALESCE(sub.SubjectCode, sch.SubjectCode) as SubjectCode,
@@ -157,53 +146,58 @@ export async function GET(request: NextRequest) {
         LEFT JOIN subjects sub ON sch.SubjectID = sub.SubjectID
         WHERE g.StudentID = ?
         ORDER BY g.ScheduleID, g.Term ASC, g.Component ASC, g.ItemNumber ASC
-      `, [studentIdNum]);
+        `,
+        [studentIdNum],
+      ),
+      db.execute(
+        `
+        SELECT
+          COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown Code') as SubjectCode,
+          COALESCE(sch.SubjectName, sch.SubjectTitle, subj.SubjectName, 'Unknown Subject') as SubjectName,
+          COUNT(*) as TotalSessions,
+          SUM(CASE WHEN a.Status = 'P' THEN 1 ELSE 0 END) as PresentCount,
+          SUM(CASE WHEN a.Status = 'A' THEN 1 ELSE 0 END) as AbsentCount,
+          SUM(CASE WHEN a.Status = 'E' THEN 1 ELSE 0 END) as ExcusedCount,
+          SUM(CASE WHEN a.Status = 'L' THEN 1 ELSE 0 END) as LateCount
+        FROM attendance a
+        JOIN schedules sch ON a.ScheduleID = sch.ScheduleID
+        LEFT JOIN subjects subj ON sch.SubjectID = subj.SubjectID
+        WHERE a.StudentID = ?
+        GROUP BY a.ScheduleID, sch.SubjectCode, sch.SubjectName, sch.SubjectTitle, subj.SubjectCode, subj.SubjectName
+        ORDER BY COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown Code')
+        `,
+        [studentIdNum],
+      ),
+      db.execute(
+        `
+        SELECT
+          ExcuseLetterID,
+          Subject,
+          Reason,
+          DateFrom,
+          DateTo,
+          Status,
+          InstructorStatus,
+          CoordinatorStatus,
+          DeanStatus,
+          SubmissionDate
+        FROM excuse_letters
+        WHERE StudentID = ?
+        ORDER BY SubmissionDate DESC
+        `,
+        [studentIdNum],
+      ),
+    ]);
 
-      // Use the same calculation logic as instructor/student interfaces
+    // Get grades using the same calculation logic that instructor/student interfaces use
+    // This ensures consistent grade calculations across all interfaces
+    let gradesData: any = {};
+    try {
       gradesData = calculateStudentGradesForDean(rawGradesRows as any[]);
-      console.log('Dean API - Calculated grades data:', gradesData);
     } catch (error) {
       console.error('Error calculating grades using shared logic:', error);
       gradesData = {};
     }
-
-    // Get attendance details by subject
-    const [attendanceRows] = await connection.execute(`
-      SELECT
-        COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown Code') as SubjectCode,
-        COALESCE(sch.SubjectName, sch.SubjectTitle, subj.SubjectName, 'Unknown Subject') as SubjectName,
-        COUNT(*) as TotalSessions,
-        SUM(CASE WHEN a.Status = 'P' THEN 1 ELSE 0 END) as PresentCount,
-        SUM(CASE WHEN a.Status = 'A' THEN 1 ELSE 0 END) as AbsentCount,
-        SUM(CASE WHEN a.Status = 'E' THEN 1 ELSE 0 END) as ExcusedCount,
-        SUM(CASE WHEN a.Status = 'L' THEN 1 ELSE 0 END) as LateCount
-      FROM attendance a
-      JOIN schedules sch ON a.ScheduleID = sch.ScheduleID
-      LEFT JOIN subjects subj ON sch.SubjectID = subj.SubjectID
-      WHERE a.StudentID = ?
-      GROUP BY a.ScheduleID, sch.SubjectCode, sch.SubjectName, sch.SubjectTitle, subj.SubjectCode, subj.SubjectName
-      ORDER BY COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown Code')
-    `, [studentIdNum]);
-
-    // Get excuse letters
-    const [excuseLettersRows] = await connection.execute(`
-      SELECT
-        ExcuseLetterID,
-        Subject,
-        Reason,
-        DateFrom,
-        DateTo,
-        Status,
-        InstructorStatus,
-        CoordinatorStatus,
-        DeanStatus,
-        SubmissionDate
-      FROM excuse_letters
-      WHERE StudentID = ?
-      ORDER BY SubmissionDate DESC
-    `, [studentIdNum]);
-
-    await connection.end();
 
     // Process the data
     const studentDetails: StudentDetails = {

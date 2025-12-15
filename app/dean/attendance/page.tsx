@@ -244,8 +244,11 @@ export default function DeanAttendancePage() {
             Subjects
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="overflow-x-scroll">
+          <p className="text-sm text-gray-500 mb-4">
+            Tip: Hold Shift and use your mouse wheel to scroll horizontally across weeks.
+          </p>
+          <div className="space-y-4 min-w-full">
             {filteredSchedules.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -285,8 +288,8 @@ export default function DeanAttendancePage() {
                     {/* Expanded Attendance Sheet */}
                     {isExpanded && (
                       <div className="border-t bg-gray-50 p-4">
-                        <div className="overflow-x-auto">
-                          <Table>
+                        <div className="overflow-x-scroll w-full pb-2">
+                          <Table className="min-w-[1400px]">
                             <TableHeader>
                               <TableRow className="bg-gray-100">
                                 <TableHead>Student No.</TableHead>

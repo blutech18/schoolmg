@@ -176,7 +176,7 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
       const res = await fetch(`/api/grades?role=student&userId=${studentId}&scheduleId=${schedule.ScheduleID}`)
       if (!res.ok) return
 
-      const result = await res.json()
+        const result = await res.json()
       const rawData = result.success ? result.data : []
       const summaryMap = result.summary || {}
       const scheduleKey = schedule.ScheduleID?.toString()
@@ -538,7 +538,7 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                             ))}
                           </div>
                         </div>
-
+                        
                         {/* Attendance Summary */}
                         <div className="mt-6 p-6 bg-gradient-to-r from-slate-50 to-blue-50 rounded-lg border border-gray-200">
                           <h4 className="font-semibold text-slate-800 mb-4 text-lg">Attendance Summary</h4>

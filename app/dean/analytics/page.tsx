@@ -318,10 +318,35 @@ export default function DeanAnalyticsPage() {
     return sectionsAnalytics;
   };
 
+  const getInstructorAnalytics = () => {
+    const map = new Map<string, { name: string; subjects: number; students: number; rating: number }>();
+
+    scheduleAnalytics.forEach((schedule) => {
+      const name = schedule.instructorName || 'No Instructor';
+      const existing = map.get(name);
+      if (existing) {
+        existing.subjects += 1;
+        existing.students += schedule.totalStudents || 0;
+      } else {
+        map.set(name, {
+          name,
+          subjects: 1,
+          students: schedule.totalStudents || 0,
+          rating: 4.0, // placeholder until real ratings are available
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  };
+
   // Chart data preparation
+  const formatSectionLabel = (section: SectionAnalytics) =>
+    `${section.course} ${section.section} • Y${section.yearLevel}`;
+
   const getAttendanceChartData = () => {
     return sectionsAnalytics.map(section => ({
-      name: `${section.course} ${section.section}`,
+      name: formatSectionLabel(section),
       attendance: section.averageAttendance,
       students: section.totalStudents
     }));
@@ -329,7 +354,7 @@ export default function DeanAnalyticsPage() {
 
   const getGradeChartData = () => {
     return sectionsAnalytics.map(section => ({
-      name: `${section.course} ${section.section}`,
+      name: formatSectionLabel(section),
       averageGrade: section.averageGrade,
       atRisk: section.atRiskStudents
     }));
@@ -386,8 +411,8 @@ export default function DeanAnalyticsPage() {
     // Excuse Letters (from dashboard stats)
     const excuseLetters = dashboardStats.totalExcuseLetters;
     
-    // Instructors (unique instructors from subjects analytics)
-    const uniqueInstructors = new Set(subjectsAnalytics.map(subject => subject.instructorName)).size;
+    // Instructors (unique instructors from schedules)
+    const uniqueInstructors = new Set(getInstructorAnalytics().map(inst => inst.name)).size;
     
     // Subjects (total subjects)
     const subjectsTotal = subjectsAnalytics.length;
@@ -722,12 +747,7 @@ export default function DeanAnalyticsPage() {
                     status: i % 3 === 0 ? 'pending' : 'approved',
                     priority: i % 5 === 0 ? 'urgent' : 'normal'
                   })),
-                  instructors: subjectsAnalytics.map(subject => ({
-                    name: subject.instructorName,
-                    subjects: 1,
-                    students: subject.totalStudents,
-                    rating: Math.random() * 2 + 3 // Random rating between 3-5
-                  })),
+                  instructors: getInstructorAnalytics(),
                   subjects: subjectsAnalytics.map(subject => ({
                     name: subject.subjectName,
                     students: subject.totalStudents,

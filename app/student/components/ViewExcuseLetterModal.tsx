@@ -336,10 +336,10 @@ export default function ViewExcuseLetterModal({
                       onChange={(e) => setFormDateFrom(e.target.value)}
                     />
                   ) : (
-                    <p className="text-sm mt-1 flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
+                  <p className="text-sm mt-1 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
                       {new Date(letterData.DateFrom).toLocaleDateString()}
-                    </p>
+                  </p>
                   )}
                 </div>
                 <div>
@@ -351,10 +351,10 @@ export default function ViewExcuseLetterModal({
                       onChange={(e) => setFormDateTo(e.target.value)}
                     />
                   ) : (
-                    <p className="text-sm mt-1 flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
+                  <p className="text-sm mt-1 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
                       {new Date(letterData.DateTo).toLocaleDateString()}
-                    </p>
+                  </p>
                   )}
                 </div>
               </div>
@@ -526,9 +526,9 @@ export default function ViewExcuseLetterModal({
                 </Button>
               </>
             )}
-            <Button variant="outline" onClick={onClose}>
-              Close
-            </Button>
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
           </div>
         </div>
       </DialogContent>
