@@ -105,13 +105,26 @@ export default function ScheduleCard({
 
   const classTypeLabel = () => {
     const type = schedule.ClassType
+    const lectureHours = schedule.Lecture || 0
+    const labHours = schedule.Laboratory || 0
+
+    // If both lecture and lab hours are configured, always show Lecture + Laboratory
+    if (lectureHours > 0 && labHours > 0) return 'Lecture + Laboratory'
+    if (lectureHours > 0 && labHours === 0) return 'Lecture Only'
+    if (lectureHours === 0 && labHours > 0) return 'Laboratory Only'
+
     if (!type) return null
-    if (type === 'LECTURE+LAB' || type === 'LECTURE-LAB') return 'Lecture + Laboratory'
-    if (type === 'LECTURE-ONLY' || type === 'LECTURE') return 'Lecture Only'
-    if (type === 'LAB-ONLY' || type === 'LAB') return 'Laboratory Only'
-    if (type === 'MAJOR') return 'Cisco'
-    if (type === 'NSTP') return 'NSTP'
-    if (type === 'OJT') return 'OJT'
+
+    const upper = type.toUpperCase()
+    if (upper === 'LECTURE+LAB' || upper === 'LECTURE-LAB') return 'Lecture + Laboratory'
+    if (upper === 'LECTURE-ONLY' || upper === 'LECTURE' || upper === 'LECTURE_ONLY' || upper === 'LECTURE-ONLY ') return 'Lecture Only'
+    if (upper === 'LAB-ONLY' || upper === 'LAB' || upper === 'LAB_ONLY') return 'Laboratory Only'
+    if (upper === 'MAJOR') return 'Cisco'
+    if (upper === 'NSTP') return 'NSTP'
+    if (upper === 'OJT') return 'OJT'
+    if (upper === 'LECTURE-ONLY' || upper === 'LECTUREONLY' || upper === 'LECTURE ONLY') return 'Lecture Only'
+    if (upper === 'LECTURE+LABORATORY') return 'Lecture + Laboratory'
+
     return type
   }
 

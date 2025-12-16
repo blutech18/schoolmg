@@ -176,19 +176,49 @@ export default function ScheduleCard({ schedule } : IScheduleCardProps) {
         </div>
 
         {/* Class Type Badge */}
-        {schedule.ClassType && (
-          <div className="pt-2">
-            <Badge variant="outline" className="text-xs">
-              {schedule.ClassType === 'LECTURE+LAB' || schedule.ClassType === 'LECTURE-LAB' ? 'Lecture + Laboratory' : 
-               schedule.ClassType === 'LECTURE-ONLY' || schedule.ClassType === 'LECTURE' ? 'Lecture Only' :
-               schedule.ClassType === 'LAB-ONLY' || schedule.ClassType === 'LAB' ? 'Laboratory Only' :
-               schedule.ClassType === 'MAJOR' ? 'Cisco' : 
-               schedule.ClassType === 'NSTP' ? 'NSTP' : 
-               schedule.ClassType === 'OJT' ? 'OJT' : 
-               schedule.ClassType}
-            </Badge>
-          </div>
-        )}
+        {(() => {
+          const type = schedule.ClassType
+          const lectureHours = schedule.Lecture || 0
+          const labHours = schedule.Laboratory || 0
+
+          let label: string | null = null
+
+          // Prefer hours configuration to infer class type
+          if (lectureHours > 0 && labHours > 0) {
+            label = 'Lecture + Laboratory'
+          } else if (lectureHours > 0 && labHours === 0) {
+            label = 'Lecture Only'
+          } else if (lectureHours === 0 && labHours > 0) {
+            label = 'Laboratory Only'
+          } else if (type) {
+            const upper = type.toUpperCase()
+            if (upper === 'LECTURE+LAB' || upper === 'LECTURE-LAB' || upper === 'LECTURE+LABORATORY') {
+              label = 'Lecture + Laboratory'
+            } else if (upper === 'LECTURE-ONLY' || upper === 'LECTURE' || upper === 'LECTURE_ONLY' || upper === 'LECTURE ONLY') {
+              label = 'Lecture Only'
+            } else if (upper === 'LAB-ONLY' || upper === 'LAB' || upper === 'LAB_ONLY') {
+              label = 'Laboratory Only'
+            } else if (upper === 'MAJOR') {
+              label = 'Cisco'
+            } else if (upper === 'NSTP') {
+              label = 'NSTP'
+            } else if (upper === 'OJT') {
+              label = 'OJT'
+            } else {
+              label = type
+            }
+          }
+
+          if (!label) return null
+
+          return (
+            <div className="pt-2">
+              <Badge variant="outline" className="text-xs">
+                {label}
+              </Badge>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Action Buttons */}
