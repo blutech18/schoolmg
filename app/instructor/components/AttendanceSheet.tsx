@@ -114,7 +114,7 @@ export default function AttendanceSheet({
 
   // Determine available session types based on schedule class type
   const hasLecture = (schedule.Lecture || 0) > 0 || schedule.ClassType === 'LECTURE' || schedule.ClassType === 'LECTURE+LAB' || schedule.ClassType === 'MAJOR' || schedule.ClassType === 'NSTP' || schedule.ClassType === 'OJT'
-  const hasLaboratory = (schedule.Laboratory || 0) > 0 || schedule.ClassType === 'LAB' || schedule.ClassType === 'LECTURE+LAB'
+  const hasLaboratory = (schedule.Laboratory || 0) > 0 || schedule.ClassType === 'LAB' || schedule.ClassType === 'LECTURE+LAB' || schedule.ClassType === 'MAJOR' || (schedule.Room && schedule.Room.toLowerCase().includes('cisco'))
   const hasBothComponents = hasLecture && hasLaboratory
 
   // Detect Cisco rooms

@@ -75,7 +75,9 @@ export default function ScheduleCard({
 
   const hasLab =
     (schedule.Laboratory || 0) > 0 ||
-    (schedule.ClassType || '').toUpperCase().includes('LAB')
+    (schedule.ClassType || '').toUpperCase().includes('LAB') ||
+    (schedule.ClassType || '').toUpperCase() === 'MAJOR' ||
+    (schedule.Room && schedule.Room.toLowerCase().includes('cisco'))
 
   const rooms = parseRooms(schedule.Room ?? undefined)
   const times = parseTimes(schedule.Time ?? undefined)

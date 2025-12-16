@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Student Attendance | City College of Angeles"
+  title: "City College of Angeles"
 }
 
 export default function RootLayout({

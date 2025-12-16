@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import mysql from "mysql2/promise";
-
-// Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "schoolmgtdb",
-};
+import { db } from "@/app/lib/db";
 
 // DELETE - Remove all attendance records with specific status for a student
 export async function GET(request: NextRequest) {
@@ -33,13 +25,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const connection = await mysql.createConnection(dbConfig);
+    console.log(`Deleting attendance records for student ${studentId}, schedule ${scheduleId}, status ${status}`);
 
     // Delete all records for this student with the specified status
     const deleteQuery = "DELETE FROM attendance WHERE StudentID = ? AND ScheduleID = ? AND Status = ?";
-    const [result]: any = await connection.execute(deleteQuery, [studentId, scheduleId, status]);
-
-    await connection.end();
+    const [result]: any = await db.execute(deleteQuery, [studentId, scheduleId, status]);
 
     console.log(`Deleted ${result.affectedRows} attendance records for student ${studentId} with status ${status}`);
 
@@ -48,10 +38,20 @@ export async function GET(request: NextRequest) {
       message: `Successfully deleted ${result.affectedRows} attendance records`,
       affectedRows: result.affectedRows
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error deleting attendance records:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
     return NextResponse.json(
-      { success: false, error: "Failed to delete attendance records" },
+      { 
+        success: false, 
+        error: "Failed to delete attendance records",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     );
   }

@@ -21,6 +21,10 @@ interface Schedule {
   Section: string;
   YearLevel: number;
   InstructorID: number;
+  ClassType?: string;
+  Lecture?: number;
+  Laboratory?: number;
+  Room?: string;
 }
 
 interface Student {
@@ -286,57 +290,114 @@ export default function DeanAttendancePage() {
                     </div>
 
                     {/* Expanded Attendance Sheet */}
-                    {isExpanded && (
-                      <div className="border-t bg-gray-50 p-4">
-                        <div className="overflow-x-scroll w-full pb-2">
-                          <Table className="min-w-[1400px]">
-                            <TableHeader>
-                              <TableRow className="bg-gray-100">
-                                <TableHead>Student No.</TableHead>
-                                <TableHead>Student Name</TableHead>
-                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map(week => (
-                                  <TableHead key={week} className="text-center min-w-[60px]">W{week}</TableHead>
-                                ))}
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {schedule.students.length === 0 ? (
-                                <TableRow>
-                                  <TableCell colSpan={20} className="text-center text-gray-500 py-8">
-                                    No students enrolled
-                                  </TableCell>
+                    {isExpanded && (() => {
+                      // Determine if schedule has both lecture and lab
+                      const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' || 
+                                              (schedule.Room && schedule.Room.toLowerCase().includes('cisco'));
+                      const hasLecture = (schedule.Lecture || 0) > 0 || isCiscoSchedule;
+                      const hasLab = (schedule.Laboratory || 0) > 0 || 
+                                     (schedule.ClassType || '').toUpperCase().includes('LAB') || 
+                                     isCiscoSchedule;
+                      const hasBoth = hasLecture && hasLab;
+                      
+                      return (
+                        <div className="border-t bg-gray-50 p-4">
+                          <div className="overflow-x-scroll w-full pb-2">
+                            <Table className={hasBoth ? "min-w-[2400px]" : "min-w-[1400px]"}>
+                              <TableHeader>
+                                <TableRow className="bg-gray-100">
+                                  <TableHead rowSpan={hasBoth ? 2 : 1}>Student No.</TableHead>
+                                  <TableHead rowSpan={hasBoth ? 2 : 1}>Student Name</TableHead>
+                                  {hasBoth ? (
+                                    <>
+                                      <TableHead colSpan={18} className="text-center border-b">Lecture</TableHead>
+                                      <TableHead colSpan={18} className="text-center border-b">Laboratory</TableHead>
+                                    </>
+                                  ) : (
+                                    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map(week => (
+                                      <TableHead key={week} className="text-center min-w-[60px]">W{week}</TableHead>
+                                    ))
+                                  )}
                                 </TableRow>
-                              ) : (
-                                schedule.students.map((student) => (
-                                  <TableRow key={student.StudentID}>
-                                    <TableCell className="font-medium">{student.StudentNumber}</TableCell>
-                                    <TableCell>{student.StudentName}</TableCell>
-                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map(week => {
-                                      // Get attendance for this week (check both lecture and lab)
-                                      const lectureKey = `lecture_week${week}`;
-                                      const labKey = `lab_week${week}`;
-                                      const lectureAtt = student.attendance[lectureKey]?.[0];
-                                      const labAtt = student.attendance[labKey]?.[0];
-                                      
-                                      // Prioritize lecture attendance, fallback to lab
-                                      const attendance = lectureAtt || labAtt;
-                                      
-                                      return (
-                                        <TableCell key={week} className="text-center">
-                                          {attendance ? getStatusBadge(attendance.Status) : (
-                                            <span className="text-gray-300">-</span>
-                                          )}
-                                        </TableCell>
-                                      );
-                                    })}
+                                {hasBoth && (
+                                  <TableRow className="bg-gray-100">
+                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map(week => (
+                                      <TableHead key={`lec-${week}`} className="text-center min-w-[60px]">W{week}</TableHead>
+                                    ))}
+                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map(week => (
+                                      <TableHead key={`lab-${week}`} className="text-center min-w-[60px]">W{week}</TableHead>
+                                    ))}
                                   </TableRow>
-                                ))
-                              )}
-                            </TableBody>
-                          </Table>
+                                )}
+                              </TableHeader>
+                              <TableBody>
+                                {schedule.students.length === 0 ? (
+                                  <TableRow>
+                                    <TableCell colSpan={hasBoth ? 38 : 20} className="text-center text-gray-500 py-8">
+                                      No students enrolled
+                                    </TableCell>
+                                  </TableRow>
+                                ) : (
+                                  schedule.students.map((student) => (
+                                    <TableRow key={student.StudentID}>
+                                      <TableCell className="font-medium">{student.StudentNumber}</TableCell>
+                                      <TableCell>{student.StudentName}</TableCell>
+                                      {hasBoth ? (
+                                        <>
+                                          {/* Lecture columns */}
+                                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map(week => {
+                                            const lectureKey = `lecture_week${week}`;
+                                            const lectureAtt = student.attendance[lectureKey]?.[0];
+                                            return (
+                                              <TableCell key={`lec-${week}`} className="text-center">
+                                                {lectureAtt ? getStatusBadge(lectureAtt.Status) : (
+                                                  <span className="text-gray-300">-</span>
+                                                )}
+                                              </TableCell>
+                                            );
+                                          })}
+                                          {/* Lab columns */}
+                                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map(week => {
+                                            const labKey = `lab_week${week}`;
+                                            const labAtt = student.attendance[labKey]?.[0];
+                                            return (
+                                              <TableCell key={`lab-${week}`} className="text-center">
+                                                {labAtt ? getStatusBadge(labAtt.Status) : (
+                                                  <span className="text-gray-300">-</span>
+                                                )}
+                                              </TableCell>
+                                            );
+                                          })}
+                                        </>
+                                      ) : (
+                                        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map(week => {
+                                          // Get attendance for this week (check both lecture and lab)
+                                          const lectureKey = `lecture_week${week}`;
+                                          const labKey = `lab_week${week}`;
+                                          const lectureAtt = student.attendance[lectureKey]?.[0];
+                                          const labAtt = student.attendance[labKey]?.[0];
+                                          
+                                          // Prioritize lecture attendance, fallback to lab
+                                          const attendance = lectureAtt || labAtt;
+                                          
+                                          return (
+                                            <TableCell key={week} className="text-center">
+                                              {attendance ? getStatusBadge(attendance.Status) : (
+                                                <span className="text-gray-300">-</span>
+                                              )}
+                                            </TableCell>
+                                          );
+                                        })
+                                      )}
+                                    </TableRow>
+                                  ))
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 );
               })

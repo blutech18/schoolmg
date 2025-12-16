@@ -64,8 +64,12 @@ export default function ScheduleCard({ schedule } : IScheduleCardProps) {
     router.push(`/dean/grades?scheduleId=${schedule.ScheduleID}`);
   };
 
-  const hasLecture = (schedule.Lecture || 0) > 0;
-  const hasLab = (schedule.Laboratory || 0) > 0 || (schedule.ClassType || '').toUpperCase().includes('LAB');
+  const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' || 
+                          (schedule.Room && schedule.Room.toLowerCase().includes('cisco'));
+  const hasLecture = (schedule.Lecture || 0) > 0 || isCiscoSchedule;
+  const hasLab = (schedule.Laboratory || 0) > 0 || 
+                 (schedule.ClassType || '').toUpperCase().includes('LAB') || 
+                 isCiscoSchedule;
   const hasBoth = hasLecture && hasLab;
 
   const rooms = parseRooms(schedule.Room ?? undefined);
