@@ -32,7 +32,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { formatScheduleEntry, formatScheduleForDisplay, type ScheduleDisplayData } from "@/lib/utils";
 import ScheduleHub from "./components/ScheduleHub";
-import AttendanceSheet from "./components/AttendanceSheet";
+import AttendanceSheetWrapper from "./components/AttendanceSheetWrapper";
 import { NotificationBannerContainer, useNotificationBanner } from "@/components/ui/notification-banner";
 import ScheduleCard from "@/app/components/ScheduleCard";
 
@@ -2107,7 +2107,7 @@ export default function InstructorDashboard() {
               </Card>
             </div>
           ) : (
-            <AttendanceSheet
+            <AttendanceSheetWrapper
               schedule={selectedSchedule}
               students={students}
               excuseLetters={excuseLetters}

@@ -291,13 +291,33 @@ export default function DeanAttendancePage() {
 
                     {/* Expanded Attendance Sheet */}
                     {isExpanded && (() => {
-                      // Determine if schedule has both lecture and lab
+                      // Check if this is a Cisco schedule
                       const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' || 
                                               (schedule.Room && schedule.Room.toLowerCase().includes('cisco'));
-                      const hasLecture = (schedule.Lecture || 0) > 0 || isCiscoSchedule;
-                      const hasLab = (schedule.Laboratory || 0) > 0 || 
-                                     (schedule.ClassType || '').toUpperCase().includes('LAB') || 
-                                     isCiscoSchedule;
+                      
+                      // Only Cisco schedules can show both Lecture and Laboratory sections
+                      // Non-Cisco schedules should only show ONE section (prefer lecture if both have hours)
+                      const hasLectureHours = (schedule.Lecture || 0) > 0;
+                      const hasLabHours = (schedule.Laboratory || 0) > 0;
+                      
+                      let hasLecture = false;
+                      let hasLab = false;
+                      
+                      if (isCiscoSchedule) {
+                        // Cisco schedules: show both sections if both hours are configured
+                        hasLecture = hasLectureHours;
+                        hasLab = hasLabHours;
+                      } else {
+                        // Non-Cisco schedules: show only ONE section
+                        if (hasLectureHours) {
+                          hasLecture = true;
+                          hasLab = false;
+                        } else if (hasLabHours) {
+                          hasLecture = false;
+                          hasLab = true;
+                        }
+                      }
+                      
                       const hasBoth = hasLecture && hasLab;
                       
                       return (

@@ -73,11 +73,24 @@ export default function ScheduleCard({
     if (role === 'dean') router.push(`/dean/grades?scheduleId=${schedule.ScheduleID}`)
   }
 
-  const hasLab =
-    (schedule.Laboratory || 0) > 0 ||
-    (schedule.ClassType || '').toUpperCase().includes('LAB') ||
-    (schedule.ClassType || '').toUpperCase() === 'MAJOR' ||
-    (schedule.Room && schedule.Room.toLowerCase().includes('cisco'))
+  // Check if this is a Cisco schedule
+  const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' || 
+                          (schedule.Room && schedule.Room.toLowerCase().includes('cisco'))
+  
+  // Only Cisco schedules can show both Lecture and Laboratory sections
+  // Non-Cisco schedules should only show ONE section (prefer lecture if both have hours)
+  const hasLectureHours = (schedule.Lecture || 0) > 0
+  const hasLabHours = (schedule.Laboratory || 0) > 0
+  
+  let hasLab = false
+  
+  if (isCiscoSchedule) {
+    // Cisco schedules: show lab section if lab hours are configured
+    hasLab = hasLabHours
+  } else {
+    // Non-Cisco schedules: only show lab if there's no lecture hours
+    hasLab = hasLabHours && !hasLectureHours
+  }
 
   const rooms = parseRooms(schedule.Room ?? undefined)
   const times = parseTimes(schedule.Time ?? undefined)

@@ -16,21 +16,45 @@ import { brandedToast } from '@/components/ui/branded-toast'
 
 import React, { useEffect, useState } from 'react'
 
-const TIME_OPTIONS = [
-  '07:00 AM - 08:00 AM',
-  '08:00 AM - 09:00 AM',
-  '09:00 AM - 10:00 AM',
-  '10:00 AM - 11:00 AM',
-  '11:00 AM - 12:00 PM',
-  '12:00 PM - 01:00 PM',
-  '01:00 PM - 02:00 PM',
-  '02:00 PM - 03:00 PM',
-  '03:00 PM - 04:00 PM',
-  '04:00 PM - 05:00 PM',
-  '05:00 PM - 06:00 PM',
-  '06:00 PM - 07:00 PM',
-  '07:00 PM - 08:00 PM',
-  '08:00 PM - 09:00 PM',
+// Flexible time options - user can select start and end times
+const START_TIME_OPTIONS = [
+  '06:00 AM', '06:30 AM',
+  '07:00 AM', '07:30 AM',
+  '08:00 AM', '08:30 AM',
+  '09:00 AM', '09:30 AM',
+  '10:00 AM', '10:30 AM',
+  '11:00 AM', '11:30 AM',
+  '12:00 PM', '12:30 PM',
+  '01:00 PM', '01:30 PM',
+  '02:00 PM', '02:30 PM',
+  '03:00 PM', '03:30 PM',
+  '04:00 PM', '04:30 PM',
+  '05:00 PM', '05:30 PM',
+  '06:00 PM', '06:30 PM',
+  '07:00 PM', '07:30 PM',
+  '08:00 PM', '08:30 PM',
+  '09:00 PM', '09:30 PM',
+  '10:00 PM',
+];
+
+const END_TIME_OPTIONS = [
+  '07:00 AM', '07:30 AM',
+  '08:00 AM', '08:30 AM',
+  '09:00 AM', '09:30 AM',
+  '10:00 AM', '10:30 AM',
+  '11:00 AM', '11:30 AM',
+  '12:00 PM', '12:30 PM',
+  '01:00 PM', '01:30 PM',
+  '02:00 PM', '02:30 PM',
+  '03:00 PM', '03:30 PM',
+  '04:00 PM', '04:30 PM',
+  '05:00 PM', '05:30 PM',
+  '06:00 PM', '06:30 PM',
+  '07:00 PM', '07:30 PM',
+  '08:00 PM', '08:30 PM',
+  '09:00 PM', '09:30 PM',
+  '10:00 PM', '10:30 PM',
+  '11:00 PM',
 ];
 
 const DAY_OPTIONS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -75,11 +99,14 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
     Semester: '',
     AcademicYear: '',
   })
+  // Separate fields for lecture and lab with flexible time
   const [lectureDay, setLectureDay] = useState('')
-  const [lectureTime, setLectureTime] = useState('')
+  const [lectureStartTime, setLectureStartTime] = useState('')
+  const [lectureEndTime, setLectureEndTime] = useState('')
   const [lectureRoom, setLectureRoom] = useState('')
   const [labDay, setLabDay] = useState('')
-  const [labTime, setLabTime] = useState('')
+  const [labStartTime, setLabStartTime] = useState('')
+  const [labEndTime, setLabEndTime] = useState('')
   const [labRoom, setLabRoom] = useState('')
 
   useEffect(() => {
@@ -141,7 +168,12 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
       const combinedDay = [lectureDay ? `Lecture: ${lectureDay}` : null, labDay ? `Laboratory: ${labDay}` : null]
         .filter(Boolean)
         .join(', ');
-      const combinedTime = [lectureTime ? `Lecture: ${lectureTime}` : null, labTime ? `Laboratory: ${labTime}` : null]
+      
+      // Build flexible time strings
+      const lectureTimeStr = (lectureStartTime && lectureEndTime) ? `${lectureStartTime} - ${lectureEndTime}` : '';
+      const labTimeStr = (labStartTime && labEndTime) ? `${labStartTime} - ${labEndTime}` : '';
+      
+      const combinedTime = [lectureTimeStr ? `Lecture: ${lectureTimeStr}` : null, labTimeStr ? `Laboratory: ${labTimeStr}` : null]
         .filter(Boolean)
         .join(', ');
       const combinedRoom = [lectureRoom ? `Lecture: ${lectureRoom}` : null, labRoom ? `Laboratory: ${labRoom}` : null]
@@ -234,10 +266,12 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
       AcademicYear: '',
     });
     setLectureDay('');
-    setLectureTime('');
+    setLectureStartTime('');
+    setLectureEndTime('');
     setLectureRoom('');
     setLabDay('');
-    setLabTime('');
+    setLabStartTime('');
+    setLabEndTime('');
     setLabRoom('');
   }
 
@@ -408,13 +442,26 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Time</label>
-                  <Select value={lectureTime} onValueChange={setLectureTime}>
+                  <label className="text-xs font-medium text-gray-600">Start Time</label>
+                  <Select value={lectureStartTime} onValueChange={setLectureStartTime}>
                     <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
-                      <SelectValue placeholder="Select time" />
+                      <SelectValue placeholder="Select start time" />
                     </SelectTrigger>
                     <SelectContent className="max-h-64">
-                      {TIME_OPTIONS.map(option => (
+                      {START_TIME_OPTIONS.map(option => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">End Time</label>
+                  <Select value={lectureEndTime} onValueChange={setLectureEndTime}>
+                    <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                      <SelectValue placeholder="Select end time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      {END_TIME_OPTIONS.map(option => (
                         <SelectItem key={option} value={option}>{option}</SelectItem>
                       ))}
                     </SelectContent>
@@ -442,13 +489,26 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Time</label>
-                  <Select value={labTime} onValueChange={setLabTime}>
+                  <label className="text-xs font-medium text-gray-600">Start Time</label>
+                  <Select value={labStartTime} onValueChange={setLabStartTime}>
                     <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
-                      <SelectValue placeholder="Select time" />
+                      <SelectValue placeholder="Select start time" />
                     </SelectTrigger>
                     <SelectContent className="max-h-64">
-                      {TIME_OPTIONS.map(option => (
+                      {START_TIME_OPTIONS.map(option => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">End Time</label>
+                  <Select value={labEndTime} onValueChange={setLabEndTime}>
+                    <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                      <SelectValue placeholder="Select end time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      {END_TIME_OPTIONS.map(option => (
                         <SelectItem key={option} value={option}>{option}</SelectItem>
                       ))}
                     </SelectContent>

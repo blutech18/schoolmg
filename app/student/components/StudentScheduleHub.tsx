@@ -517,8 +517,32 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                               </div>
                             )
 
-                            const hasLecture = schedule.Lecture ? schedule.Lecture > 0 || schedule.ClassType?.includes('LECTURE') : true
-                            const hasLab = schedule.Laboratory ? schedule.Laboratory > 0 || schedule.ClassType?.includes('LAB') : false
+                            // Check if this is a Cisco schedule
+                            const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' || 
+                                                    (schedule.Room && schedule.Room.toLowerCase().includes('cisco'))
+                            
+                            // Only Cisco schedules can show both sections
+                            // Non-Cisco schedules should only show ONE section
+                            const hasLectureHours = (schedule.Lecture || 0) > 0
+                            const hasLabHours = (schedule.Laboratory || 0) > 0
+                            
+                            let hasLecture = false
+                            let hasLab = false
+                            
+                            if (isCiscoSchedule) {
+                              // Cisco: show both if both hours configured
+                              hasLecture = hasLectureHours
+                              hasLab = hasLabHours
+                            } else {
+                              // Non-Cisco: only ONE section
+                              if (hasLectureHours) {
+                                hasLecture = true
+                                hasLab = false
+                              } else if (hasLabHours) {
+                                hasLecture = false
+                                hasLab = true
+                              }
+                            }
 
                             return (
                               <div className="space-y-4">

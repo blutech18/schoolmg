@@ -64,12 +64,33 @@ export default function ScheduleCard({ schedule } : IScheduleCardProps) {
     router.push(`/dean/grades?scheduleId=${schedule.ScheduleID}`);
   };
 
+  // Check if this is a Cisco schedule
   const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' || 
                           (schedule.Room && schedule.Room.toLowerCase().includes('cisco'));
-  const hasLecture = (schedule.Lecture || 0) > 0 || isCiscoSchedule;
-  const hasLab = (schedule.Laboratory || 0) > 0 || 
-                 (schedule.ClassType || '').toUpperCase().includes('LAB') || 
-                 isCiscoSchedule;
+  
+  // Only Cisco schedules can show both Lecture and Laboratory sections
+  // Non-Cisco schedules should only show ONE section (prefer lecture if both have hours)
+  const hasLectureHours = (schedule.Lecture || 0) > 0;
+  const hasLabHours = (schedule.Laboratory || 0) > 0;
+  
+  let hasLecture = false;
+  let hasLab = false;
+  
+  if (isCiscoSchedule) {
+    // Cisco schedules: show both sections only if both hours are configured
+    hasLecture = hasLectureHours;
+    hasLab = hasLabHours;
+  } else {
+    // Non-Cisco schedules: show only ONE section
+    if (hasLectureHours) {
+      hasLecture = true;
+      hasLab = false; // Don't show lab even if it has hours
+    } else if (hasLabHours) {
+      hasLecture = false;
+      hasLab = true;
+    }
+  }
+  
   const hasBoth = hasLecture && hasLab;
 
   const rooms = parseRooms(schedule.Room ?? undefined);

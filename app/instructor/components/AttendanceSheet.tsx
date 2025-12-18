@@ -60,6 +60,8 @@ interface AttendanceSheetProps {
   onAttendanceMarked: (studentId: number, status: string, sessionType: 'lecture' | 'lab', sessionNumber: number) => void
   onBulkMarking: (status: string, sessionType: 'lecture' | 'lab', sessionNumber: number) => void
   onClassCancellation: (reason: string, notifyStudents: boolean, sessionType: 'lecture' | 'lab', sessionNumber: number, studentId?: number) => void
+  fixedSessionType?: 'lecture' | 'lab' // When provided, locks the sheet to this session type only
+  hideScheduleInfo?: boolean // When true, hides the schedule information card (useful for dual view)
 }
 
 export default function AttendanceSheet({
@@ -70,7 +72,9 @@ export default function AttendanceSheet({
   labAttendance: propLabAttendance,
   onAttendanceMarked,
   onBulkMarking,
-  onClassCancellation
+  onClassCancellation,
+  fixedSessionType,
+  hideScheduleInfo = false
 }: AttendanceSheetProps) {
   // Filter out students with LOA, Drop, or UW status
   const filteredStudents = students.filter((student: any) => {
@@ -112,9 +116,33 @@ export default function AttendanceSheet({
     return sessionValues.every(status => status === 'CC')
   }
 
-  // Determine available session types based on schedule class type
-  const hasLecture = (schedule.Lecture || 0) > 0 || schedule.ClassType === 'LECTURE' || schedule.ClassType === 'LECTURE+LAB' || schedule.ClassType === 'MAJOR' || schedule.ClassType === 'NSTP' || schedule.ClassType === 'OJT'
-  const hasLaboratory = (schedule.Laboratory || 0) > 0 || schedule.ClassType === 'LAB' || schedule.ClassType === 'LECTURE+LAB' || schedule.ClassType === 'MAJOR' || (schedule.Room && schedule.Room.toLowerCase().includes('cisco'))
+  // Check if this is a Cisco schedule
+  const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' || 
+                          (schedule.Room && schedule.Room.toLowerCase().includes('cisco'))
+  
+  // Only Cisco schedules can show both Lecture and Laboratory sessions
+  // Non-Cisco schedules should only show ONE session type (prefer lecture if both have hours)
+  const hasLectureHours = (schedule.Lecture || 0) > 0
+  const hasLabHours = (schedule.Laboratory || 0) > 0
+  
+  let hasLecture = false
+  let hasLaboratory = false
+  
+  if (isCiscoSchedule) {
+    // Cisco schedules: can have both lecture and laboratory sessions
+    hasLecture = hasLectureHours
+    hasLaboratory = hasLabHours
+  } else {
+    // Non-Cisco schedules: only ONE session type
+    if (hasLectureHours) {
+      hasLecture = true
+      hasLaboratory = false
+    } else if (hasLabHours) {
+      hasLecture = false
+      hasLaboratory = true
+    }
+  }
+  
   const hasBothComponents = hasLecture && hasLaboratory
 
   // Detect Cisco rooms
@@ -173,13 +201,17 @@ export default function AttendanceSheet({
     return types
   }
 
-  // Set default session type based on available types
+  // Set default session type based on available types or fixedSessionType
   useEffect(() => {
+    if (fixedSessionType) {
+      setCurrentSessionType(fixedSessionType)
+      return
+    }
     const availableTypes = getAvailableSessionTypes()
     if (availableTypes.length > 0 && !availableTypes.some(t => t.value === currentSessionType)) {
       setCurrentSessionType(availableTypes[0].value)
     }
-  }, [schedule])
+  }, [schedule, fixedSessionType])
 
   const availableSessionTypes = getAvailableSessionTypes()
 
@@ -339,48 +371,50 @@ export default function AttendanceSheet({
 
   return (
     <div className="space-y-6">
-      {/* Schedule Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Attendance Sheet
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700">Subject</label>
-              <div className="text-sm text-gray-900">
-                {schedule.SubjectCode} - {schedule.SubjectTitle}
+      {/* Schedule Information - conditionally render */}
+      {!hideScheduleInfo && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Attendance Sheet
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Subject</label>
+                <div className="text-sm text-gray-900">
+                  {schedule.SubjectCode} - {schedule.SubjectTitle}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Course & Section</label>
+                <div className="text-sm text-gray-900">
+                  {schedule.Course} - {schedule.Section}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Schedule</label>
+                <div className="text-sm text-gray-900">
+                  {formatScheduleEntry(schedule as ScheduleDisplayData)}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Class Type</label>
+                <div className="text-sm text-gray-900 flex items-center gap-2">
+                  {getClassTypeDisplay()}
+                  {isCiscoRoom && (
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                      Cisco Room
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700">Course & Section</label>
-              <div className="text-sm text-gray-900">
-                {schedule.Course} - {schedule.Section}
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700">Schedule</label>
-              <div className="text-sm text-gray-900">
-                {formatScheduleEntry(schedule as ScheduleDisplayData)}
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700">Class Type</label>
-              <div className="text-sm text-gray-900 flex items-center gap-2">
-                {getClassTypeDisplay()}
-                {isCiscoRoom && (
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                    Cisco Room
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Attendance Controls */}
       <Card>
@@ -392,8 +426,8 @@ export default function AttendanceSheet({
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center gap-6">
-            {/* Session Type Selector - Only show if multiple types available */}
-            {availableSessionTypes.length > 1 && (
+            {/* Session Type Selector - Only show if multiple types available and not in fixed mode */}
+            {!fixedSessionType && availableSessionTypes.length > 1 && (
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-700">Session Type:</span>
                 <div className={`flex items-center gap-1 p-1 rounded-lg ${isCurrentSessionCancelled() ? 'bg-gray-100 opacity-50' : 'bg-gray-100'}`}>
