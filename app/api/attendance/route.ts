@@ -206,10 +206,50 @@ export async function POST(request: NextRequest) {
       ]);
     }
 
+    // Auto-check for F.A. based on absence count
+    // Get schedule class type to determine absence threshold
+    const [scheduleRows] = await db.execute(
+      `SELECT ClassType FROM schedules WHERE ScheduleID = ?`,
+      [scheduleId]
+    );
+    const classType = (scheduleRows as any[])[0]?.ClassType?.toUpperCase() || 'LECTURE';
+    
+    // Count absences for this student in the current session type
+    const [absenceRows] = await db.execute(
+      `SELECT COUNT(*) as absenceCount 
+       FROM attendance 
+       WHERE StudentID = ? AND ScheduleID = ? AND SessionType = ? AND Status = 'A'`,
+      [studentId, scheduleId, sessionType]
+    );
+    const absenceCount = (absenceRows as any[])[0]?.absenceCount || 0;
+    
+    // Determine threshold based on class type and session type
+    let absenceThreshold = 3; // Default for LECTURE
+    if (classType.includes('LAB') || classType.includes('CISCO')) {
+      absenceThreshold = 7;
+    }
+    
+    // Auto-mark as F.A. if threshold is exceeded
+    let autoMarkedFA = false;
+    if (absenceCount >= absenceThreshold && status !== 'FA' && status !== 'D') {
+      console.log(`Student ${studentId} has ${absenceCount} absences (threshold: ${absenceThreshold}). Auto-marking as F.A.`);
+      
+      // Update current record to F.A.
+      await db.execute(
+        `UPDATE attendance 
+         SET Status = 'FA', Remarks = ?, LastModified = NOW()
+         WHERE StudentID = ? AND ScheduleID = ? AND Week = ? AND SessionType = ? AND Date = ?`,
+        [`Auto-marked F.A.: ${absenceCount} absences exceeded threshold of ${absenceThreshold}`, studentId, scheduleId, week, sessionType, date]
+      );
+      
+      autoMarkedFA = true;
+    }
+
     // If student is marked as D (Dropped) or FA (Failed due to Absences), 
     // mark them with the same status for ALL sessions (1-18) in both lecture and lab
-    if (status === 'D' || status === 'FA') {
-      console.log(`Student marked as ${status}, updating all sessions...`);
+    if (status === 'D' || status === 'FA' || autoMarkedFA) {
+      const finalStatus = autoMarkedFA ? 'FA' : status;
+      console.log(`Student marked as ${finalStatus}, updating all sessions...`);
       
       const sessionTypes = ['lecture', 'lab'];
       const bulkUpdatePromises = [];
@@ -232,11 +272,13 @@ export async function POST(request: NextRequest) {
             LastModified = NOW()
           `;
           
-          const bulkRemarks = `Automatically marked as ${status === 'D' ? 'Dropped' : 'Failed due to Absences'} across all sessions`;
+          const bulkRemarks = autoMarkedFA 
+            ? `Auto-marked F.A.: ${absenceCount} absences exceeded threshold of ${absenceThreshold}`
+            : `Manually marked as ${finalStatus === 'D' ? 'Dropped' : 'Failed due to Absences'} across all sessions`;
           
           bulkUpdatePromises.push(
             db.execute(bulkUpdateQuery, [
-              studentId, scheduleId, sessionWeek, sessionTypeToUpdate, status, date, bulkRemarks, recordedBy
+              studentId, scheduleId, sessionWeek, sessionTypeToUpdate, finalStatus, date, bulkRemarks, recordedBy
             ])
           );
         }
@@ -249,7 +291,7 @@ export async function POST(request: NextRequest) {
         affectedRows: result[0].affectedRows,
         insertId: result[0].insertId
       })));
-      console.log(`Successfully updated ${status} status across all sessions for student ${studentId}`);
+      console.log(`Successfully updated ${finalStatus} status across all sessions for student ${studentId}`);
     }
 
     return NextResponse.json({

@@ -84,11 +84,19 @@ export async function GET(request: NextRequest) {
           performance.AttendanceRate = Math.round((attendedCount / totalAttendance) * 100);
         }
 
-        // Fetch excuse letters count
+        // Fetch excuse letters count (subject-specific)
+        // Count unique excuse letters that have specific subjects attached
         const [excuseLettersRows] = await db.execute(`
-          SELECT COUNT(*) as count 
-          FROM excuse_letters 
-          WHERE StudentID = ?
+          SELECT COUNT(DISTINCT 
+            CASE 
+              WHEN el.IsMultiSubject = 1 
+              THEN CONCAT(el.ExcuseLetterID, '-', els.ScheduleID)
+              ELSE el.ExcuseLetterID
+            END
+          ) as count 
+          FROM excuse_letters el
+          LEFT JOIN excuse_letter_subjects els ON el.ExcuseLetterID = els.ExcuseLetterID
+          WHERE el.StudentID = ?
         `, [student.StudentID]);
 
         performance.ExcuseLettersCount = (excuseLettersRows as any[])[0]?.count || 0;

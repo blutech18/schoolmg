@@ -26,6 +26,7 @@ interface StudentDetails {
   grades: Array<{
     SubjectCode: string;
     SubjectName: string;
+    InstructorName: string;
     MidtermGrade: number | null;
     FinalGrade: number | null;
     OverallGrade: number | null;
@@ -34,6 +35,7 @@ interface StudentDetails {
   attendanceDetails: Array<{
     SubjectCode: string;
     SubjectName: string;
+    InstructorName: string;
     TotalSessions: number;
     PresentCount: number;
     AbsentCount: number;
@@ -140,10 +142,12 @@ export async function GET(request: NextRequest) {
           g.*,
           COALESCE(sub.SubjectCode, sch.SubjectCode) as SubjectCode,
           COALESCE(sub.SubjectName, sch.SubjectName) as SubjectName,
-          sub.ClassType
+          sub.ClassType,
+          CONCAT(COALESCE(inst.FirstName, ''), ' ', COALESCE(inst.LastName, '')) as InstructorName
         FROM grades g
         JOIN schedules sch ON g.ScheduleID = sch.ScheduleID
         LEFT JOIN subjects sub ON sch.SubjectID = sub.SubjectID
+        LEFT JOIN users inst ON sch.InstructorID = inst.UserID
         WHERE g.StudentID = ?
         ORDER BY g.ScheduleID, g.Term ASC, g.Component ASC, g.ItemNumber ASC
         `,
@@ -154,6 +158,7 @@ export async function GET(request: NextRequest) {
         SELECT
           COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown Code') as SubjectCode,
           COALESCE(sch.SubjectName, sch.SubjectTitle, subj.SubjectName, 'Unknown Subject') as SubjectName,
+          CONCAT(COALESCE(inst.FirstName, ''), ' ', COALESCE(inst.LastName, '')) as InstructorName,
           COUNT(*) as TotalSessions,
           SUM(CASE WHEN a.Status = 'P' THEN 1 ELSE 0 END) as PresentCount,
           SUM(CASE WHEN a.Status = 'A' THEN 1 ELSE 0 END) as AbsentCount,
@@ -162,8 +167,9 @@ export async function GET(request: NextRequest) {
         FROM attendance a
         JOIN schedules sch ON a.ScheduleID = sch.ScheduleID
         LEFT JOIN subjects subj ON sch.SubjectID = subj.SubjectID
+        LEFT JOIN users inst ON sch.InstructorID = inst.UserID
         WHERE a.StudentID = ?
-        GROUP BY a.ScheduleID, sch.SubjectCode, sch.SubjectName, sch.SubjectTitle, subj.SubjectCode, subj.SubjectName
+        GROUP BY a.ScheduleID, sch.SubjectCode, sch.SubjectName, sch.SubjectTitle, subj.SubjectCode, subj.SubjectName, inst.FirstName, inst.LastName
         ORDER BY COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown Code')
         `,
         [studentIdNum],
@@ -229,6 +235,7 @@ export async function GET(request: NextRequest) {
         return {
           SubjectCode: gradeInfo.SubjectCode || 'Unknown Code',
           SubjectName: gradeInfo.SubjectName || 'Unknown Subject',
+          InstructorName: gradeInfo.InstructorName?.trim() || 'TBA',
           MidtermGrade: gradeInfo.midterm ? parseFloat(gradeInfo.midterm.toFixed(2)) : null,
           FinalGrade: gradeInfo.final ? parseFloat(gradeInfo.final.toFixed(2)) : null,
           OverallGrade: gradeInfo.summary ? parseFloat(gradeInfo.summary.toFixed(2)) : null,
@@ -242,6 +249,7 @@ export async function GET(request: NextRequest) {
         .map(row => ({
           SubjectCode: row.SubjectCode,
           SubjectName: row.SubjectName,
+          InstructorName: row.InstructorName?.trim() || 'TBA',
           TotalSessions: row.TotalSessions || 0,
           PresentCount: row.PresentCount || 0,
           AbsentCount: row.AbsentCount || 0,
@@ -285,20 +293,16 @@ export async function GET(request: NextRequest) {
 // Convert percentage to Filipino grading system (1.0-5.0)
 // 1.0 is highest, 3.0 is passing, 5.0 is failed
 function convertToFilipinoGradeForDean(percentage: number): number {
-  if (percentage >= 97) return 1.0;
-  if (percentage >= 94) return 1.25;
-  if (percentage >= 91) return 1.5;
-  if (percentage >= 88) return 1.75;
-  if (percentage >= 85) return 2.0;
-  if (percentage >= 82) return 2.25;
-  if (percentage >= 79) return 2.5;
-  if (percentage >= 76) return 2.75;
-  if (percentage >= 75) return 3.0;  // Passing grade
-  if (percentage >= 72) return 3.25;
-  if (percentage >= 69) return 3.5;
-  if (percentage >= 66) return 3.75;
-  if (percentage >= 60) return 4.0;
-  return 5.0;  // Failed
+  if (percentage >= 97) return 1.0;   // 97-100%
+  if (percentage >= 94) return 1.25;  // 94-96%
+  if (percentage >= 91) return 1.5;   // 91-93%
+  if (percentage >= 88) return 1.75;  // 88-90%
+  if (percentage >= 85) return 2.0;   // 85-87%
+  if (percentage >= 82) return 2.25;  // 82-84%
+  if (percentage >= 79) return 2.5;   // 79-81%
+  if (percentage >= 76) return 2.75;  // 76-78%
+  if (percentage >= 75) return 3.0;   // 75% - Passing grade
+  return 5.0;  // Below 75% - Failed
 }
 
 // Helper function to calculate student grades based on class type (for dean interface)
@@ -311,6 +315,7 @@ function calculateStudentGradesForDean(grades: any[]) {
       acc[grade.ScheduleID] = {
         SubjectCode: grade.SubjectCode,
         SubjectName: grade.SubjectName,
+        InstructorName: grade.InstructorName,
         ClassType: grade.ClassType,
         midterm: [],
         final: []
@@ -351,6 +356,7 @@ function calculateStudentGradesForDean(grades: any[]) {
     summaryGrades[scheduleId] = {
       SubjectCode: scheduleGrades.SubjectCode,
       SubjectName: scheduleGrades.SubjectName,
+      InstructorName: scheduleGrades.InstructorName,
       ClassType: classType,
       midterm: midtermGrade,
       final: finalGrade,

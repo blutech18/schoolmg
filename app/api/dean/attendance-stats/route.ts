@@ -33,9 +33,9 @@ export async function GET(request: NextRequest) {
     const stats = (statsResult as any[])[0];
     
     // Calculate average attendance percentage
-    // Present (P) and Excused (E) are considered "attended"
+    // Present (P), Excused (E), and Late (L) are considered "attended"
     // CC (Cancelled) records are excluded from both numerator and denominator
-    const attendedRecords = (stats.presentRecords || 0) + (stats.excusedRecords || 0);
+    const attendedRecords = (stats.presentRecords || 0) + (stats.excusedRecords || 0) + (stats.lateRecords || 0);
     const cancelledRecords = stats.cancelledRecords || 0;
     const totalRecords = stats.totalRecords || 0; // Already excludes CC
     

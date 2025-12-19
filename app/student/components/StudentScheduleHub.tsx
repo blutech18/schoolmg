@@ -377,7 +377,7 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
         <div className="flex flex-col flex-1 overflow-hidden bg-gray-50/30">
           <div className="px-6 pt-6 pb-0 flex-shrink-0">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 bg-white border border-gray-200 shadow-sm h-12">
+              <TabsList className="grid w-full grid-cols-2 bg-white border border-gray-200 shadow-sm h-12">
                 <TabsTrigger 
                   value="attendance" 
                   className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-blue-200"
@@ -391,18 +391,6 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                 >
                   <TrendingUp className="h-4 w-4" />
                   <span>Grades</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="excuse-letters" 
-                  className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-blue-200"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  <span>Excuse Letters</span>
-                  {excuseLetters.filter(letter => letter.Status === 'pending').length > 0 && (
-                    <Badge variant="destructive" className="ml-1 text-white text-xs px-1.5 py-0.5 min-w-[18px] h-[18px] flex items-center justify-center">
-                      {excuseLetters.filter(letter => letter.Status === 'pending').length}
-                    </Badge>
-                  )}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -693,12 +681,12 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                               </div>
                               <div className="text-center p-4 bg-green-50 rounded-lg border border-green-100">
                                 <p className="text-xs text-slate-600 mb-1 font-medium">Overall Average</p>
-                                <p className={`text-2xl font-bold ${getGradeColor(grade.summary)}`}>
+                                <p className="text-2xl font-bold text-slate-900">
                                   {grade.summary ? grade.summary.toFixed(2) : 'N/A'}
                                 </p>
                                 {grade.summary && (
                                   <div className={`text-xs mt-1 px-2 py-0.5 rounded ${
-                                    grade.summary <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                    grade.summary <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
                                   }`}>
                                     {grade.summary <= 3.0 ? 'Passed' : 'Failed'}
                                   </div>
@@ -743,8 +731,8 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                                           <tr>
                                             <th className="px-3 py-2 text-left font-semibold text-slate-700 border-b">Component</th>
                                             <th className="px-3 py-2 text-left font-semibold text-slate-700 border-b">Item</th>
+                                            <th className="px-3 py-2 text-center font-semibold text-slate-700 border-b">TOTAL ITEMS</th>
                                             <th className="px-3 py-2 text-center font-semibold text-slate-700 border-b">Score</th>
-                                            <th className="px-3 py-2 text-center font-semibold text-slate-700 border-b">Max</th>
                                           </tr>
                                         </thead>
                                         <tbody>
@@ -753,11 +741,11 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                                               <tr key={`${comp}-${row.ItemNumber}-${term}-${idx}`} className="odd:bg-white even:bg-gray-50">
                                                 <td className="px-3 py-2 border-b text-slate-800">{comp}</td>
                                                 <td className="px-3 py-2 border-b text-slate-700"># {row.ItemNumber || 1}</td>
-                                                <td className="px-3 py-2 border-b text-center font-semibold text-slate-900">
-                                                  {row.Score !== null && row.Score !== undefined ? Math.round(row.Score) : '—'}
-                                                </td>
                                                 <td className="px-3 py-2 border-b text-center text-slate-700">
                                                   {row.MaxScore !== null && row.MaxScore !== undefined ? row.MaxScore : '—'}
+                                                </td>
+                                                <td className="px-3 py-2 border-b text-center font-semibold text-slate-900">
+                                                  {row.Score !== null && row.Score !== undefined ? Math.round(row.Score) : '—'}
                                                 </td>
                                               </tr>
                                             ))
@@ -778,109 +766,6 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
               </div>
             </TabsContent>
 
-            {/* Excuse Letters Tab */}
-            <TabsContent value="excuse-letters" className="mt-6">
-              <div className="space-y-6">
-                <Card className="border-0 shadow-lg bg-white">
-                  <CardHeader className="pb-4 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-gray-100">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                          <MessageSquare className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                            Excuse Letters
-                            {excuseLetters.filter(letter => letter.Status === 'pending').length > 0 && (
-                              <Badge variant="destructive" className="ml-2 text-white">
-                                {excuseLetters.filter(letter => letter.Status === 'pending').length} Pending
-                              </Badge>
-                            )}
-                          </CardTitle>
-                          <CardDescription className="text-slate-600 text-sm">
-                            Submit and track excuse letters for {schedule.SubjectCode}
-                          </CardDescription>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => setShowSubmitExcuseModal(true)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 font-medium"
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Submit New
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-6">
-                    {excuseLetters.length === 0 ? (
-                      <div className="text-center py-12">
-                        <div className="p-4 bg-gray-100 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-                          <MessageSquare className="h-10 w-10 text-gray-400" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-slate-800 mb-2">No excuse letters submitted yet</h3>
-                        <p className="text-slate-600 mb-4">
-                          Submit an excuse letter if you need to be absent from class
-                        </p>
-                        <Button
-                          onClick={() => setShowSubmitExcuseModal(true)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          <FileText className="h-4 w-4 mr-2" />
-                          Submit Excuse Letter
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {excuseLetters.map((letter) => (
-                          <div key={letter.ExcuseLetterID} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 bg-white">
-                            <div className="flex items-center justify-between mb-3">
-                              <div>
-                                <h4 className="font-semibold text-slate-900">{letter.Subject}</h4>
-                                <p className="text-sm text-slate-600">
-                                  Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <Badge className={`${getExcuseLetterStatusColor(letter.Status)} px-3 py-1 font-semibold`}>
-                                {letter.Status.charAt(0).toUpperCase() + letter.Status.slice(1)}
-                              </Badge>
-                            </div>
-                            
-                            <div className="text-sm text-slate-700 mb-3 space-y-1">
-                              <p><strong>Reason:</strong> {letter.Reason}</p>
-                              <p><strong>Date Range:</strong> {new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}</p>
-                            </div>
-                            
-                            <div className="flex items-center justify-between">
-                              <div className="flex gap-2">
-                                <Badge variant="outline" className="text-xs border-gray-300">
-                                  Dean: {letter.DeanStatus}
-                                </Badge>
-                                <Badge variant="outline" className="text-xs border-gray-300">
-                                  Coordinator: {letter.CoordinatorStatus}
-                                </Badge>
-                                <Badge variant="outline" className="text-xs border-gray-300">
-                                  Instructor: {letter.InstructorStatus}
-                                </Badge>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleViewExcuseLetter(letter)}
-                                className="border-gray-300 hover:border-gray-400 hover:bg-gray-50"
-                              >
-                                <FileText className="h-4 w-4 mr-1" />
-                                View Details
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
               </Tabs>
             </div>
           </div>

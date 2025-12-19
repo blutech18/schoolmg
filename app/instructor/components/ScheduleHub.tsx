@@ -170,6 +170,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'drop' | 'fail' | 'undrop' | 'unfailed' | null>(null)
   const [pendingStudent, setPendingStudent] = useState<Student | null>(null)
+  const [actionComment, setActionComment] = useState('')
 
   // Determine if this schedule has both Lecture and Laboratory components
   const hasLecture = (schedule.Lecture || 0) > 0
@@ -739,6 +740,23 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
 
   // Handle bulk marking all students as present
   const handleMarkAllPresent = async () => {
+    // Get eligible students (not disabled)
+    const eligibleStudents = students.filter(student => !student.IsDisabled);
+    
+    if (eligibleStudents.length === 0) {
+      brandedToast.info("No eligible students to mark as present.");
+      return;
+    }
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to mark all ${eligibleStudents.length} student(s) as PRESENT for ${getSessionType().toUpperCase()} - Week ${currentSessionNumber}?\n\nThis action will mark attendance for all eligible students.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     try {
       // Get instructor ID from session
       const sessionCookie = document.cookie
@@ -755,14 +773,6 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
 
       if (!instructorId) {
         brandedToast.error("Instructor ID not found in session.");
-        return;
-      }
-
-      // Get eligible students (not disabled)
-      const eligibleStudents = students.filter(student => !student.IsDisabled);
-      
-      if (eligibleStudents.length === 0) {
-        brandedToast.info("No eligible students to mark as present.");
         return;
       }
 
@@ -855,6 +865,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
   const handleMarkStudentDropped = (student: Student) => {
     setPendingStudent(student);
     setConfirmAction('drop');
+    setActionComment('');
     setShowConfirmModal(true);
   }
 
@@ -925,6 +936,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
   const handleMarkStudentFailed = (student: Student) => {
     setPendingStudent(student);
     setConfirmAction('fail');
+    setActionComment('');
     setShowConfirmModal(true);
   }
 
@@ -954,6 +966,10 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
       const sessionTypes = ['lecture', 'lab'];
       const allUpdates = [];
       
+      const remarksText = actionComment.trim() 
+        ? `Manually marked as F.A. - Reason: ${actionComment}` 
+        : 'Manually marked as Failed due to Absences';
+      
       for (const sessType of sessionTypes) {
         for (let weekNum = 1; weekNum <= 18; weekNum++) {
           const updateRequestBody = {
@@ -964,6 +980,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
             recordedBy: instructorId,
             studentIds: [student.StudentID],
             sessionType: sessType,
+            remarks: remarksText,
             overrideExisting: true
           };
           
@@ -1023,15 +1040,20 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
   const handleUnFailedStudent = (student: Student) => {
     setPendingStudent(student);
     setConfirmAction('unfailed');
+    setActionComment('');
     setShowConfirmModal(true);
   }
 
   const executeUnFailedStudent = async (student: Student) => {
     try {
-      console.log(`Removing failed status for student ${student.StudentID} (${student.StudentName})...`);
+      const reasonText = actionComment.trim() 
+        ? `Removed F.A. status - Reason: ${actionComment}` 
+        : 'Removed Failed due to Absences status';
+      
+      console.log(`Removing failed status for student ${student.StudentID} (${student.StudentName})... Reason: ${reasonText}`);
 
       // Delete all FA status records for this student
-      const response = await fetch(`/api/attendance/delete-student-status?studentId=${student.StudentID}&scheduleId=${schedule.ScheduleID}&status=FA`);
+      const response = await fetch(`/api/attendance/delete-student-status?studentId=${student.StudentID}&scheduleId=${schedule.ScheduleID}&status=FA&reason=${encodeURIComponent(reasonText)}`);
       
       if (response.ok) {
         brandedToast.success(`Successfully removed ${student.StudentName} from Failed status`);
@@ -1627,12 +1649,12 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                                
                                <div className="text-center p-2 bg-green-50 rounded">
                                  <p className="text-xs text-gray-600 mb-1">Overall</p>
-                                 <p className="text-lg font-bold text-green-700">
+                                 <p className="text-lg font-bold text-slate-900">
                                    {grade.summaryGrade > 0 ? grade.summaryGrade.toFixed(1) : 'N/A'}
                                  </p>
                                  {grade.summaryGrade > 0 && (
                                    <div className={`text-xs mt-1 px-1 py-0.5 rounded ${
-                                     grade.summaryGrade <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                     grade.summaryGrade <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
                                    }`}>
                                      {grade.summaryGrade <= 3.0 ? 'Passed' : 'Failed'}
                                    </div>
@@ -1811,6 +1833,24 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                     </>
                   )}
                 </div>
+                
+                {/* Comment/Reason field for F.A. related actions */}
+                {(confirmAction === 'fail' || confirmAction === 'unfailed') && (
+                  <div className="px-6 pb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {confirmAction === 'fail' ? 'Reason for marking as F.A. (Optional)' : 'Reason for removing F.A. status (Required)'}
+                    </label>
+                    <textarea
+                      className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                      rows={3}
+                      placeholder={confirmAction === 'fail' 
+                        ? "e.g., Excessive absences beyond allowed limit" 
+                        : "e.g., Medical excuse approved, absences now excused"}
+                      value={actionComment}
+                      onChange={(e) => setActionComment(e.target.value)}
+                    />
+                  </div>
+                )}
               </DialogHeader>
               <DialogFooter className="gap-2">
                 <Button 
@@ -1820,6 +1860,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                       setShowConfirmModal(false);
                       setPendingStudent(null);
                       setConfirmAction(null);
+                      setActionComment('');
                     }
                   }}
                   disabled={isProcessingAction}
@@ -1828,7 +1869,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                 </Button>
                 <Button
                   onClick={handleConfirmAction}
-                  disabled={isProcessingAction}
+                  disabled={isProcessingAction || (confirmAction === 'unfailed' && !actionComment.trim())}
                   className={
                     confirmAction === 'drop' ? 'bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400' :
                     confirmAction === 'fail' ? 'bg-red-600 hover:bg-red-700 disabled:bg-red-400' :

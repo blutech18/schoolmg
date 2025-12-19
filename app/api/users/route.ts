@@ -62,6 +62,14 @@ export async function POST(req: NextRequest) {
       ContactNumber,
     } = await req.json();
 
+    // Block admin account creation - admin accounts are not allowed to be created via API
+    if (Role === 'admin') {
+      return NextResponse.json({ 
+        error: 'Admin account creation is not allowed',
+        details: 'Admin accounts cannot be created through this interface'
+      }, { status: 403 });
+    }
+
     // Start transaction for atomic operations
     await db.query('START TRANSACTION');
 
@@ -167,6 +175,23 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
+    // Block changing role to admin or modifying existing admin accounts
+    if (user.Role === 'admin') {
+      return NextResponse.json({ 
+        error: 'Admin role cannot be assigned',
+        details: 'Admin accounts cannot be created or modified through this interface'
+      }, { status: 403 });
+    }
+
+    // Check if the user being edited is an admin
+    const [existingUser]: any = await db.query('SELECT Role FROM users WHERE UserID = ?', [parseInt(id)]);
+    if (existingUser.length > 0 && existingUser[0].Role === 'admin') {
+      return NextResponse.json({ 
+        error: 'Admin accounts cannot be modified',
+        details: 'Admin accounts are protected and cannot be edited through this interface'
+      }, { status: 403 });
+    }
+
     const query = `
       UPDATE users 
       SET FirstName = ?, LastName = ?, MiddleName = ?, EmailAddress = ?, Password = ?, Sex = ?, Status = ?, IsPWD = ?, Role = ?
@@ -226,6 +251,15 @@ export async function DELETE(req: NextRequest) {
 
       const userRole = userResult[0].Role
       console.log(`Deleting user with role: ${userRole}`)
+
+      // Block deletion of admin accounts
+      if (userRole === 'admin') {
+        await db.query('ROLLBACK')
+        return NextResponse.json({ 
+          error: 'Admin accounts cannot be deleted',
+          details: 'Admin accounts are protected and cannot be deleted through this interface'
+        }, { status: 403 })
+      }
 
       // Delete related records based on role
       if (userRole === 'instructor') {

@@ -6,6 +6,8 @@ export interface IUser {
   EmailAddress: string,
   Password: string,
   Sex: string,
+  // Note: 'admin' role is deprecated - programcoor now has admin privileges
+  // 'admin' kept for backward compatibility with existing database records
   Role: "admin" | "instructor" | "programcoor" | "dean" | "student",
   Status: string,
   IsPWD: boolean,
@@ -41,10 +43,12 @@ export interface IStudentOnly{
 }
 
 
+// Note: admin role is deprecated - programcoor (Program Coordinator) now has admin privileges
+// New admin accounts cannot be created via the system - only programcoor, dean, instructor, and student
 export enum ERoles {
-  admin = "admin",
+  admin = "admin",           // Deprecated - kept for backward compatibility only
   instructor = "instructor",
-  programcoor = "programcoor",
+  programcoor = "programcoor", // Program Coordinator - has admin interface access
   dean = "dean",
   student = "student"
 }

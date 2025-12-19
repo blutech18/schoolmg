@@ -185,20 +185,16 @@ export async function POST(request: NextRequest) {
 // Convert percentage to Filipino grading system (1.0-5.0)
 // 1.0 is highest, 3.0 is passing, 5.0 is failed
 function convertToFilipinoGrade(percentage: number): number {
-  if (percentage >= 97) return 1.0;
-  if (percentage >= 94) return 1.25;
-  if (percentage >= 91) return 1.5;
-  if (percentage >= 88) return 1.75;
-  if (percentage >= 85) return 2.0;
-  if (percentage >= 82) return 2.25;
-  if (percentage >= 79) return 2.5;
-  if (percentage >= 76) return 2.75;
-  if (percentage >= 75) return 3.0;  // Passing grade
-  if (percentage >= 72) return 3.25;
-  if (percentage >= 69) return 3.5;
-  if (percentage >= 66) return 3.75;
-  if (percentage >= 60) return 4.0;
-  return 5.0;  // Failed
+  if (percentage >= 97) return 1.0;   // 97-100%
+  if (percentage >= 94) return 1.25;  // 94-96%
+  if (percentage >= 91) return 1.5;   // 91-93%
+  if (percentage >= 88) return 1.75;  // 88-90%
+  if (percentage >= 85) return 2.0;   // 85-87%
+  if (percentage >= 82) return 2.25;  // 82-84%
+  if (percentage >= 79) return 2.5;   // 79-81%
+  if (percentage >= 76) return 2.75;  // 76-78%
+  if (percentage >= 75) return 3.0;   // 75% - Passing grade
+  return 5.0;  // Below 75% - Failed
 }
 
 // Helper function to calculate student grades based on class type
@@ -229,24 +225,41 @@ function calculateStudentGrades(grades: any[]) {
   Object.keys(gradesBySchedule).forEach(scheduleId => {
     const scheduleGrades = gradesBySchedule[scheduleId];
     const classType = scheduleGrades.ClassType;
+    const subjectCode = scheduleGrades.SubjectCode || '';
+
+    // Skip NSTP subjects - they don't count towards GPA/grade computation
+    if (subjectCode.toUpperCase().includes('NSTP')) {
+      console.log(`Skipping NSTP subject: ${subjectCode}`);
+      return;
+    }
 
     console.log(`Calculating grades for Schedule ${scheduleId}, ClassType: ${classType}`);
     console.log('Midterm grades:', scheduleGrades.midterm);
     console.log('Final grades:', scheduleGrades.final);
 
-    const midtermGrade = calculateTermGrade(scheduleGrades.midterm || [], classType);
-    const finalGrade = calculateTermGrade(scheduleGrades.final || [], classType);
+    const midtermResult = calculateTermGrade(scheduleGrades.midterm || [], classType);
+    const finalResult = calculateTermGrade(scheduleGrades.final || [], classType);
+
+    // Extract grades and percentages
+    const midtermGrade = midtermResult?.grade || null;
+    const finalGrade = finalResult?.grade || null;
+    const midtermPercentage = midtermResult?.percentage || null;
+    const finalPercentage = finalResult?.percentage || null;
 
     // Calculate summary grade - only if both midterm and final exist, average them
     // If only one exists or neither exists, summary should be null (incomplete)
     let summaryGrade = null;
+    let summaryPercentage = null;
     if (midtermGrade !== null && finalGrade !== null) {
       summaryGrade = (midtermGrade + finalGrade) / 2;
+      if (midtermPercentage !== null && finalPercentage !== null) {
+        summaryPercentage = (midtermPercentage + finalPercentage) / 2;
+      }
     }
     // Note: If only midterm OR only final exists, summaryGrade remains null
     // This ensures students are not marked as passed/failed with incomplete grades
 
-    console.log(`Calculated - Midterm: ${midtermGrade}, Final: ${finalGrade}, Summary: ${summaryGrade}`);
+    console.log(`Calculated - Midterm: ${midtermGrade} (${midtermPercentage}%), Final: ${finalGrade} (${finalPercentage}%), Summary: ${summaryGrade} (${summaryPercentage}%)`);
 
     summaryGrades[scheduleId] = {
       SubjectCode: scheduleGrades.SubjectCode,
@@ -254,7 +267,10 @@ function calculateStudentGrades(grades: any[]) {
       ClassType: classType,
       midterm: midtermGrade,
       final: finalGrade,
-      summary: summaryGrade
+      summary: summaryGrade,
+      midtermPercentage,
+      finalPercentage,
+      summaryPercentage
     };
   });
 
@@ -364,8 +380,8 @@ function calculateTermGrade(termGrades: any[], classType: string) {
       // Class Standing = Quiz (60%) = 60% total
       classStanding = lectureQuizGrade;
 
-      // Exam is 40% of total grade
-      const lectureExamComponents = gradesByComponent.exam || [];
+      // Major Exam is 40% of total grade
+      const lectureExamComponents = gradesByComponent['major exam'] || gradesByComponent.exam || [];
       if (lectureExamComponents.length > 0) {
         const validExam = lectureExamComponents.find((e: any) => e.Score !== null && e.Score !== undefined);
         if (validExam) {
@@ -441,11 +457,11 @@ function calculateTermGrade(termGrades: any[], classType: string) {
       classStanding = lecLabQuizGrade + lecLabLabGrade + lecLabOloGrade;
       console.log(`LECTURE+LAB Debug - Quiz: ${lecLabQuizGrade}, Lab: ${lecLabLabGrade}, OLO: ${lecLabOloGrade}, ClassStanding: ${classStanding}`);
 
-      // Exam is 40% of total grade
-      console.log('Checking for exam component:', gradesByComponent.exam);
-      if (gradesByComponent.exam && gradesByComponent.exam.length > 0) {
-        const examComponents = gradesByComponent.exam;
-        const validExam = examComponents.find((e: any) => e.Score !== null && e.Score !== undefined);
+      // Major Exam is 40% of total grade
+      const lecLabExamComponents = gradesByComponent['major exam'] || gradesByComponent.exam || [];
+      console.log('Checking for major exam component:', lecLabExamComponents);
+      if (lecLabExamComponents.length > 0) {
+        const validExam = lecLabExamComponents.find((e: any) => e.Score !== null && e.Score !== undefined);
         if (validExam) {
           const examPercentage = (parseFloat(validExam.Score) || 0) / (parseFloat(validExam.MaxScore) || 60) * 100;
           examGrade = examPercentage * 0.4; // 40% weight
@@ -637,10 +653,10 @@ function calculateTermGrade(termGrades: any[], classType: string) {
       // Class Standing = Quiz (60%) = 60% total
       classStanding = defaultQuizGrade;
 
-      // Exam is 40% of total grade
-      if ((gradesByComponent.Exam || gradesByComponent.exam) && (gradesByComponent.Exam || gradesByComponent.exam).length > 0) {
-        const examComponents = gradesByComponent.Exam || gradesByComponent.exam;
-        const validExam = examComponents.find((e: any) => e.Score !== null && e.Score !== undefined);
+      // Major Exam is 40% of total grade
+      const defaultExamComponents = gradesByComponent['Major Exam'] || gradesByComponent['major exam'] || gradesByComponent.Exam || gradesByComponent.exam || [];
+      if (defaultExamComponents.length > 0) {
+        const validExam = defaultExamComponents.find((e: any) => e.Score !== null && e.Score !== undefined);
         if (validExam) {
           const examPercentage = (parseFloat(validExam.Score) || 0) / (parseFloat(validExam.MaxScore) || 60) * 100;
           examGrade = examPercentage * 0.4; // 40% weight
@@ -657,7 +673,12 @@ function calculateTermGrade(termGrades: any[], classType: string) {
   const filipinoGrade = hasValidGrades ? convertToFilipinoGrade(finalGrade) : null;
   console.log(`Converted to Filipino grade: ${filipinoGrade}`);
 
-  return filipinoGrade;
+  return {
+    grade: filipinoGrade,
+    percentage: hasValidGrades ? finalGrade : null,
+    classStanding,
+    examGrade
+  };
 }
 
 

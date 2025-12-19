@@ -15,6 +15,13 @@ export default function LoginForm() {
   const [errorMessage, setErrorMessage] = useState('');
   const router = useRouter();
   
+  // Handle Enter key press to login
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isLoading) {
+      e.preventDefault();
+      handleLogin();
+    }
+  };
 
   async function handleLogin() {
     setIsLoading(true);
@@ -67,15 +74,18 @@ export default function LoginForm() {
       await createSession(sessionData);
 
       // Redirect based on user role
+      // Note: admin role removed - coordinators now have admin access
       switch (matchedUser.Role) {
         case 'admin':
+          // Legacy admin accounts redirect to admin page (but new admins cannot be created)
+          router.push('/admin');
+          break;
+        case 'programcoor':
+          // Coordinators now use the admin interface
           router.push('/admin');
           break;
         case 'dean':
           router.push('/dean');
-          break;
-        case 'programcoor':
-          router.push('/coordinator');
           break;
         case 'instructor':
           router.push('/instructor');
@@ -106,6 +116,7 @@ export default function LoginForm() {
         className="border px-4 py-2 rounded-lg transition-all bg-white"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        onKeyPress={handleKeyPress}
         onBlur={(e) => {
           const emailValue = e.target.value.trim();
           if (!emailValue) return;
@@ -130,6 +141,7 @@ export default function LoginForm() {
         className="border px-4 py-2 rounded-lg transition-all bg-white"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        onKeyPress={handleKeyPress}
         onBlur={(e) => {
           const passwordValue = e.target.value;
           if (!passwordValue) return;

@@ -6,7 +6,7 @@ import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { FileText, Calendar, GraduationCap, Clock, Plus, AlertCircle, ChevronDown, ChevronUp, Paperclip } from "lucide-react";
+import { FileText, Calendar, GraduationCap, Clock, Plus, AlertCircle, ChevronDown, ChevronUp, Paperclip, BookOpen } from "lucide-react";
 import { brandedToast } from "@/components/ui/branded-toast";
 import SubmitExcuseLetterModal from "./components/SubmitExcuseLetterModal";
 import ViewExcuseLetterModal from "./components/ViewExcuseLetterModal";
@@ -31,6 +31,7 @@ interface GradeData {
   ScheduleID: number;
   SubjectCode: string;
   SubjectName: string;
+  SubjectTitle?: string;
   ClassType: string;
   midterm: number | null;
   final: number | null;
@@ -715,8 +716,9 @@ export default function StudentDashboard() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="notifications" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="grades">Grades</TabsTrigger>
           <TabsTrigger value="schedules">Schedules</TabsTrigger>
           <TabsTrigger value="excuse-letters">Excuse Letters</TabsTrigger>
         </TabsList>
@@ -735,68 +737,6 @@ export default function StudentDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {/* Grade Update Notifications */}
-                {grades.some(g => g.midterm !== null || g.final !== null || g.summary !== null) && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <GraduationCap className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-blue-900 text-sm mb-1">New Grades Available</h3>
-                        <p className="text-blue-700 text-sm mb-2">
-                          Check your grades tab to view updated grade information for your subjects.
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {grades.filter(g => g.summary !== null).map(grade => (
-                            <Badge key={grade.ScheduleID} variant="secondary" className="text-xs">
-                              {grade.SubjectCode}: {grade.summary?.toFixed(1)}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Attendance Warnings */}
-                {(() => {
-                  const warningAttendance = attendance.filter(r => r.Status === 'A' || r.Status === 'FA');
-                  if (warningAttendance.length > 0) {
-                    return (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 bg-yellow-100 rounded-lg">
-                            <AlertCircle className="h-5 w-5 text-yellow-600" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-yellow-900 text-sm mb-1">Attendance Warning</h3>
-                            <p className="text-yellow-700 text-sm mb-2">
-                              You have {warningAttendance.length} absent or failed attendance record(s). 
-                              Consider submitting an excuse letter if applicable.
-                            </p>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => {
-                                const tabsList = document.querySelector('[role="tablist"]');
-                                const excuseTab = Array.from(tabsList?.children || []).find(
-                                  (child: any) => child.textContent === 'Excuse Letters'
-                                );
-                                if (excuseTab) (excuseTab as HTMLElement).click();
-                              }}
-                            >
-                              Submit Excuse Letter
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-                
                 {/* Notification Feed (basic info) */}
                 <div className="bg-white border rounded-lg">
                   {(() => {
@@ -814,55 +754,77 @@ export default function StudentDashboard() {
 
                     return (
                       <>
-                        {recentAttendance.map((item, idx) => (
-                          <div key={`notif-att-${idx}`} className="p-4 flex items-start gap-3 border-b last:border-b-0">
-                            <div className="p-2 bg-gray-100 rounded-md"><Calendar className="h-4 w-4 text-gray-700" /></div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="font-medium text-gray-900 truncate">
-                                  Attendance • {item.SubjectCode}
+                        {recentAttendance.map((item, idx) => {
+                          const schedule = schedules.find(s => s.ScheduleID === item.ScheduleID);
+                          return (
+                            <div 
+                              key={`notif-att-${idx}`} 
+                              className="p-4 flex items-start gap-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors"
+                              onClick={() => {
+                                if (schedule) {
+                                  openScheduleHub(schedule);
+                                }
+                              }}
+                            >
+                              <div className="p-2 bg-gray-100 rounded-md"><Calendar className="h-4 w-4 text-gray-700" /></div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="font-medium text-gray-900 truncate">
+                                    Attendance • {item.SubjectCode}
+                                  </div>
+                                  <div className="text-xs text-gray-500 whitespace-nowrap">
+                                    {new Date(item.Date).toLocaleDateString()}
+                                  </div>
                                 </div>
-                                <div className="text-xs text-gray-500 whitespace-nowrap">
-                                  {new Date(item.Date).toLocaleDateString()}
+                                <div className="mt-1 text-sm text-gray-700 flex items-center gap-2">
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    item.Status === 'P' ? 'bg-green-100 text-green-800' :
+                                    item.Status === 'A' ? 'bg-red-100 text-red-800' :
+                                    item.Status === 'E' ? 'bg-blue-100 text-blue-800' :
+                                    item.Status === 'L' ? 'bg-yellow-100 text-yellow-800' :
+                                    item.Status === 'D' ? 'bg-orange-100 text-orange-800' :
+                                    item.Status === 'FA' ? 'bg-red-200 text-red-900' :
+                                    item.Status === 'CC' ? 'bg-purple-100 text-purple-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {getStatusText(item.Status)}
+                                  </span>
+                                  <span className="text-xs text-gray-500">• Week {item.Week}</span>
                                 </div>
-                              </div>
-                              <div className="mt-1 text-sm text-gray-700 flex items-center gap-2">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  item.Status === 'P' ? 'bg-green-100 text-green-800' :
-                                  item.Status === 'A' ? 'bg-red-100 text-red-800' :
-                                  item.Status === 'E' ? 'bg-blue-100 text-blue-800' :
-                                  item.Status === 'L' ? 'bg-yellow-100 text-yellow-800' :
-                                  item.Status === 'D' ? 'bg-orange-100 text-orange-800' :
-                                  item.Status === 'FA' ? 'bg-red-200 text-red-900' :
-                                  item.Status === 'CC' ? 'bg-purple-100 text-purple-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {getStatusText(item.Status)}
-                                </span>
-                                <span className="text-xs text-gray-500">• Week {item.Week}</span>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
 
-                        {gradedSubjects.map((g, idx) => (
-                          <div key={`notif-grade-${idx}`} className="p-4 flex items-start gap-3 border-b last:border-b-0">
-                            <div className="p-2 bg-blue-100 rounded-md"><GraduationCap className="h-4 w-4 text-blue-700" /></div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="font-medium text-gray-900 truncate">
-                                  Grades • {g.SubjectCode}
+                        {gradedSubjects.map((g, idx) => {
+                          const schedule = schedules.find(s => s.ScheduleID === g.ScheduleID);
+                          return (
+                            <div 
+                              key={`notif-grade-${idx}`} 
+                              className="p-4 flex items-start gap-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors"
+                              onClick={() => {
+                                if (schedule) {
+                                  openScheduleHub(schedule);
+                                }
+                              }}
+                            >
+                              <div className="p-2 bg-blue-100 rounded-md"><GraduationCap className="h-4 w-4 text-blue-700" /></div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="font-medium text-gray-900 truncate">
+                                    Grades • {g.SubjectCode}
+                                  </div>
+                                  <div className="text-xs text-gray-500 whitespace-nowrap">Updated</div>
                                 </div>
-                                <div className="text-xs text-gray-500 whitespace-nowrap">Updated</div>
-                              </div>
-                              <div className="mt-1 text-sm text-gray-700 flex items-center gap-3">
-                                <span className="text-xs">Overall: {g.summary?.toFixed(2)}</span>
-                                {g.midterm !== null && (<span className="text-xs">Midterm: {g.midterm.toFixed(2)}</span>)}
-                                {g.final !== null && (<span className="text-xs">Final: {g.final.toFixed(2)}</span>)}
+                                <div className="mt-1 text-sm text-gray-700 flex items-center gap-3">
+                                  <span className="text-xs">Overall: {g.summary?.toFixed(2)}</span>
+                                  {g.midterm !== null && (<span className="text-xs">Midterm: {g.midterm.toFixed(2)}</span>)}
+                                  {g.final !== null && (<span className="text-xs">Final: {g.final.toFixed(2)}</span>)}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </>
                     );
                   })()}
@@ -880,6 +842,90 @@ export default function StudentDashboard() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Grades Tab - Exclusive tab for viewing grades */}
+        <TabsContent value="grades" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">My Grades</h2>
+              <p className="text-sm text-gray-600">View your academic performance across all subjects</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {grades.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <GraduationCap className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">No grades available yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              grades.map((grade) => (
+                <Card key={grade.ScheduleID} className="hover:shadow-md transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <BookOpen className="h-5 w-5 text-blue-600" />
+                          {grade.SubjectCode}
+                        </CardTitle>
+                        <CardDescription>{grade.SubjectTitle}</CardDescription>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const schedule = schedules.find(s => s.ScheduleID === grade.ScheduleID);
+                          if (schedule) openScheduleHub(schedule);
+                        }}
+                      >
+                        View Details
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="text-center p-4 bg-blue-50 rounded-lg">
+                        <p className="text-xs text-gray-600 mb-1">Midterm Grade</p>
+                        <p className="text-2xl font-bold text-slate-900">
+                          {grade.midterm !== null ? grade.midterm.toFixed(2) : 'N/A'}
+                        </p>
+                        {grade.midterm !== null && (
+                          <Badge className={`mt-2 ${grade.midterm <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                            {grade.midterm <= 3.0 ? 'Passed' : 'Failed'}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-center p-4 bg-green-50 rounded-lg">
+                        <p className="text-xs text-gray-600 mb-1">Final Grade</p>
+                        <p className="text-2xl font-bold text-slate-900">
+                          {grade.final !== null ? grade.final.toFixed(2) : 'N/A'}
+                        </p>
+                        {grade.final !== null && (
+                          <Badge className={`mt-2 ${grade.final <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                            {grade.final <= 3.0 ? 'Passed' : 'Failed'}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-center p-4 bg-purple-50 rounded-lg border-2 border-purple-200">
+                        <p className="text-xs text-gray-600 mb-1">Overall Average</p>
+                        <p className="text-2xl font-bold text-slate-900">
+                          {grade.summary !== null ? grade.summary.toFixed(2) : 'N/A'}
+                        </p>
+                        {grade.summary !== null && (
+                          <Badge className={`mt-2 ${grade.summary <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                            {grade.summary <= 3.0 ? 'Passed' : 'Failed'}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
         </TabsContent>
 
         {/* Schedules Tab - New consolidated view */}

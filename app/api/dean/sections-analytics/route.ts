@@ -27,6 +27,8 @@ export async function GET() {
         COUNT(DISTINCT risk_data.StudentID) as atRiskStudents
       FROM students s
       LEFT JOIN schedules sch ON s.Course = sch.Course AND s.Section = sch.Section AND s.YearLevel = sch.YearLevel
+        AND UPPER(COALESCE(sch.SubjectCode, '')) NOT LIKE '%NSTP%'
+        AND UPPER(COALESCE(sch.SubjectName, sch.SubjectTitle, '')) NOT LIKE '%NSTP%'
       LEFT JOIN (
         SELECT 
           a.StudentID,

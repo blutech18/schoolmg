@@ -43,6 +43,8 @@ export async function GET() {
       FROM courses c
       LEFT JOIN students s ON c.CourseCode = s.Course
       LEFT JOIN schedules sch ON c.CourseCode = sch.Course
+        AND UPPER(COALESCE(sch.SubjectCode, '')) NOT LIKE '%NSTP%'
+        AND UPPER(COALESCE(sch.SubjectName, sch.SubjectTitle, '')) NOT LIKE '%NSTP%'
       LEFT JOIN (
         SELECT 
           s.Course,

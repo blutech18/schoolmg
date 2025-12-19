@@ -229,6 +229,9 @@ export default function DeanStudentPerformancePage() {
                                       <div>
                                         <h5 className="font-medium">{grade.SubjectCode}</h5>
                                         <p className="text-sm text-gray-600">{grade.SubjectName}</p>
+                                        {grade.InstructorName && (
+                                          <p className="text-xs text-gray-500 mt-1">Instructor: {grade.InstructorName}</p>
+                                        )}
                                       </div>
                                       <div className="flex gap-4 text-sm">
                                         {grade.MidtermGrade && (

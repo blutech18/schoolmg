@@ -851,10 +851,10 @@ function InstructorGradesContent() {
                     </th>
                   </tr>
                   
-                  {/* Max Score Row */}
+                  {/* Total Items Row */}
                   <tr className="bg-blue-50 text-xs">
                     <td className="border border-gray-300 p-2 font-medium sticky left-0 bg-blue-50 z-10 border-r-2 border-r-gray-400">
-                      Max Score
+                      TOTAL ITEMS
                     </td>
                     {gradingConfig?.components?.map((component) => (
                       Array.from({ length: component.items }, (_, index) => (
@@ -869,7 +869,7 @@ function InstructorGradesContent() {
                             value={getMaxScore(component.name, index + 1)}
                             onChange={(e) => updateItemMaxScore(component.name, index + 1, Math.round(parseFloat(e.target.value) || 0))}
                             className="w-full h-6 text-center border-0 bg-transparent focus:bg-white focus:border focus:border-blue-300 text-xs font-bold"
-                            title={`Edit max score for ${component.name === 'Laboratory' ? 'Lab' : 
+                            title={`Edit total items for ${component.name === 'Laboratory' ? 'Lab' : 
                                    component.name === 'Online Course' ? 'Online Course' : 
                                    component.name} ${index + 1}`}
                           />
@@ -985,24 +985,34 @@ function InstructorGradesContent() {
                           </td>
                           <td className="border border-gray-300 p-3 text-center">
                             <div className="text-lg font-semibold">{midtermGrade.toFixed(2)}</div>
+                            {studentGrades?.midtermPercentage !== undefined && (
+                              <div className="text-xs text-gray-600 mt-1">
+                                ({studentGrades.midtermPercentage.toFixed(1)}%)
+                              </div>
+                            )}
                             <Badge 
                               variant={midtermGrade <= 3.0 ? 'default' : 'destructive'}
-                              className={`text-xs ${midtermGrade <= 3.0 ? 'bg-green-600' : ''}`}
+                              className={`text-xs mt-1 ${midtermGrade <= 3.0 ? 'bg-green-600' : ''}`}
                             >
                               {midtermGrade <= 3.0 ? 'Pass' : 'Fail'}
                             </Badge>
                           </td>
                           <td className="border border-gray-300 p-3 text-center">
                             <div className="text-lg font-semibold">{finalGrade.toFixed(2)}</div>
+                            {studentGrades?.finalPercentage !== undefined && (
+                              <div className="text-xs text-gray-600 mt-1">
+                                ({studentGrades.finalPercentage.toFixed(1)}%)
+                              </div>
+                            )}
                             <Badge 
                               variant={finalGrade <= 3.0 ? 'default' : 'destructive'}
-                              className={`text-xs ${finalGrade <= 3.0 ? 'bg-green-600' : ''}`}
+                              className={`text-xs mt-1 ${finalGrade <= 3.0 ? 'bg-green-600' : ''}`}
                             >
                               {finalGrade <= 3.0 ? 'Pass' : 'Fail'}
                             </Badge>
                           </td>
                           <td className="border border-gray-300 p-3 text-center bg-blue-50">
-                            <div className="text-xl font-bold text-blue-700">
+                            <div className="text-xl font-bold text-slate-900">
                               {overallAverage !== null ? overallAverage.toFixed(2) : 'N/A'}
                             </div>
                           </td>

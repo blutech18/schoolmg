@@ -9,7 +9,6 @@ interface DashboardStats {
   totalStudents: number;
   totalExcuseLetters: number;
   pendingApprovals: number;
-  totalAttendanceRecords: number;
   averageAttendance: number;
 }
 
@@ -18,7 +17,6 @@ export default function DeanDashboard() {
     totalStudents: 0,
     totalExcuseLetters: 0,
     pendingApprovals: 0,
-    totalAttendanceRecords: 0,
     averageAttendance: 0
   });
   const [loading, setLoading] = useState(true);
@@ -41,16 +39,14 @@ export default function DeanDashboard() {
   const fetchDashboardStats = async () => {
     try {
       // Fetch various statistics
-      const [studentsRes, excuseLettersRes, attendanceRes, attendanceStatsRes] = await Promise.all([
+      const [studentsRes, excuseLettersRes, attendanceStatsRes] = await Promise.all([
         fetch("/api/students"),
         fetch("/api/excuse-letters?role=dean"),
-        fetch("/api/attendance"),
         fetch("/api/dean/attendance-stats")
       ]);
 
       const studentsData = await studentsRes.json();
       const excuseLettersData = await excuseLettersRes.json();
-      const attendanceData = await attendanceRes.json();
       const attendanceStatsData = await attendanceStatsRes.json();
 
       const pendingApprovals = excuseLettersData.success ?
@@ -65,7 +61,6 @@ export default function DeanDashboard() {
         totalStudents: Array.isArray(studentsData) ? studentsData.length : 0,
         totalExcuseLetters: excuseLettersData.success ? excuseLettersData.data.length : 0,
         pendingApprovals,
-        totalAttendanceRecords: attendanceData.success ? attendanceData.data.length : 0,
         averageAttendance
       });
     } catch (error) {
@@ -100,7 +95,7 @@ export default function DeanDashboard() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Students</CardTitle>
@@ -133,16 +128,6 @@ export default function DeanDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Attendance Records</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalAttendanceRecords}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Avg Attendance</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
@@ -153,7 +138,7 @@ export default function DeanDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = '/dean/excuse-letters'}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
@@ -186,17 +171,6 @@ export default function DeanDashboard() {
             <p className="text-xs text-muted-foreground mt-1">Overall attendance average</p>
           </CardContent>
         </Card>
-
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = '/dean/courses-analytics'}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Analytics</CardTitle>
-            <Calendar className="h-4 w-4 text-purple-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{stats.totalAttendanceRecords}</div>
-            <p className="text-xs text-muted-foreground mt-1">Total attendance records</p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Recent Activity Summary */}
@@ -213,10 +187,6 @@ export default function DeanDashboard() {
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Pending Reviews</span>
               <span className="font-semibold text-yellow-600">{stats.pendingApprovals}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Attendance Records</span>
-              <span className="font-semibold">{stats.totalAttendanceRecords.toLocaleString()}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Average Attendance</span>
@@ -257,19 +227,6 @@ export default function DeanDashboard() {
             </button>
             
             <button 
-              onClick={() => window.location.href = '/dean/attendance-overview'}
-              className="w-full text-left p-3 rounded-lg border hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-purple-500" />
-                <div>
-                  <div className="font-medium">Attendance Analytics</div>
-                  <div className="text-sm text-gray-500">View detailed reports</div>
-                </div>
-              </div>
-            </button>
-            
-            <button 
               onClick={() => window.location.href = '/dean/grades'}
               className="w-full text-left p-3 rounded-lg border hover:bg-gray-50 transition-colors"
             >
@@ -278,19 +235,6 @@ export default function DeanDashboard() {
                 <div>
                   <div className="font-medium">Grading Sheets</div>
                   <div className="text-sm text-gray-500">Access all grading sheets</div>
-                </div>
-              </div>
-            </button>
-            
-            <button 
-              onClick={() => window.location.href = '/dean/attendance'}
-              className="w-full text-left p-3 rounded-lg border hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Users className="h-5 w-5 text-indigo-500" />
-                <div>
-                  <div className="font-medium">Attendance Sheets</div>
-                  <div className="text-sm text-gray-500">Access all attendance records</div>
                 </div>
               </div>
             </button>

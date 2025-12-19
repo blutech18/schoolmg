@@ -13,18 +13,20 @@ import {
 } from "@/components/ui/table"
 import { SearchBar } from '@/components/ui/searchbar'
 import { capitalizeString, getRoleColor } from '@/helpers/helper'
-import { Trash } from 'lucide-react'
+import { Trash, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useDownloadExcel } from 'react-export-table-to-excel'
 import { enhancedPrint, getCurrentAcademicYear, getCurrentSemester } from '@/app/lib/printUtils'
+import { brandedToast } from '@/components/ui/branded-toast'
 import EditStudentDialog from './modal/EditStudent'
 import DeleteStudentDialog from './modal/DeleteStudent'
 import AddStudentDialog from './modal/AddStudent'
 
 export default function StudentsTable() {
   const tableRef = useRef<HTMLTableElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [filter, setFilter] = useState("")
-  const [students, setStudents] = useState<IStudent[]>([]);
+  const [students, setStudents] = useState<IStudent[]>([])
+  const [isImporting, setIsImporting] = useState(false)
 
   async function fetchData(){
     try{
@@ -71,11 +73,53 @@ export default function StudentsTable() {
     });
   }
 
-  const { onDownload } = useDownloadExcel({
-    currentTableRef: tableRef.current,
-    filename: `Students_Report_${new Date().toISOString().split('T')[0]}`,
-    sheet: 'Students'
-  })
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    const validTypes = [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ]
+    
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(csv|xlsx|xls)$/i)) {
+      brandedToast.error('Please upload a valid CSV or Excel file')
+      event.target.value = ''
+      return
+    }
+
+    setIsImporting(true)
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const response = await fetch('/api/students/import', {
+        method: 'POST',
+        body: formData
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        brandedToast.success(`Successfully imported ${result.imported || 0} students`)
+        fetchData() // Refresh the table
+      } else {
+        brandedToast.error(result.error || 'Failed to import students')
+      }
+    } catch (error) {
+      console.error('Import error:', error)
+      brandedToast.error('An error occurred while importing students')
+    } finally {
+      setIsImporting(false)
+      event.target.value = '' // Reset file input
+    }
+  }
 
   return (
     <>
@@ -88,7 +132,21 @@ export default function StudentsTable() {
         />
         <div className='flex gap-2 flex-shrink-0'>
           <Button onClick={handlePrint} variant="outline">Print Report</Button>
-          <Button onClick={onDownload} variant="outline">Export to Excel</Button>
+          <Button 
+            onClick={handleImportClick} 
+            variant="outline"
+            disabled={isImporting}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            {isImporting ? 'Importing...' : 'Import Students'}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            onChange={handleFileImport}
+            style={{ display: 'none' }}
+          />
           <AddStudentDialog onAdded={fetchData}/>
         </div>
       </div>

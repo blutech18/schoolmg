@@ -67,7 +67,8 @@ export async function GET(request: NextRequest) {
         FROM grades g
         GROUP BY g.ScheduleID
       ) grade_data ON sch.ScheduleID = grade_data.ScheduleID
-      WHERE 1=1
+      WHERE UPPER(COALESCE(sch.SubjectCode, subj.SubjectCode, '')) NOT LIKE '%NSTP%'
+        AND UPPER(COALESCE(sch.SubjectName, sch.SubjectTitle, subj.SubjectName, '')) NOT LIKE '%NSTP%'
     `;
     
     const params: any[] = [];

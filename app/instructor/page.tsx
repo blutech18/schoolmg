@@ -41,7 +41,6 @@ interface InstructorStats {
   totalStudents: number;
   pendingExcuseLetters: number;
   attendanceRecorded: number;
-  overallAttendanceRate: number;
 }
 
 interface Schedule {
@@ -141,8 +140,7 @@ export default function InstructorDashboard() {
     totalSchedules: 0,
     totalStudents: 0,
     pendingExcuseLetters: 0,
-    attendanceRecorded: 0,
-    overallAttendanceRate: 0
+    attendanceRecorded: 0
   });
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
@@ -645,21 +643,13 @@ export default function InstructorDashboard() {
       
       setStudents(studentsWithAttendance);
 
-      // Update attendance recorded stat and calculate overall attendance rate
+      // Update attendance recorded stat
       const recordedCount = studentsWithAttendance.reduce((sum, student) =>
         sum + student.TotalClasses, 0);
 
-      // Calculate overall attendance rate across all students
-      const totalPresentCount = studentsWithAttendance.reduce((sum, student) =>
-        sum + student.PresentCount, 0);
-      const totalClassCount = studentsWithAttendance.reduce((sum, student) =>
-        sum + student.TotalClasses, 0);
-      const overallRate = totalClassCount > 0 ? Math.round((totalPresentCount / totalClassCount) * 100) : 0;
-
       setStats(prev => ({
         ...prev,
-        attendanceRecorded: recordedCount,
-        overallAttendanceRate: overallRate
+        attendanceRecorded: recordedCount
       }));
       
     } catch (error) {
@@ -1989,15 +1979,6 @@ export default function InstructorDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.overallAttendanceRate}%</div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Main Content Tabs */}
@@ -2640,9 +2621,7 @@ export default function InstructorDashboard() {
 
                       {/* Overall Average */}
                       <div className="text-center p-3 bg-purple-50 rounded-lg">
-                        <div className={`text-lg font-semibold ${
-                          gradeData.averageGrade <= 3.0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
+                        <div className="text-lg font-semibold text-slate-900">
                           {gradeData.averageGrade.toFixed(2)}
                         </div>
                         <div className="text-sm text-gray-600">Overall Avg</div>

@@ -25,7 +25,6 @@ interface DashboardStats {
   totalInstructors: number;
   totalSchedules: number;
   totalSubjects: number;
-  pendingExcuseLetters: number;
   activeEnrollments: number;
 }
 
@@ -53,7 +52,6 @@ export default function AdminDashboard() {
     totalInstructors: 0,
     totalSchedules: 0,
     totalSubjects: 0,
-    pendingExcuseLetters: 0,
     activeEnrollments: 0
   });
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
@@ -82,41 +80,30 @@ export default function AdminDashboard() {
   const loadDashboardStats = async () => {
     try {
       // Fetch real data from APIs
-      const [studentsRes, usersRes, schedulesRes, excuseLettersRes] = await Promise.all([
+      const [studentsRes, usersRes, schedulesRes] = await Promise.all([
         fetch('/api/students', { credentials: 'include' }),
         fetch('/api/users', { credentials: 'include' }),
-        fetch('/api/schedules', { credentials: 'include' }),
-        fetch('/api/excuse-letters', { credentials: 'include' })
+        fetch('/api/schedules', { credentials: 'include' })
       ]);
 
       // Handle API responses with proper data validation
       const studentsData = studentsRes.ok ? await studentsRes.json() : [];
       const usersData = usersRes.ok ? await usersRes.json() : [];
       const schedulesData = schedulesRes.ok ? await schedulesRes.json() : [];
-      const excuseLettersData = excuseLettersRes.ok ? await excuseLettersRes.json() : [];
 
       // Extract arrays from API responses (handle both direct arrays and {success, data} format)
       const students = Array.isArray(studentsData) ? studentsData : (studentsData.data || []);
       const users = Array.isArray(usersData) ? usersData : (usersData.data || []);
       const schedules = Array.isArray(schedulesData) ? schedulesData : (schedulesData.data || []);
-      const excuseLetters = Array.isArray(excuseLettersData) ? excuseLettersData : (excuseLettersData.data || []);
 
       // Calculate stats from real data with safety checks
       const instructors = Array.isArray(users) ? users.filter((user: any) => user.Role === 'instructor') : [];
-      const pendingLetters = Array.isArray(excuseLetters) ? excuseLetters.filter((letter: any) =>
-        letter.DeanStatus === 'pending' ||
-        letter.CoordinatorStatus === 'pending' ||
-        letter.InstructorStatus === 'pending' ||
-        letter.Status === 'pending' ||
-        letter.Status === 'partial'
-      ) : [];
 
       setStats({
         totalStudents: students.length,
         totalInstructors: instructors.length,
         totalSchedules: schedules.length,
         totalSubjects: new Set(schedules.map((s: any) => s.SubjectCode)).size,
-        pendingExcuseLetters: pendingLetters.length,
         activeEnrollments: students.length // Approximation for now
       });
     } catch (error) {
@@ -127,7 +114,6 @@ export default function AdminDashboard() {
         totalInstructors: 0,
         totalSchedules: 0,
         totalSubjects: 0,
-        pendingExcuseLetters: 0,
         activeEnrollments: 0
       });
     }
@@ -140,15 +126,10 @@ export default function AdminDashboard() {
       const enrollmentsData = enrollmentsRes.ok ? await enrollmentsRes.json() : { data: [] };
       const enrollments = Array.isArray(enrollmentsData) ? enrollmentsData : (enrollmentsData.data || []);
 
-      // Fetch recent excuse letters
-      const excuseLettersRes = await fetch('/api/excuse-letters?limit=5', { credentials: 'include' });
-      const excuseLettersData = excuseLettersRes.ok ? await excuseLettersRes.json() : { data: [] };
-      const excuseLetters = Array.isArray(excuseLettersData) ? excuseLettersData : (excuseLettersData.data || []);
-
       const activities: RecentActivity[] = [];
 
       // Add recent enrollments
-      enrollments.slice(0, 3).forEach((enrollment: any, index: number) => {
+      enrollments.slice(0, 5).forEach((enrollment: any, index: number) => {
         activities.push({
           id: `enrollment-${enrollment.EnrollmentID || index}`,
           type: 'enrollment',
@@ -156,18 +137,6 @@ export default function AdminDashboard() {
           description: `${enrollment.StudentName || 'Student'} enrolled in ${enrollment.SubjectCode || 'course'} - ${getTimeAgo(enrollment.EnrollmentDate)}`,
           timestamp: enrollment.EnrollmentDate || new Date().toISOString(),
           color: 'bg-green-500'
-        });
-      });
-
-      // Add recent excuse letters
-      excuseLetters.slice(0, 2).forEach((letter: any, index: number) => {
-        activities.push({
-          id: `excuse-${letter.ExcuseLetterID || index}`,
-          type: 'excuse_letter',
-          title: 'Excuse letter submitted',
-          description: `${letter.StudentName || 'Student'} submitted excuse letter for ${letter.SubjectCode || 'subject'} - ${getTimeAgo(letter.SubmissionDate)}`,
-          timestamp: letter.SubmissionDate || new Date().toISOString(),
-          color: 'bg-orange-500'
         });
       });
 
@@ -181,31 +150,7 @@ export default function AdminDashboard() {
 
   const loadSystemAlerts = async () => {
     try {
-      // Get pending excuse letters count
-      const excuseLettersRes = await fetch('/api/excuse-letters', { credentials: 'include' });
-      const excuseLettersData = excuseLettersRes.ok ? await excuseLettersRes.json() : { data: [] };
-      const excuseLetters = Array.isArray(excuseLettersData) ? excuseLettersData : (excuseLettersData.data || []);
-
-      const pendingCount = excuseLetters.filter((letter: any) =>
-        letter.DeanStatus === 'pending' ||
-        letter.CoordinatorStatus === 'pending' ||
-        letter.InstructorStatus === 'pending' ||
-        letter.Status === 'pending' ||
-        letter.Status === 'partial'
-      ).length;
-
       const alerts: SystemAlert[] = [];
-
-      if (pendingCount > 0) {
-        alerts.push({
-          id: 'pending-letters',
-          type: 'warning',
-          title: 'Pending Approvals',
-          description: `${pendingCount} excuse letters require review`,
-          count: pendingCount,
-          actionRequired: true
-        });
-      }
 
       // Add system info alert
       alerts.push({
@@ -249,20 +194,6 @@ export default function AdminDashboard() {
       icon: UserCheck,
       href: "/admin/instructors",
       color: "bg-green-500"
-    },
-    {
-      title: "Grades",
-      description: "View and manage grades",
-      icon: GraduationCap,
-      href: "/admin/grades",
-      color: "bg-indigo-500"
-    },
-    {
-      title: "Excuse Letters",
-      description: "View all student excuse letters",
-      icon: FileText,
-      href: "/admin/excuse-letters",
-      color: "bg-teal-500"
     }
   ];
 
@@ -287,7 +218,7 @@ export default function AdminDashboard() {
       <div className="border-b border-gray-200"></div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Students</CardTitle>
@@ -337,20 +268,6 @@ export default function AdminDashboard() {
             <div className="text-2xl font-bold">{stats.totalSubjects}</div>
             <p className="text-xs text-muted-foreground">
               Available subjects
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Letters</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingExcuseLetters}</div>
-            <p className="text-xs text-muted-foreground">
-              <Clock className="h-3 w-3 inline mr-1" />
-              Require attention
             </p>
           </CardContent>
         </Card>

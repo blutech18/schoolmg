@@ -48,6 +48,8 @@ export async function GET() {
         FROM grades g
         GROUP BY g.ScheduleID
       ) grade_data ON sch.ScheduleID = grade_data.ScheduleID
+      WHERE UPPER(COALESCE(subj.SubjectCode, sch.SubjectCode, '')) NOT LIKE '%NSTP%'
+        AND UPPER(COALESCE(subj.SubjectName, sch.SubjectName, sch.SubjectTitle, '')) NOT LIKE '%NSTP%'
       GROUP BY subj.SubjectID, SubjectCode, SubjectName
       HAVING totalSchedules > 0
       ORDER BY SubjectName

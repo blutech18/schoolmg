@@ -36,22 +36,8 @@ const items = [
     url: "/admin/instructors",
     icon: UserCheck,
   },
-  // Academic Operations
-  {
-    title: "Attendance",
-    url: "/admin/attendance",
-    icon: CheckSquare,
-  },
-  {
-    title: "Grades",
-    url: "/admin/grades",
-    icon: ClipboardList,
-  },
-  {
-    title: "Excuse Letters",
-    url: "/admin/excuse-letters",
-    icon: FileText,
-  },
+  // Note: Attendance, Grades, and Excuse Letters removed from admin interface
+  // These are managed by instructors and deans
 ];
 export default items;
 

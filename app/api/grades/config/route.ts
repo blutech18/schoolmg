@@ -112,13 +112,18 @@ export async function GET(request: NextRequest) {
           });
         }
         
-        // Add Exam component (second)
-        if (componentNames.includes('exam')) {
-          const examComponent = components.find((c: GradingComponent) => c.name.toLowerCase() === 'exam');
-          orderedComponents.push(examComponent!);
+        // Add Major Exam component (second)
+        if (componentNames.includes('exam') || componentNames.includes('major exam')) {
+          const examComponent = components.find((c: GradingComponent) => c.name.toLowerCase() === 'exam' || c.name.toLowerCase() === 'major exam');
+          if (examComponent) {
+            orderedComponents.push({
+              ...examComponent,
+              name: 'Major Exam'
+            });
+          }
         } else {
           orderedComponents.push({
-            name: 'Exam',
+            name: 'Major Exam',
             weight: 40,
             items: 1,
             maxScore: 60,
@@ -180,13 +185,18 @@ export async function GET(request: NextRequest) {
           });
         }
         
-        // Add Exam component (last)
-        if (componentNames.includes('exam')) {
-          const examComponent = components.find((c: GradingComponent) => c.name.toLowerCase() === 'exam');
-          orderedComponents.push(examComponent!);
+        // Add Major Exam component (last)
+        if (componentNames.includes('exam') || componentNames.includes('major exam')) {
+          const examComponent = components.find((c: GradingComponent) => c.name.toLowerCase() === 'exam' || c.name.toLowerCase() === 'major exam');
+          if (examComponent) {
+            orderedComponents.push({
+              ...examComponent,
+              name: 'Major Exam'
+            });
+          }
         } else {
           orderedComponents.push({
-            name: 'Exam',
+            name: 'Major Exam',
             weight: 40,
             items: 1,
             maxScore: 60,
