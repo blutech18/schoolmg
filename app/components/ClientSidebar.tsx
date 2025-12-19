@@ -2,13 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { AppSidebar } from "./Sidebar";
+import { CoordinatorSidebar } from "../coordinator/components/CoordinatorSidebar";
+import { getSession } from "@/helpers/session";
 
 export function ClientSidebar() {
   const [mounted, setMounted] = useState(false);
+  const [userRole, setUserRole] = useState<string>("");
 
   useEffect(() => {
     setMounted(true);
+    loadUserRole();
   }, []);
+
+  const loadUserRole = async () => {
+    try {
+      const session = await getSession();
+      setUserRole(session.role || "");
+    } catch (error) {
+      console.error("Error loading user role:", error);
+    }
+  };
 
   if (!mounted) {
     // Return a static loading skeleton that matches the server-rendered HTML
@@ -41,6 +54,11 @@ export function ClientSidebar() {
         </div>
       </div>
     );
+  }
+
+  // Use CoordinatorSidebar if user is a program coordinator
+  if (userRole === "programcoor") {
+    return <CoordinatorSidebar />;
   }
 
   return <AppSidebar />;

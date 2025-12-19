@@ -1,7 +1,7 @@
 'use client';
 
 import { IUser } from '@/app/models/IUser';
-import { createSession, ISessionData } from '@/helpers/session';
+import { createSession, deleteSession, ISessionData } from '@/helpers/session';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
@@ -74,15 +74,17 @@ export default function LoginForm() {
       await createSession(sessionData);
 
       // Redirect based on user role
-      // Note: admin role removed - coordinators now have admin access
+      // Note: admin role completely removed from system
       switch (matchedUser.Role) {
         case 'admin':
-          // Legacy admin accounts redirect to admin page (but new admins cannot be created)
-          router.push('/admin');
-          break;
+          // Admin role no longer exists - show error and redirect
+          brandedToast.error('Admin accounts have been removed from the system. Please contact the administrator.');
+          await deleteSession();
+          router.push('/sign-in');
+          return;
         case 'programcoor':
-          // Coordinators now use the admin interface
-          router.push('/admin');
+          // Program Coordinator has their own dashboard
+          router.push('/coordinator');
           break;
         case 'dean':
           router.push('/dean');

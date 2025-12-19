@@ -32,16 +32,17 @@ export default function Header({ isAdminPage = false }: HeaderProps) {
   // Check if we're on authentication pages
   const isAuthPage = pathname === '/' || pathname === '/sign-in';
   
-  // Determine if we're on admin pages (only after mounting to avoid hydration issues)
+  // Determine if we're on admin or coordinator pages (only after mounting to avoid hydration issues)
   const isAdminPageDetected = mounted ? pathname?.startsWith('/admin') : false;
+  const isCoordinatorPageDetected = mounted ? pathname?.startsWith('/coordinator') : false;
 
   useEffect(() => {
     fetchUserInfo();
-  }, [isAuthPage, isAdminPageDetected]);
+  }, [isAuthPage, isAdminPageDetected, isCoordinatorPageDetected]);
 
   const fetchUserInfo = async () => {
-    // Don't fetch user info on authentication pages or admin pages (sidebar handles it)
-    if (isAuthPage || isAdminPageDetected) {
+    // Don't fetch user info on authentication pages, admin pages, or coordinator pages (sidebar handles it)
+    if (isAuthPage || isAdminPageDetected || isCoordinatorPageDetected) {
       return;
     }
     
@@ -150,52 +151,29 @@ export default function Header({ isAdminPage = false }: HeaderProps) {
   // Client-side render with full functionality
   return (
     <header className='bg-green-800 w-full text-white py-2 sticky top-0 z-50 h-[75px]'>
-      <div className='w-full flex items-center px-4 h-full relative'>
-        {/* Left spacer - invisible but takes up same space as right side */}
-        <div className='flex-1 flex justify-start'>
-          {userInfo && !isAuthPage && !isAdminPageDetected && (
-            <div className='flex items-center gap-4 opacity-0 pointer-events-none'>
-              <div className='flex items-center gap-2 text-sm'>
-                <User className='h-4 w-4' />
-                <div className='text-right'>
-                  <div className='font-semibold'>{userInfo.name}</div>
-                  <div className='text-green-200 text-xs'>{getRoleDisplayName(userInfo.role)}</div>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className='text-white hover:bg-green-700'
-              >
-                <LogOut className='h-4 w-4 mr-1' />
-                Logout
-              </Button>
-            </div>
-          )}
-        </div>
-        
-        {/* Center title - truly centered */}
-        <div className='absolute left-1/2 transform -translate-x-1/2'>
-          <div className='flex items-center gap-3'>
-            <img 
-              src="/img/cca-logo.png" 
-              alt="cca-logo" 
-              width={50} 
-              height={100} 
-              className='h-12 w-auto object-contain'
-            />
-            <h1 className='font-bold text-xl whitespace-nowrap'>City College of Angeles</h1>
-          </div>
+      <div className='w-full flex items-center justify-center px-4 h-full relative'>
+        {/* Center title - always centered */}
+        <div className='flex items-center gap-2 md:gap-3'>
+          <img 
+            src="/img/cca-logo.png" 
+            alt="cca-logo" 
+            width={50} 
+            height={100} 
+            className='h-10 md:h-12 w-auto object-contain'
+          />
+          <h1 className='font-bold text-base sm:text-lg md:text-xl lg:text-2xl whitespace-nowrap'>
+            City College of Angeles
+          </h1>
         </div>
          
-        {/* Right side - actual user info and logout (hidden on auth and admin pages) */}
-        <div className='flex-1 flex justify-end'>
-          {userInfo && !isAuthPage && !isAdminPageDetected && (
-            <div className='flex items-center gap-4'>
-              <div className='flex items-center gap-2 text-sm'>
+        {/* Right side - actual user info and logout (hidden on auth, admin, and coordinator pages) */}
+        <div className='absolute right-4 top-1/2 transform -translate-y-1/2'>
+          {userInfo && !isAuthPage && !isAdminPageDetected && !isCoordinatorPageDetected && (
+            <div className='flex items-center gap-2 md:gap-4'>
+              <div className='hidden sm:flex items-center gap-2 text-sm'>
                 <User className='h-4 w-4' />
                 <div className='text-right'>
-                  <div className='font-semibold'>{userInfo.name}</div>
+                  <div className='font-semibold text-xs md:text-sm'>{userInfo.name}</div>
                   <div className='text-green-200 text-xs'>{getRoleDisplayName(userInfo.role)}</div>
                 </div>
               </div>
@@ -203,10 +181,11 @@ export default function Header({ isAdminPage = false }: HeaderProps) {
                 variant="ghost"
                 size="sm"
                 onClick={handleLogout}
-                className='text-white hover:bg-green-700'
+                className='text-white hover:bg-green-700 text-xs md:text-sm'
               >
-                <LogOut className='h-4 w-4 mr-1' />
-                Logout
+                <LogOut className='h-3 w-3 md:h-4 md:w-4 mr-1' />
+                <span className='hidden sm:inline'>Logout</span>
+                <span className='sm:hidden'>Exit</span>
               </Button>
             </div>
           )}

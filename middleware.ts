@@ -7,12 +7,12 @@ export default async function middleware(request: NextRequest) {
 
   // Define route patterns and their allowed roles
   const routePermissions = {
-    "/admin": ["admin"],
+    "/admin": ["programcoor"], // Admin management pages accessible to Program Coordinator only
     "/dean": ["dean"],
-    "/coordinator": ["programcoor"],
+    "/coordinator": ["programcoor"], // Program Coordinator dashboard
     "/instructor": ["instructor"],
     "/student": ["student"],
-    "/test": ["admin", "dean", "instructor", "programcoor", "student"]
+    "/test": ["dean", "instructor", "programcoor", "student"]
   };
 
   // Special permissions for specific routes (if needed in the future)
@@ -93,11 +93,12 @@ export default async function middleware(request: NextRequest) {
   if (currentPath === "/dashboard" && hasUserCookie && role) {
     switch (role) {
       case "admin":
-        return NextResponse.redirect(new URL("/admin", request.url));
+        // Admin role deprecated - redirect to not-allowed
+        return NextResponse.redirect(new URL("/not-allowed", request.url));
       case "dean":
         return NextResponse.redirect(new URL("/dean", request.url));
       case "programcoor":
-        return NextResponse.redirect(new URL("/coordinator", request.url));
+        return NextResponse.redirect(new URL("/coordinator", request.url)); // Program Coordinator dashboard
       case "instructor":
         return NextResponse.redirect(new URL("/instructor", request.url));
       case "student":

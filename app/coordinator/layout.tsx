@@ -1,12 +1,12 @@
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import type { Metadata } from "next";
-import { ClientSidebar } from "../components/ClientSidebar";
+import { CoordinatorSidebar } from "./components/CoordinatorSidebar";
 
 export const metadata: Metadata = {
-  title: "System Management | City College of Angeles",
+  title: "Program Coordinator | City College of Angeles",
 };
 
-export default async function RootLayout({
+export default async function CoordinatorLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -15,7 +15,7 @@ export default async function RootLayout({
   return (
     <div className="min-h-screen w-full flex bg-white">
       <SidebarProvider>
-        <ClientSidebar />
+        <CoordinatorSidebar />
         <div className="flex-1 overflow-hidden flex justify-center">
           <main className="w-full h-screen overflow-y-auto max-w-[1400px]">
             <div className="px-6 py-6 w-full mx-auto">
@@ -27,7 +27,4 @@ export default async function RootLayout({
     </div>
   );
 }
-
-
-
 

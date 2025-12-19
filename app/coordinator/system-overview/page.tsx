@@ -197,14 +197,14 @@ export default function AdminDashboard() {
       title: "Manage Students",
       description: "Add, edit, and manage student records",
       icon: Users,
-      href: "/admin/students",
+      href: "/coordinator/students",
       color: "bg-blue-500"
     },
     {
       title: "Manage Instructors",
       description: "Add, edit, and manage instructor records",
       icon: UserCheck,
-      href: "/admin/instructors",
+      href: "/coordinator/instructors",
       color: "bg-green-500"
     }
   ];
@@ -425,7 +425,7 @@ export default function AdminDashboard() {
                 <Button
                   variant="outline"
                   className="h-16 flex flex-col"
-                  onClick={() => router.push('/admin/enrollments')}
+                  onClick={() => router.push('/coordinator/students')}
                 >
                   <BarChart3 className="h-5 w-5 mb-1" />
                   <span className="text-sm">Enrollment Report</span>
@@ -433,7 +433,7 @@ export default function AdminDashboard() {
                 <Button
                   variant="outline"
                   className="h-16 flex flex-col"
-                  onClick={() => router.push('/admin/grades')}
+                  onClick={() => router.push('/coordinator/students')}
                 >
                   <FileText className="h-5 w-5 mb-1" />
                   <span className="text-sm">Grade Summary</span>
@@ -441,7 +441,7 @@ export default function AdminDashboard() {
                 <Button
                   variant="outline"
                   className="h-16 flex flex-col"
-                  onClick={() => router.push('/admin/students')}
+                  onClick={() => router.push('/coordinator/students')}
                 >
                   <Users className="h-5 w-5 mb-1" />
                   <span className="text-sm">Student Analytics</span>
@@ -449,7 +449,7 @@ export default function AdminDashboard() {
                 <Button
                   variant="outline"
                   className="h-16 flex flex-col"
-                  onClick={() => router.push('/admin/schedules')}
+                  onClick={() => router.push('/coordinator/students')}
                 >
                   <Calendar className="h-5 w-5 mb-1" />
                   <span className="text-sm">Schedule Report</span>
