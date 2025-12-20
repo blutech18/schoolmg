@@ -59,28 +59,13 @@ export default function AttendanceSheetWrapper({
   const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' || 
                           (schedule.Room && schedule.Room.toLowerCase().includes('cisco'))
   
-  // Determine which components to show based on logic
+  // Determine which components to show based on lecture and lab hours
   const hasLectureHours = (schedule.Lecture || 0) > 0
   const hasLabHours = (schedule.Laboratory || 0) > 0
   
-  let hasLecture = false
-  let hasLaboratory = false
-  
-  if (isCiscoSchedule) {
-    // Cisco schedules: can have both lecture and laboratory sessions
-    hasLecture = hasLectureHours
-    hasLaboratory = hasLabHours
-  } else {
-    // Non-Cisco schedules: only ONE session type
-    if (hasLectureHours) {
-      hasLecture = true
-      hasLaboratory = false
-    } else if (hasLabHours) {
-      hasLecture = false
-      hasLaboratory = true
-    }
-  }
-  
+  // If subject has both lecture and lab hours, show both attendance sheets
+  const hasLecture = hasLectureHours
+  const hasLaboratory = hasLabHours
   const hasBothComponents = hasLecture && hasLaboratory
 
   // If only one component, use the original AttendanceSheet without modifications

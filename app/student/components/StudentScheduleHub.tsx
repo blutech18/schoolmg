@@ -275,10 +275,8 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
 
   const getGradeColor = (grade: number | null) => {
     if (grade === null) return 'text-gray-500'
-    if (grade >= 90) return 'text-green-600'
-    if (grade >= 80) return 'text-blue-600'
-    if (grade >= 75) return 'text-yellow-600'
-    return 'text-red-600'
+    if (grade > 3.0) return 'text-red-600'  // Failed - red
+    return 'text-slate-900'  // Passed - black
   }
 
   const getExcuseLetterStatusColor = (status: string) => {
@@ -681,12 +679,12 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                               </div>
                               <div className="text-center p-4 bg-green-50 rounded-lg border border-green-100">
                                 <p className="text-xs text-slate-600 mb-1 font-medium">Overall Average</p>
-                                <p className="text-2xl font-bold text-slate-900">
+                                <p className={`text-2xl font-bold ${getGradeColor(grade.summary)}`}>
                                   {grade.summary ? grade.summary.toFixed(2) : 'N/A'}
                                 </p>
                                 {grade.summary && (
                                   <div className={`text-xs mt-1 px-2 py-0.5 rounded ${
-                                    grade.summary <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                                    grade.summary <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                   }`}>
                                     {grade.summary <= 3.0 ? 'Passed' : 'Failed'}
                                   </div>

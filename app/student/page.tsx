@@ -853,79 +853,103 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
-            {grades.length === 0 ? (
+          {grades.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-8">
+                <GraduationCap className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No grades available yet.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* All Grades in One Card */}
               <Card>
-                <CardContent className="text-center py-8">
-                  <GraduationCap className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No grades available yet.</p>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-blue-600" />
+                    Academic Performance
+                  </CardTitle>
+                  <CardDescription>All your grades for this semester</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Table Header */}
+                    <div className="grid grid-cols-5 gap-4 pb-2 border-b font-semibold text-sm text-gray-700">
+                      <div>Subject</div>
+                      <div className="text-center">Midterm</div>
+                      <div className="text-center">Final</div>
+                      <div className="text-center">Overall</div>
+                      <div className="text-center">Status</div>
+                    </div>
+
+                    {/* Grade Rows */}
+                    {grades.map((grade) => (
+                      <div key={grade.ScheduleID} className="grid grid-cols-5 gap-4 py-3 border-b hover:bg-gray-50 transition-colors items-center">
+                        <div>
+                          <p className="font-medium text-slate-900">{grade.SubjectCode}</p>
+                          <p className="text-xs text-gray-600">{grade.SubjectTitle}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className={`text-lg font-semibold ${grade.midterm !== null && grade.midterm > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
+                            {grade.midterm !== null ? grade.midterm.toFixed(2) : 'N/A'}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className={`text-lg font-semibold ${grade.final !== null && grade.final > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
+                            {grade.final !== null ? grade.final.toFixed(2) : 'N/A'}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className={`text-lg font-semibold ${grade.summary !== null && grade.summary > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
+                            {grade.summary !== null ? grade.summary.toFixed(2) : 'N/A'}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          {grade.summary !== null && (
+                            <Badge className={`${grade.summary <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {grade.summary <= 3.0 ? 'Passed' : 'Failed'}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
-            ) : (
-              grades.map((grade) => (
-                <Card key={grade.ScheduleID} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
-                          <BookOpen className="h-5 w-5 text-blue-600" />
-                          {grade.SubjectCode}
-                        </CardTitle>
-                        <CardDescription>{grade.SubjectTitle}</CardDescription>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const schedule = schedules.find(s => s.ScheduleID === grade.ScheduleID);
-                          if (schedule) openScheduleHub(schedule);
-                        }}
-                      >
-                        View Details
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="text-center p-4 bg-blue-50 rounded-lg">
-                        <p className="text-xs text-gray-600 mb-1">Midterm Grade</p>
-                        <p className="text-2xl font-bold text-slate-900">
-                          {grade.midterm !== null ? grade.midterm.toFixed(2) : 'N/A'}
-                        </p>
-                        {grade.midterm !== null && (
-                          <Badge className={`mt-2 ${grade.midterm <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                            {grade.midterm <= 3.0 ? 'Passed' : 'Failed'}
+
+              {/* Overall GPA Card */}
+              <Card className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200">
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-gray-600 mb-2">OVERALL GRADE POINT AVERAGE (GPA)</p>
+                    <p className="text-5xl font-bold text-slate-900 mb-2">
+                      {(() => {
+                        const validGrades = grades.filter(g => g.summary !== null).map(g => g.summary as number);
+                        if (validGrades.length === 0) return 'N/A';
+                        const totalGPA = validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length;
+                        return totalGPA.toFixed(2);
+                      })()}
+                    </p>
+                    {(() => {
+                      const validGrades = grades.filter(g => g.summary !== null).map(g => g.summary as number);
+                      if (validGrades.length > 0) {
+                        const totalGPA = validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length;
+                        return (
+                          <Badge className={`text-sm px-4 py-1 ${totalGPA <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {totalGPA <= 3.0 ? 'Good Standing' : 'Needs Improvement'}
                           </Badge>
-                        )}
-                      </div>
-                      <div className="text-center p-4 bg-green-50 rounded-lg">
-                        <p className="text-xs text-gray-600 mb-1">Final Grade</p>
-                        <p className="text-2xl font-bold text-slate-900">
-                          {grade.final !== null ? grade.final.toFixed(2) : 'N/A'}
-                        </p>
-                        {grade.final !== null && (
-                          <Badge className={`mt-2 ${grade.final <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                            {grade.final <= 3.0 ? 'Passed' : 'Failed'}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-center p-4 bg-purple-50 rounded-lg border-2 border-purple-200">
-                        <p className="text-xs text-gray-600 mb-1">Overall Average</p>
-                        <p className="text-2xl font-bold text-slate-900">
-                          {grade.summary !== null ? grade.summary.toFixed(2) : 'N/A'}
-                        </p>
-                        {grade.summary !== null && (
-                          <Badge className={`mt-2 ${grade.summary <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                            {grade.summary <= 3.0 ? 'Passed' : 'Failed'}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                    <p className="text-xs text-gray-500 mt-2">
+                      Based on {grades.filter(g => g.summary !== null).length} subject(s)
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
 
         {/* Schedules Tab - New consolidated view */}

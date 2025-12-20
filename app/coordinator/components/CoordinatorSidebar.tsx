@@ -10,7 +10,9 @@ import {
   BarChart3, 
   FileText,
   Users,
-  Settings
+  Settings,
+  Calendar,
+  ClipboardList
 } from "lucide-react";
 import {
   Sidebar,
@@ -48,6 +50,16 @@ const menuItems = [
     title: "Instructors",
     url: "/coordinator/instructors",
     icon: UserCheck,
+  },
+  {
+    title: "Schedules",
+    url: "/coordinator/schedules",
+    icon: Calendar,
+  },
+  {
+    title: "Enrollments",
+    url: "/coordinator/enrollments",
+    icon: ClipboardList,
   },
 ];
 
