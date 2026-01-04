@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
-import { 
-  Search, Download, Eye, BookOpen, ChevronDown, ChevronRight, Calculator, Users
+import {
+  Search, Download, Eye, BookOpen, ChevronDown, ChevronRight, Calculator, Users, Filter
 } from "lucide-react";
 import { brandedToast } from "@/components/ui/branded-toast";
 
@@ -65,6 +65,11 @@ export default function DeanGradesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedSchedules, setExpandedSchedules] = useState<Set<number>>(new Set());
 
+  // Filter states
+  const [selectedCourse, setSelectedCourse] = useState<string>("all");
+  const [selectedYearLevel, setSelectedYearLevel] = useState<string>("all");
+  const [selectedSection, setSelectedSection] = useState<string>("all");
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -72,12 +77,12 @@ export default function DeanGradesPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch all schedules
       const schedulesRes = await fetch("/api/schedules");
       const schedulesData = schedulesRes.ok ? await schedulesRes.json() : { success: true, data: [] };
       const allSchedules = schedulesData.success ? (Array.isArray(schedulesData.data) ? schedulesData.data : []) : [];
-      
+
       console.log("Schedules fetched:", allSchedules.length, allSchedules);
 
       // Fetch grades and students for each schedule
@@ -92,14 +97,14 @@ export default function DeanGradesPage() {
           const studentsRes = await fetch("/api/students");
           const studentsData = studentsRes.ok ? await studentsRes.json() : [];
           const allStudents = Array.isArray(studentsData) ? studentsData : [];
-          
+
           console.log(`Schedule ${schedule.ScheduleID}: ${enrollments.length} enrollments, ${allStudents.length} students`);
 
           // Fetch grading config from subject
           const subjectRes = await fetch(`/api/subjects?id=${schedule.SubjectID || ''}`);
           const subjectData = subjectRes.ok ? await subjectRes.json() : {};
           let gradingConfig: GradingConfig | null = null;
-          
+
           if (subjectData && subjectData.GradingConfig) {
             try {
               gradingConfig = JSON.parse(subjectData.GradingConfig);
@@ -174,11 +179,23 @@ export default function DeanGradesPage() {
   };
 
 
-  const filteredSchedules = schedules.filter(schedule =>
-    schedule.SubjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    schedule.SubjectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    schedule.Course.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Get unique filter options from schedules
+  const courses = [...new Set(schedules.map(s => s.Course))].filter(Boolean).sort();
+  const yearLevels = [...new Set(schedules.map(s => s.YearLevel))].filter(Boolean).sort();
+  const sections = [...new Set(schedules.map(s => s.Section))].filter(Boolean).sort();
+
+  const filteredSchedules = schedules.filter(schedule => {
+    const matchesSearch =
+      schedule.SubjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      schedule.SubjectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      schedule.Course.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesCourse = selectedCourse === "all" || schedule.Course === selectedCourse;
+    const matchesYearLevel = selectedYearLevel === "all" || schedule.YearLevel === parseInt(selectedYearLevel);
+    const matchesSection = selectedSection === "all" || schedule.Section === selectedSection;
+
+    return matchesSearch && matchesCourse && matchesYearLevel && matchesSection;
+  });
 
   if (loading) {
     return (
@@ -194,25 +211,88 @@ export default function DeanGradesPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Grading Sheets</h1>
-          <p className="text-gray-600 mt-1">View grades by subject schedule</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search subjects..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-64"
-            />
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Grading Sheets</h1>
+            <p className="text-gray-600 mt-1">View grades by subject schedule</p>
           </div>
           <Button onClick={fetchData} variant="outline" className="flex items-center gap-2">
             <Download className="h-4 w-4" />
             Refresh
           </Button>
+        </div>
+
+        {/* Filters Row */}
+        <div className="flex flex-wrap items-center gap-4 bg-gray-50 p-4 rounded-lg border">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-700">Filters:</span>
+          </div>
+
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search subjects..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {/* Course Filter */}
+          <select
+            value={selectedCourse}
+            onChange={(e) => setSelectedCourse(e.target.value)}
+            className="px-3 py-2 border rounded-md bg-white text-sm min-w-[150px]"
+          >
+            <option value="all">All Courses</option>
+            {courses.map(course => (
+              <option key={course} value={course}>{course}</option>
+            ))}
+          </select>
+
+          {/* Year Level Filter */}
+          <select
+            value={selectedYearLevel}
+            onChange={(e) => setSelectedYearLevel(e.target.value)}
+            className="px-3 py-2 border rounded-md bg-white text-sm min-w-[120px]"
+          >
+            <option value="all">All Years</option>
+            {yearLevels.map(year => (
+              <option key={year} value={year.toString()}>Year {year}</option>
+            ))}
+          </select>
+
+          {/* Section Filter */}
+          <select
+            value={selectedSection}
+            onChange={(e) => setSelectedSection(e.target.value)}
+            className="px-3 py-2 border rounded-md bg-white text-sm min-w-[120px]"
+          >
+            <option value="all">All Sections</option>
+            {sections.map(section => (
+              <option key={section} value={section}>{section}</option>
+            ))}
+          </select>
+
+          {/* Clear Filters */}
+          {(selectedCourse !== "all" || selectedYearLevel !== "all" || selectedSection !== "all" || searchTerm) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedCourse("all");
+                setSelectedYearLevel("all");
+                setSelectedSection("all");
+                setSearchTerm("");
+              }}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              Clear Filters
+            </Button>
+          )}
         </div>
       </div>
 
@@ -275,11 +355,11 @@ export default function DeanGradesPage() {
             ) : (
               filteredSchedules.map((schedule) => {
                 const isExpanded = expandedSchedules.has(schedule.ScheduleID);
-                
+
                 return (
                   <div key={schedule.ScheduleID} className="border rounded-lg">
                     {/* Schedule Header */}
-                    <div 
+                    <div
                       className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                       onClick={() => toggleScheduleExpansion(schedule.ScheduleID)}
                     >
@@ -344,8 +424,8 @@ export default function DeanGradesPage() {
                             <TableBody>
                               {schedule.students.length === 0 ? (
                                 <TableRow>
-                                  <TableCell 
-                                    colSpan={(schedule.gradingConfig?.components.reduce((sum, c) => sum + c.items, 0) || 0) + 4} 
+                                  <TableCell
+                                    colSpan={(schedule.gradingConfig?.components.reduce((sum, c) => sum + c.items, 0) || 0) + 4}
                                     className="text-center text-gray-500 py-8"
                                   >
                                     No students enrolled
@@ -364,14 +444,14 @@ export default function DeanGradesPage() {
                                         Array.from({ length: component.items }, (_, index) => {
                                           const itemNumber = index + 1;
                                           const midtermGradeItem = student.grades.find(
-                                            g => g.Component === component.name && 
-                                            g.Term === 'midterm' && 
-                                            g.ItemNumber === itemNumber
+                                            g => g.Component === component.name &&
+                                              g.Term === 'midterm' &&
+                                              g.ItemNumber === itemNumber
                                           );
                                           const finalGradeItem = student.grades.find(
-                                            g => g.Component === component.name && 
-                                            g.Term === 'final' && 
-                                            g.ItemNumber === itemNumber
+                                            g => g.Component === component.name &&
+                                              g.Term === 'final' &&
+                                              g.ItemNumber === itemNumber
                                           );
 
                                           return (
@@ -396,7 +476,7 @@ export default function DeanGradesPage() {
                                         {midtermGrade !== null ? (
                                           <>
                                             <div className="text-lg font-semibold">{midtermGrade.toFixed(2)}</div>
-                                            <Badge 
+                                            <Badge
                                               variant={midtermGrade <= 3.0 ? "default" : "destructive"}
                                               className={`text-xs mt-1 ${midtermGrade <= 3.0 ? "bg-green-600" : "bg-red-600"}`}
                                             >
@@ -409,7 +489,7 @@ export default function DeanGradesPage() {
                                         {finalGrade !== null ? (
                                           <>
                                             <div className="text-lg font-semibold">{finalGrade.toFixed(2)}</div>
-                                            <Badge 
+                                            <Badge
                                               variant={finalGrade <= 3.0 ? "default" : "destructive"}
                                               className={`text-xs mt-1 ${finalGrade <= 3.0 ? "bg-green-600" : "bg-red-600"}`}
                                             >

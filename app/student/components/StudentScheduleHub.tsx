@@ -268,10 +268,7 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
   const lectureMap = buildSessionMap('lecture')
   const labMap = buildSessionMap('lab')
 
-  const maxWeek = Math.max(
-    18,
-    ...attendance.map((r) => r.Week || 0)
-  )
+  const maxWeek = 18 // Fixed to 18 weeks as per semester requirement
 
   const getGradeColor = (grade: number | null) => {
     if (grade === null) return 'text-gray-500'

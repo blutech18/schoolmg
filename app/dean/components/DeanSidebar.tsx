@@ -30,8 +30,6 @@ const deanItems: DeanItem[] = [
   { title: "Analytics", url: "/dean/analytics", icon: TrendingUp },
   { title: "Courses", url: "/dean/courses", icon: Award },
   { title: "Subjects", url: "/dean/subjects", icon: BookOpen },
-  { title: "Schedules", url: "/dean/schedules", icon: Calendar },
-  { title: "Enrollments", url: "/dean/enrollments", icon: ClipboardList },
   { title: "Excuse Letters", url: "/dean/excuse-letters", icon: FileText },
   { title: "Student Performance", url: "/dean/student-performance", icon: Users },
   { title: "Grading Sheets", url: "/dean/grades", icon: Calculator },
@@ -95,9 +93,8 @@ export function DeanSidebar() {
                     <SidebarMenuButton asChild>
                       <a
                         href={item.url}
-                        className={`flex items-center gap-2 transition-colors ${
-                          isActive ? "bg-green-100 text-green-900 font-medium" : "text-gray-700 hover:bg-green-100 hover:text-green-900"
-                        }`}
+                        className={`flex items-center gap-2 transition-colors ${isActive ? "bg-green-100 text-green-900 font-medium" : "text-gray-700 hover:bg-green-100 hover:text-green-900"
+                          }`}
                       >
                         <item.icon className="w-4 h-4 flex-shrink-0" />
                         <span className="truncate">{item.title}</span>
@@ -128,7 +125,7 @@ export function DeanSidebar() {
           </div>
         </div>
       </SidebarFooter>
-      
+
       <LogoutConfirmationModal
         isOpen={showLogoutModal}
         onClose={cancelLogout}

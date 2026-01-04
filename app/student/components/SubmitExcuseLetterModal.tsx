@@ -48,7 +48,7 @@ export default function SubmitExcuseLetterModal({
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({
     scheduleId: "",
     scheduleIds: [] as number[],
@@ -70,14 +70,14 @@ export default function SubmitExcuseLetterModal({
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (!sessionCookie) {
         brandedToast.error("Session not found. Please log in again.");
         return;
       }
 
       const session = JSON.parse(decodeURIComponent(sessionCookie.split('=')[1]));
-      
+
       const response = await fetch(`/api/schedules?role=student&userId=${session.userId}`, {
         credentials: 'include'
       });
@@ -86,7 +86,7 @@ export default function SubmitExcuseLetterModal({
       if (data.success && data.data) {
         console.log("Fetched schedules:", data.data); // Debug log
         setSchedules(data.data);
-        
+
         if (data.data.length === 0) {
           brandedToast.error("No enrolled subjects found. Please contact your administrator.");
         }
@@ -105,7 +105,7 @@ export default function SubmitExcuseLetterModal({
       ...prev,
       [field]: value
     }));
-    
+
     // If scheduleId is being changed, update selected subject (only for single subject mode)
     if (field === 'scheduleId' && !isMultiSubject) {
       const schedule = schedules.find(s => s.ScheduleID.toString() === value);
@@ -115,7 +115,7 @@ export default function SubmitExcuseLetterModal({
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    
+
     // Validate file types - Enhanced to accept all requested formats
     const allowedTypes = [
       'application/pdf',
@@ -142,7 +142,7 @@ export default function SubmitExcuseLetterModal({
 
     setSelectedFiles(prev => [...prev, ...files]);
     brandedToast.success(`${files.length} file(s) added successfully!`);
-    
+
     // Reset the input value to allow selecting the same file again
     event.target.value = '';
   };
@@ -234,7 +234,7 @@ export default function SubmitExcuseLetterModal({
 
   const handleSubmit = async () => {
     console.log("Submit button clicked", { formData, selectedFiles }); // Debug log
-    
+
     // Validation
     if ((!isMultiSubject && !formData.scheduleId) || (isMultiSubject && selectedSubjects.length === 0) || !formData.subject || !formData.reason || !formData.dateFrom || !formData.dateTo) {
       brandedToast.error("Please fill in all required fields and select at least one subject");
@@ -281,6 +281,14 @@ export default function SubmitExcuseLetterModal({
         }),
       });
 
+      // Check if response is OK before parsing JSON
+      if (!excuseLetterResponse.ok) {
+        const errorText = await excuseLetterResponse.text();
+        console.error("Excuse letter API error:", excuseLetterResponse.status, errorText);
+        brandedToast.error(`Server error (${excuseLetterResponse.status}): Failed to submit excuse letter. Please try again.`);
+        return;
+      }
+
       const excuseLetterData = await excuseLetterResponse.json();
       console.log("Excuse letter response:", excuseLetterData);
 
@@ -291,31 +299,43 @@ export default function SubmitExcuseLetterModal({
 
       // Upload files if any
       if (selectedFiles.length > 0) {
-        console.log("Uploading files:", selectedFiles);
+        console.log("Uploading files:", selectedFiles.map(f => ({ name: f.name, size: f.size, type: f.type })));
         setUploading(true);
-        
+
         const formDataFiles = new FormData();
         formDataFiles.append('excuseLetterID', excuseLetterData.excuseLetterID.toString());
-        
+
         selectedFiles.forEach((file) => {
           formDataFiles.append('files', file);
         });
 
-        const uploadResponse = await fetch('/api/excuse-letters/upload', {
-          method: 'POST',
-          credentials: 'include',
-          body: formDataFiles,
-        });
+        try {
+          const uploadResponse = await fetch('/api/excuse-letters/upload', {
+            method: 'POST',
+            credentials: 'include',
+            body: formDataFiles,
+          });
 
-        const uploadData = await uploadResponse.json();
-        console.log("File upload response:", uploadData);
-        
-        if (!uploadData.success) {
-          brandedToast.error(uploadData.error || "Failed to upload files");
-          return;
-        } else {
-          setUploadSuccess(true);
-          brandedToast.success(`${selectedFiles.length} file(s) uploaded successfully!`);
+          // Check if response is OK before parsing
+          if (!uploadResponse.ok) {
+            const uploadErrorText = await uploadResponse.text();
+            console.error("File upload API error:", uploadResponse.status, uploadErrorText);
+            // Don't return here - the excuse letter was already created
+            brandedToast.error(`Excuse letter submitted, but file upload failed (${uploadResponse.status}). You can try uploading files later.`);
+          } else {
+            const uploadData = await uploadResponse.json();
+            console.log("File upload response:", uploadData);
+
+            if (!uploadData.success) {
+              brandedToast.error(uploadData.error || "Excuse letter submitted, but file upload failed. You can try uploading files later.");
+            } else {
+              setUploadSuccess(true);
+              brandedToast.success(`${selectedFiles.length} file(s) uploaded successfully!`);
+            }
+          }
+        } catch (uploadError) {
+          console.error("File upload network error:", uploadError);
+          brandedToast.error("Excuse letter submitted, but file upload failed due to network error.");
         }
       }
 
@@ -330,15 +350,18 @@ export default function SubmitExcuseLetterModal({
       });
       setSelectedFiles([]);
       setSelectedSubject(null);
+      setSelectedSubjects([]);
+      setIsMultiSubject(false);
       setUploadSuccess(false);
-      
+
       console.log("Excuse letter submitted successfully");
       brandedToast.success("Excuse letter submitted successfully!");
       onSuccess();
-      
+
     } catch (error) {
       console.error("Error submitting excuse letter:", error);
-      brandedToast.error("Failed to submit excuse letter. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      brandedToast.error(`Failed to submit excuse letter: ${errorMessage}. Please check your connection and try again.`);
     } finally {
       setLoading(false);
       setUploading(false);
@@ -379,7 +402,7 @@ export default function SubmitExcuseLetterModal({
             {/* Form section with consistent styling */}
             <div className="bg-gray-50 p-5 rounded-lg border border-gray-100">
               <h3 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Absence Information</h3>
-              
+
               {/* Subject Selection - Multi-subject support */}
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-3">
@@ -425,7 +448,7 @@ export default function SubmitExcuseLetterModal({
                         ))}
                       </SelectContent>
                     </Select>
-                    
+
                     {/* Display selected subject details */}
                     {selectedSubject && (
                       <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
@@ -479,7 +502,7 @@ export default function SubmitExcuseLetterModal({
                         </div>
                       ))}
                     </div>
-                    
+
                     {/* Display selected subjects summary */}
                     {selectedSubjects.length > 0 && (
                       <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
@@ -653,7 +676,7 @@ export default function SubmitExcuseLetterModal({
                             <div className="flex-shrink-0">
                               {getFileIcon(file.type)}
                             </div>
-                            
+
                             {/* File Info - Takes remaining space */}
                             <div className="min-w-0 overflow-hidden">
                               <p className="text-sm font-medium text-gray-900 file-name-truncate" title={file.name}>
@@ -668,7 +691,7 @@ export default function SubmitExcuseLetterModal({
                                 </span>
                               </div>
                             </div>
-                            
+
                             {/* Action Buttons - Fixed width */}
                             <div className="flex items-center space-x-2 flex-shrink-0">
                               <button
@@ -704,16 +727,16 @@ export default function SubmitExcuseLetterModal({
                 <span className="text-red-500">*</span> Required fields
               </div>
               <div className="flex space-x-3">
-                <Button 
-                  variant="outline" 
-                  onClick={handleClose} 
+                <Button
+                  variant="outline"
+                  onClick={handleClose}
                   disabled={loading || uploading}
                   className="px-5"
                 >
                   Cancel
                 </Button>
-                <Button 
-                  onClick={handleSubmit} 
+                <Button
+                  onClick={handleSubmit}
                   disabled={loading || uploading}
                   className="relative px-5 min-w-[140px]"
                 >
@@ -740,107 +763,107 @@ export default function SubmitExcuseLetterModal({
       {/* File Preview Modal */}
       {previewFile &&
         createPortal(
-        <div
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            closePreview();
-          }
-        }}
-      >
           <div
-            className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full mx-4 overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                closePreview();
+              }
+            }}
           >
-            <div className="flex items-center justify-between p-4 border-b">
-              <div>
-                <h3 className="text-lg font-semibold">{previewFile.name}</h3>
-                <p className="text-sm text-gray-500">
-                  {getFileTypeLabel(previewFile.type)} • {formatFileSize(previewFile.size)}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {previewUrl && (
-                  <Button
-                    variant="outline"
-                    size="sm"
+            <div
+              className="bg-white rounded-lg max-w-4xl max-h-[90vh] w-full mx-4 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b">
+                <div>
+                  <h3 className="text-lg font-semibold">{previewFile.name}</h3>
+                  <p className="text-sm text-gray-500">
+                    {getFileTypeLabel(previewFile.type)} • {formatFileSize(previewFile.size)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {previewUrl && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const link = document.createElement('a');
+                        link.href = previewUrl;
+                        link.download = previewFile.name;
+                        link.click();
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Download
+                    </Button>
+                  )}
+                  <button
+                    type="button"
+                    aria-label="Close Preview"
+                    className="inline-flex items-center justify-center w-8 h-8 hover:bg-gray-100 rounded-md transition-colors focus:outline-none"
                     onClick={(e) => {
                       e.stopPropagation();
-                      const link = document.createElement('a');
-                      link.href = previewUrl;
-                      link.download = previewFile.name;
-                      link.click();
+                      closePreview();
                     }}
                   >
-                    <Download className="h-4 w-4 mr-1" />
-                    Download
-                  </Button>
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 max-h-[70vh] overflow-auto">
+                {previewFile.type.includes('image') && previewUrl && (
+                  <div className="flex justify-center">
+                    <img
+                      src={previewUrl}
+                      alt={previewFile.name}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </div>
                 )}
-                <button
-                  type="button"
-                  aria-label="Close Preview"
-                  className="inline-flex items-center justify-center w-8 h-8 hover:bg-gray-100 rounded-md transition-colors focus:outline-none"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    closePreview();
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </button>
+
+                {previewFile.type.includes('pdf') && previewUrl && (
+                  <div className="w-full h-[60vh]">
+                    <iframe
+                      src={previewUrl}
+                      className="w-full h-full border-0"
+                      title={previewFile.name}
+                    />
+                  </div>
+                )}
+
+                {(previewFile.type.includes('word') || previewFile.type.includes('document')) && (
+                  <div className="text-center py-8">
+                    <FileText className="h-16 w-16 text-blue-600 mx-auto mb-4" />
+                    <h4 className="text-lg font-medium mb-2">Word Document Preview</h4>
+                    <p className="text-gray-600 mb-4">
+                      Word documents cannot be previewed directly in the browser.
+                    </p>
+                    <p className="text-sm text-gray-500 mb-4">
+                      File: {previewFile.name}<br />
+                      Size: {formatFileSize(previewFile.size)}<br />
+                      Type: {previewFile.type}
+                    </p>
+                    <Button
+                      onClick={() => {
+                        const url = URL.createObjectURL(previewFile);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = previewFile.name;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download to View
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
-            
-            <div className="p-4 max-h-[70vh] overflow-auto">
-              {previewFile.type.includes('image') && previewUrl && (
-                <div className="flex justify-center">
-                  <img 
-                    src={previewUrl} 
-                    alt={previewFile.name}
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-              )}
-              
-              {previewFile.type.includes('pdf') && previewUrl && (
-                <div className="w-full h-[60vh]">
-                  <iframe 
-                    src={previewUrl}
-                    className="w-full h-full border-0"
-                    title={previewFile.name}
-                  />
-                </div>
-              )}
-              
-              {(previewFile.type.includes('word') || previewFile.type.includes('document')) && (
-                <div className="text-center py-8">
-                  <FileText className="h-16 w-16 text-blue-600 mx-auto mb-4" />
-                  <h4 className="text-lg font-medium mb-2">Word Document Preview</h4>
-                  <p className="text-gray-600 mb-4">
-                    Word documents cannot be previewed directly in the browser.
-                  </p>
-                  <p className="text-sm text-gray-500 mb-4">
-                    File: {previewFile.name}<br/>
-                    Size: {formatFileSize(previewFile.size)}<br/>
-                    Type: {previewFile.type}
-                  </p>
-                  <Button
-                    onClick={() => {
-                      const url = URL.createObjectURL(previewFile);
-                      const link = document.createElement('a');
-                      link.href = url;
-                      link.download = previewFile.name;
-                      link.click();
-                      URL.revokeObjectURL(url);
-                    }}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download to View
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>, document.body) }
+          </div>, document.body)}
     </>
   );
 }

@@ -153,18 +153,18 @@ export default function InstructorDashboard() {
   const [activeTab, setActiveTab] = useState('schedules');
   const [currentSessionNumber, setCurrentSessionNumber] = useState(1);
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
-  const [lectureAttendance, setLectureAttendance] = useState<{[key: string]: {[sessionNumber: number]: string}}>({});
-  const [labAttendance, setLabAttendance] = useState<{[key: string]: {[sessionNumber: number]: string}}>({});
+  const [lectureAttendance, setLectureAttendance] = useState<{ [key: string]: { [sessionNumber: number]: string } }>({});
+  const [labAttendance, setLabAttendance] = useState<{ [key: string]: { [sessionNumber: number]: string } }>({});
   const [currentSessionType, setCurrentSessionType] = useState<'lecture' | 'lab'>('lecture');
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [showDropFailModal, setShowDropFailModal] = useState(false);
   const [bulkMarkingLoading, setBulkMarkingLoading] = useState(false);
   const [dropFailMarkingLoading, setDropFailMarkingLoading] = useState(false);
   const [selectedExcuseLetter, setSelectedExcuseLetter] = useState<ExcuseLetter | null>(null);
-  
+
   // Notification banner system
   const { notifications, addNotification, dismissNotification } = useNotificationBanner();
-  
+
   // CC Modal states
   const [showCCModal, setShowCCModal] = useState(false);
   const [ccReason, setCCReason] = useState('');
@@ -213,7 +213,7 @@ export default function InstructorDashboard() {
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (!sessionCookie) {
         brandedToast.error("Session not found. Please log in again.");
         return;
@@ -221,7 +221,7 @@ export default function InstructorDashboard() {
 
       const session = JSON.parse(decodeURIComponent(sessionCookie.split('=')[1]));
       setInstructorId(session.userId);
-      
+
       await Promise.all([
         fetchSchedules(session.userId),
         fetchExcuseLetters(session.userId),
@@ -240,17 +240,17 @@ export default function InstructorDashboard() {
       const response = await fetch(`/api/schedules?role=instructor&instructorId=${instructorId}`, {
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch schedules: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log('Schedules API response:', data);
 
       // Handle both response formats
       const schedulesData = data.success ? data.data : (Array.isArray(data) ? data : []);
-      
+
       if (Array.isArray(schedulesData)) {
         // Fetch real enrollment counts for each schedule
         const schedulesWithEnrollment = await Promise.all(
@@ -261,7 +261,7 @@ export default function InstructorDashboard() {
               });
               const enrollmentData = await enrollmentResponse.json();
               const enrolledCount = enrollmentData.success ? enrollmentData.data.length : 0;
-              
+
               return {
                 ...schedule,
                 EnrolledStudents: enrolledCount
@@ -277,10 +277,10 @@ export default function InstructorDashboard() {
         );
 
         setSchedules(schedulesWithEnrollment);
-        
-        const totalStudents = schedulesWithEnrollment.reduce((sum: number, schedule: Schedule) => 
+
+        const totalStudents = schedulesWithEnrollment.reduce((sum: number, schedule: Schedule) =>
           sum + schedule.EnrolledStudents, 0);
-        
+
         setStats(prev => ({
           ...prev,
           totalSchedules: schedulesWithEnrollment.length,
@@ -471,17 +471,17 @@ export default function InstructorDashboard() {
     setSelectedSchedule(schedule);
     setActiveTab('attendance'); // Switch to attendance tab
     await fetchStudentsForSchedule(schedule.ScheduleID);
-    
+
     // Clear previous attendance data
     setLectureAttendance({});
     setLabAttendance({});
-    
+
     // Load all lecture and lab attendance data for this schedule
     await Promise.all([
       fetchSessionAttendance(schedule.ScheduleID, null, 'lecture'),
       fetchSessionAttendance(schedule.ScheduleID, null, 'lab')
     ]);
-    
+
     brandedToast.success(`Selected ${schedule.SubjectCode} for attendance management`);
   };
 
@@ -492,39 +492,39 @@ export default function InstructorDashboard() {
         scheduleId: scheduleId.toString(),
         sessionType: sessionType
       });
-      
+
       // Only add sessionNumber filter if specified
       if (sessionNumber !== null) {
         queryParams.append('week', sessionNumber.toString());
       }
-      
+
       const response = await fetch(`/api/attendance?${queryParams.toString()}`, {
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch attendance: ${response.status}`);
       }
-      
+
       const data = await response.json();
       const attendanceRecords = data.success ? data.data : [];
-      
+
       // Process attendance data into session format
-      const sessionData: {[key: string]: {[sessionNum: number]: string}} = {};
-      
+      const sessionData: { [key: string]: { [sessionNum: number]: string } } = {};
+
       attendanceRecords.forEach((record: any) => {
         const studentKey = `${record.StudentID}`;
         if (!sessionData[studentKey]) {
           sessionData[studentKey] = {};
         }
-        
+
         // Store by session number (Week field contains the session number)
         const sessionNum = record.Week;
         sessionData[studentKey][sessionNum] = record.Status;
-        
+
         console.log(`📅 Fetching ${sessionType} attendance: StudentID=${record.StudentID}, Session=${sessionNum}, Status=${record.Status}`);
       });
-      
+
       console.log(`📊 ${sessionType} ${sessionNumber ? `session ${sessionNumber}` : 'all sessions'} attendance data loaded:`, sessionData);
       if (sessionType === 'lecture') {
         if (sessionNumber === null) {
@@ -565,14 +565,14 @@ export default function InstructorDashboard() {
       const enrollmentResponse = await fetch(`/api/enrollments?scheduleId=${scheduleId}`, {
         credentials: 'include'
       });
-      
+
       if (!enrollmentResponse.ok) {
         throw new Error(`Failed to fetch enrollments: ${enrollmentResponse.status}`);
       }
-      
+
       const enrollmentData = await enrollmentResponse.json();
       const enrollments = enrollmentData.success ? enrollmentData.data : [];
-      
+
       // Fetch attendance data for each student
       const studentsWithAttendance = await Promise.all(
         enrollments.map(async (enrollment: any) => {
@@ -581,24 +581,24 @@ export default function InstructorDashboard() {
               `/api/attendance?studentId=${enrollment.StudentID}&scheduleId=${scheduleId}`,
               { credentials: 'include' }
             );
-            
+
             let attendanceData = [];
             let attendanceRate = 0;
             let totalClasses = 0;
             let presentCount = 0;
-            
+
             if (attendanceResponse.ok) {
               const attendanceResult = await attendanceResponse.json();
               attendanceData = attendanceResult.success ? attendanceResult.data : [];
-              
+
               // Calculate attendance statistics based on actual attendance records
               totalClasses = attendanceData.length; // each record represents one class session
-              presentCount = attendanceData.filter((record: any) => 
+              presentCount = attendanceData.filter((record: any) =>
                 record.Status === 'P' || record.Status === 'E'
               ).length;
               attendanceRate = totalClasses > 0 ? Math.round((presentCount / totalClasses) * 100) : 0;
             }
-            
+
             // Check if student has D or FA status
             const hasDroppedStatus = attendanceData.some((record: any) => record.Status === 'D');
             const hasFailedStatus = attendanceData.some((record: any) => record.Status === 'FA');
@@ -640,7 +640,7 @@ export default function InstructorDashboard() {
           }
         })
       );
-      
+
       setStudents(studentsWithAttendance);
 
       // Update attendance recorded stat
@@ -651,7 +651,7 @@ export default function InstructorDashboard() {
         ...prev,
         attendanceRecorded: recordedCount
       }));
-      
+
     } catch (error) {
       console.error("Error fetching students for schedule:", error);
       brandedToast.error("Failed to load students data");
@@ -696,12 +696,12 @@ export default function InstructorDashboard() {
       }));
 
       brandedToast.success(`Excuse letter ${action} successfully`);
-      
+
       // Refresh excuse letters from server to get latest dean/coordinator statuses
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (sessionCookie) {
         try {
           const session = JSON.parse(decodeURIComponent(sessionCookie.split('=')[1]));
@@ -767,7 +767,7 @@ export default function InstructorDashboard() {
 
       brandedToast.success(`Excuse letter ${approvalAction} successfully`);
       setShowApprovalModal(false);
-      
+
       // Refresh excuse letters from server to get latest dean/coordinator statuses
       if (instructorId) {
         await fetchExcuseLetters(instructorId);
@@ -796,7 +796,7 @@ export default function InstructorDashboard() {
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (!sessionCookie) {
         brandedToast.error("Session not found. Please log in again.");
         return;
@@ -833,7 +833,7 @@ export default function InstructorDashboard() {
       }
 
       brandedToast.success(`Attendance marked as ${status}`);
-      
+
       // Update local state immediately for UI responsiveness
       const studentKey = `${studentId}`;
       if (currentSessionType === 'lecture') {
@@ -853,7 +853,7 @@ export default function InstructorDashboard() {
           }
         }));
       }
-      
+
       // Refresh student data to show updated attendance
       await fetchStudentsForSchedule(selectedSchedule.ScheduleID);
     } catch (error) {
@@ -874,7 +874,7 @@ export default function InstructorDashboard() {
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (!sessionCookie) {
         brandedToast.error("Session not found. Please log in again.");
         return;
@@ -899,7 +899,7 @@ export default function InstructorDashboard() {
       const dateString = `${specificDate.getFullYear()}-${String(specificDate.getMonth() + 1).padStart(2, '0')}-${String(specificDate.getDate()).padStart(2, '0')}`;
 
       const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      
+
       const eligibleStudents = students.filter(student => !student.IsDisabled);
       const attendancePromises = eligibleStudents.map(student =>
         fetch('/api/attendance', {
@@ -950,11 +950,11 @@ export default function InstructorDashboard() {
           return updated;
         });
       }
-      
+
       // Refresh data from server
       await fetchSessionAttendance(selectedSchedule.ScheduleID, currentSessionNumber, currentSessionType);
       await fetchStudentsForSchedule(selectedSchedule.ScheduleID);
-      
+
       setShowBulkModal(false);
     } catch (error) {
       console.error('Error marking all present for day:', error);
@@ -1126,24 +1126,24 @@ export default function InstructorDashboard() {
     // Handle Excused status - check for excuse letters
     if (status === 'E') {
       // Check if student has approved excuse letters for this date/schedule
-      const studentExcuseLetters = excuseLetters.filter(letter => 
-        letter.StudentID === studentId && 
+      const studentExcuseLetters = excuseLetters.filter(letter =>
+        letter.StudentID === studentId &&
         letter.ScheduleID === selectedSchedule.ScheduleID &&
         letter.InstructorStatus === 'approved'
       );
-      
+
       if (studentExcuseLetters.length > 0) {
         // Show excuse letter info in remarks
-        const excuseLetterInfo = studentExcuseLetters.map(letter => 
+        const excuseLetterInfo = studentExcuseLetters.map(letter =>
           `Approved excuse letter (ID: ${letter.ExcuseLetterID}): ${letter.Reason}`
         ).join('; ');
-        
+
         try {
           // Get instructor ID from session
           const sessionCookie = document.cookie
             .split('; ')
             .find(row => row.startsWith('userSession='));
-          
+
           if (!sessionCookie) {
             brandedToast.error("Session not found. Please log in again.");
             return;
@@ -1180,7 +1180,7 @@ export default function InstructorDashboard() {
           }
 
           brandedToast.success(`Attendance marked as Excused (linked to ${studentExcuseLetters.length} excuse letter${studentExcuseLetters.length > 1 ? 's' : ''})`);
-          
+
           // Refresh student data to show updated attendance
           await fetchStudentsForSchedule(selectedSchedule.ScheduleID);
           return;
@@ -1200,7 +1200,7 @@ export default function InstructorDashboard() {
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (!sessionCookie) {
         brandedToast.error('Session not found. Please log in again.');
         return;
@@ -1238,10 +1238,10 @@ export default function InstructorDashboard() {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         brandedToast.success(`✅ Marked ${status === 'P' ? 'Present' : status === 'A' ? 'Absent' : status === 'E' ? 'Excused' : status === 'L' ? 'Late' : status === 'D' ? 'Dropped' : status === 'FA' ? 'Failure due to Absences' : status} for ${sessionType} session`);
-        
+
         // Update local state immediately for better UX
         if (sessionType === 'lecture') {
           setLectureAttendance(prev => {
@@ -1266,7 +1266,7 @@ export default function InstructorDashboard() {
             };
           });
         }
-        
+
         // Refresh the session attendance data from server
         await fetchSessionAttendance(selectedSchedule.ScheduleID, currentSessionNumber, sessionType);
         // Also refresh the students data to show updated attendance stats
@@ -1292,7 +1292,7 @@ export default function InstructorDashboard() {
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (!sessionCookie) {
         brandedToast.error("Session not found. Please log in again.");
         return;
@@ -1307,7 +1307,7 @@ export default function InstructorDashboard() {
       }
 
       const currentDate = new Date().toISOString().split('T')[0];
-      
+
       const eligibleStudents = students.filter(student => !student.IsDisabled);
       const attendancePromises = eligibleStudents.map(student =>
         fetch('/api/attendance', {
@@ -1358,11 +1358,11 @@ export default function InstructorDashboard() {
           return updated;
         });
       }
-      
+
       // Refresh data from server
       await fetchSessionAttendance(selectedSchedule.ScheduleID, currentSessionNumber, currentSessionType);
       await fetchStudentsForSchedule(selectedSchedule.ScheduleID);
-      
+
     } catch (error) {
       console.error('Error marking all present for session:', error);
       brandedToast.error(`Failed to mark all students as present for ${currentSessionType} session`);
@@ -1382,7 +1382,7 @@ export default function InstructorDashboard() {
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (!sessionCookie) {
         brandedToast.error("Session not found. Please log in again.");
         return;
@@ -1419,7 +1419,7 @@ export default function InstructorDashboard() {
       }
 
       brandedToast.success('Class cancellation recorded');
-      
+
       // Update local state immediately for UI responsiveness
       const studentKey = `${ccStudentId}`;
       if (ccSessionType === 'lecture') {
@@ -1439,18 +1439,18 @@ export default function InstructorDashboard() {
           }
         }));
       }
-      
+
       // Optional notification to students
       if (ccNotifyStudents) {
         // For now, we'll just show a toast. In a real implementation, this would send emails or push notifications
         brandedToast.info('Students will be notified about the class cancellation');
       }
-      
+
       setShowCCModal(false);
       setCCReason('');
       setCCStudentId(null);
       setCCNotifyStudents(false);
-      
+
       // Refresh attendance data from server to ensure it's saved and displayed correctly
       await fetchSessionAttendance(selectedSchedule.ScheduleID, currentSessionNumber, ccSessionType);
       // Refresh student data to show updated attendance
@@ -1472,7 +1472,7 @@ export default function InstructorDashboard() {
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (!sessionCookie) {
         brandedToast.error("Session not found. Please log in again.");
         return;
@@ -1513,7 +1513,7 @@ export default function InstructorDashboard() {
       }
 
       brandedToast.success(`Class cancellation recorded for all ${eligibleStudents.length} students`);
-      
+
       // Update local state immediately for UI responsiveness
       if (ccSessionType === 'lecture') {
         setLectureAttendance(prev => {
@@ -1540,7 +1540,7 @@ export default function InstructorDashboard() {
           return updated;
         });
       }
-      
+
       // Optional notification to students
       if (ccNotifyStudents) {
         // Show notification banner for class cancellation
@@ -1556,24 +1556,24 @@ export default function InstructorDashboard() {
             }
           }
         });
-        
+
         brandedToast.info(`All ${eligibleStudents.length} students will be notified about the class cancellation`);
       }
-      
-              setShowCCModal(false);
-        setCCReason('');
-        setCCStudentId(null);
-        setCCNotifyStudents(false);
-        
-        // Refresh attendance data from server to ensure it's saved and displayed correctly
-        await fetchSessionAttendance(selectedSchedule.ScheduleID, currentSessionNumber, ccSessionType);
-        // Refresh student data to show updated attendance
-        await fetchStudentsForSchedule(selectedSchedule.ScheduleID);
-      } catch (error) {
-        console.error('Error marking class cancellation for all students:', error);
-        brandedToast.error('Failed to record class cancellation for all students');
-      }
-    };
+
+      setShowCCModal(false);
+      setCCReason('');
+      setCCStudentId(null);
+      setCCNotifyStudents(false);
+
+      // Refresh attendance data from server to ensure it's saved and displayed correctly
+      await fetchSessionAttendance(selectedSchedule.ScheduleID, currentSessionNumber, ccSessionType);
+      // Refresh student data to show updated attendance
+      await fetchStudentsForSchedule(selectedSchedule.ScheduleID);
+    } catch (error) {
+      console.error('Error marking class cancellation for all students:', error);
+      brandedToast.error('Failed to record class cancellation for all students');
+    }
+  };
 
   // Attendance handlers for the new AttendanceSheet component
   const handleAttendanceMarked = async (studentId: number, status: string, sessionType: 'lecture' | 'lab', sessionNumber: number) => {
@@ -1609,8 +1609,8 @@ export default function InstructorDashboard() {
 
     // Get seat assignments from the schedule data
     const seatMap = seatType === 'lecture' ? selectedSchedule.LectureSeatMap : selectedSchedule.LaboratorySeatMap;
-    const seatAssignments: {[key: number]: number} = {};
-    
+    const seatAssignments: { [key: number]: number } = {};
+
     if (seatMap) {
       try {
         const parsedSeatMap = JSON.parse(seatMap);
@@ -1641,7 +1641,7 @@ export default function InstructorDashboard() {
     }
 
     const attendanceData = currentSessionType === 'lecture' ? lectureAttendance : labAttendance;
-    
+
     const printContent = generateAttendancePrintContent(
       selectedSchedule,
       students,
@@ -1664,7 +1664,7 @@ export default function InstructorDashboard() {
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (!sessionCookie) {
         brandedToast.error('Session not found. Please log in again.');
         return;
@@ -1682,34 +1682,34 @@ export default function InstructorDashboard() {
       // Get the current academic year start (August 1st)
       const currentYear = new Date().getFullYear();
       const academicYearStart = new Date(currentYear, 7, 1); // August 1st
-      
+
       // Calculate the start of the specified week
       const weekStart = new Date(academicYearStart.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000);
-      
+
       // Find the Monday of that week
       const dayOfWeekStart = weekStart.getDay(); // 0=Sunday, 1=Monday, etc.
       const daysToMonday = dayOfWeekStart === 0 ? -6 : 1 - dayOfWeekStart;
       const monday = new Date(weekStart.getTime() + daysToMonday * 24 * 60 * 60 * 1000);
-      
+
       // Calculate the specific date based on dayOfWeek parameter
       // dayOfWeek: 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
       const specificDate = new Date(monday.getTime() + (dayOfWeek - 1) * 24 * 60 * 60 * 1000);
       // Format date in local timezone (YYYY-MM-DD) to avoid UTC offset issues
       const dateString = `${specificDate.getFullYear()}-${String(specificDate.getMonth() + 1).padStart(2, '0')}-${String(specificDate.getDate()).padStart(2, '0')}`;
-      
+
       // Verify the calculated date matches the expected day
       const calculatedJsDay = specificDate.getDay(); // 0=Sun, 1=Mon, 2=Tue, etc.
       const expectedJsDay = dayOfWeek === 7 ? 0 : dayOfWeek; // Convert our format to JS format
-      
+
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const ourDayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      
+
       console.log(`🎯 MARKING ATTENDANCE - FIXED VERSION`);
       console.log(`Week: ${week}, DayOfWeek: ${dayOfWeek} (${ourDayNames[dayOfWeek]})`);
       console.log(`Calculated Date: ${dateString} (${dayNames[calculatedJsDay]})`);
       console.log(`✅ Verification: Expected ${ourDayNames[dayOfWeek]}, Got ${dayNames[calculatedJsDay]}`);
       console.log(`Match: ${calculatedJsDay === expectedJsDay ? '✅ CORRECT' : '❌ MISMATCH'}`);
-      
+
       // Additional safety check
       if (calculatedJsDay !== expectedJsDay) {
         console.error(`❌ Date calculation error: Expected ${ourDayNames[dayOfWeek]} but got ${dayNames[calculatedJsDay]}`);
@@ -1739,10 +1739,10 @@ export default function InstructorDashboard() {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         brandedToast.success(`✅ Marked ${status === 'P' ? 'Present' : status === 'A' ? 'Absent' : status === 'E' ? 'Excused' : status === 'L' ? 'Late' : status === 'D' ? 'Dropped' : status === 'FA' ? 'Failure due to Absences' : status} for ${ourDayNames[dayOfWeek]}`);
-        
+
         // Update local state immediately for better UX
         if (sessionType === 'lecture') {
           setLectureAttendance(prev => {
@@ -1767,7 +1767,7 @@ export default function InstructorDashboard() {
             };
           });
         }
-        
+
         // Refresh the weekly attendance data from server
         await fetchSessionAttendance(selectedSchedule.ScheduleID, week, sessionType);
         // Also refresh the students data to show updated attendance stats
@@ -1794,7 +1794,7 @@ export default function InstructorDashboard() {
         const sessionCookie = document.cookie
           .split('; ')
           .find(row => row.startsWith('userSession='));
-        
+
         if (sessionCookie) {
           const session = JSON.parse(decodeURIComponent(sessionCookie.split('=')[1]));
           await fetchSchedules(session.userId);
@@ -1918,7 +1918,7 @@ export default function InstructorDashboard() {
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.A;
-    
+
     return (
       <Badge className={config.color}>
         {config.label}
@@ -1979,6 +1979,16 @@ export default function InstructorDashboard() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Subjects with Excuse Letters</CardTitle>
+            <FileText className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{new Set(excuseLetters.map(el => el.SubjectCode)).size}</div>
+          </CardContent>
+        </Card>
+
       </div>
 
       {/* Main Content Tabs */}
@@ -2005,26 +2015,26 @@ export default function InstructorDashboard() {
             <h2 className="text-xl font-semibold">My Class Schedules</h2>
           </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-5">
-              {schedules.length === 0 ? (
-                <Card className="col-span-full">
-                  <CardContent className="text-center py-8">
-                    <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">No schedules assigned yet.</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                schedules.map((schedule) => (
-                  <ScheduleCard
-                    key={schedule.ScheduleID}
-                    schedule={schedule}
-                    role="instructor"
-                    onClick={() => openScheduleHub(schedule)}
-                    showActions={false}
-                  />
-                ))
-              )}
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-5">
+            {schedules.length === 0 ? (
+              <Card className="col-span-full">
+                <CardContent className="text-center py-8">
+                  <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">No schedules assigned yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              schedules.map((schedule) => (
+                <ScheduleCard
+                  key={schedule.ScheduleID}
+                  schedule={schedule}
+                  role="instructor"
+                  onClick={() => openScheduleHub(schedule)}
+                  showActions={false}
+                />
+              ))
+            )}
+          </div>
         </TabsContent>
 
         {/* Attendance Tab */}
@@ -2117,100 +2127,98 @@ export default function InstructorDashboard() {
           ) : (
             <div className="grid gap-4">
               {excuseLetters.filter(el => el.InstructorStatus === 'pending').map((letter) => (
-                                  <Card key={letter.ExcuseLetterID} className="hover:shadow-md transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg">
-                            {letter.SubjectCode} - {letter.SubjectTitle}
-                          </CardTitle>
-                          <CardDescription className="mt-1">
-                            <span className="flex items-center gap-2">
-                              <Users className="h-4 w-4" />
-                              {letter.StudentName}
-                            </span>
-                            <span className="flex items-center gap-2 mt-1">
-                              {letter.Course} - Section {letter.Section}
-                            </span>
-                          </CardDescription>
-                        </div>
-                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                          Pending
+                <Card key={letter.ExcuseLetterID} className="hover:shadow-md transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg">
+                          {letter.SubjectCode} - {letter.SubjectTitle}
+                        </CardTitle>
+                        <CardDescription className="mt-1">
+                          <span className="flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            {letter.StudentName}
+                          </span>
+                          <span className="flex items-center gap-2 mt-1">
+                            {letter.Course} - Section {letter.Section}
+                          </span>
+                        </CardDescription>
+                      </div>
+                      <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                        Pending
+                      </Badge>
+                    </div>
+                    {/* Show Dean and Coordinator Approval Status - Prominent Display */}
+                    <div className="flex items-center gap-3 mt-3 pt-3 border-t">
+                      <span className="text-sm font-semibold text-gray-700">Approval Status:</span>
+                      <div className="flex items-center gap-2">
+                        <Badge className={`flex items-center gap-1 ${letter.DeanStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
+                            letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
+                              'bg-gray-100 text-gray-700 border border-gray-300'
+                          }`}>
+                          {letter.DeanStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
+                          {letter.DeanStatus === 'declined' && <XCircle className="h-3 w-3" />}
+                          {(!letter.DeanStatus || letter.DeanStatus === 'pending') && <Clock className="h-3 w-3" />}
+                          <span className="font-medium">Dean: {letter.DeanStatus || 'pending'}</span>
+                        </Badge>
+                        <Badge className={`flex items-center gap-1 ${letter.CoordinatorStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
+                            letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
+                              'bg-gray-100 text-gray-700 border border-gray-300'
+                          }`}>
+                          {letter.CoordinatorStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
+                          {letter.CoordinatorStatus === 'declined' && <XCircle className="h-3 w-3" />}
+                          {(!letter.CoordinatorStatus || letter.CoordinatorStatus === 'pending') && <Clock className="h-3 w-3" />}
+                          <span className="font-medium">Coordinator: {letter.CoordinatorStatus || 'pending'}</span>
                         </Badge>
                       </div>
-                      {/* Show Dean and Coordinator Approval Status - Prominent Display */}
-                      <div className="flex items-center gap-3 mt-3 pt-3 border-t">
-                        <span className="text-sm font-semibold text-gray-700">Approval Status:</span>
-                        <div className="flex items-center gap-2">
-                          <Badge className={`flex items-center gap-1 ${
-                            letter.DeanStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
-                            letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
-                            'bg-gray-100 text-gray-700 border border-gray-300'
-                          }`}>
-                            {letter.DeanStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
-                            {letter.DeanStatus === 'declined' && <XCircle className="h-3 w-3" />}
-                            {(!letter.DeanStatus || letter.DeanStatus === 'pending') && <Clock className="h-3 w-3" />}
-                            <span className="font-medium">Dean: {letter.DeanStatus || 'pending'}</span>
-                          </Badge>
-                          <Badge className={`flex items-center gap-1 ${
-                            letter.CoordinatorStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
-                            letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
-                            'bg-gray-100 text-gray-700 border border-gray-300'
-                          }`}>
-                            {letter.CoordinatorStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
-                            {letter.CoordinatorStatus === 'declined' && <XCircle className="h-3 w-3" />}
-                            {(!letter.CoordinatorStatus || letter.CoordinatorStatus === 'pending') && <Clock className="h-3 w-3" />}
-                            <span className="font-medium">Coordinator: {letter.CoordinatorStatus || 'pending'}</span>
-                          </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Reason:</p>
+                        <p className="text-sm text-gray-600">{letter.Reason}</p>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          <span>{new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          <span>Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}</span>
                         </div>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Reason:</p>
-                            <p className="text-sm text-gray-600">{letter.Reason}</p>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              <span>{new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              <span>Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-                        <div className="flex gap-2 pt-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleViewExcuseLetter(letter)}
-                            className="flex-1"
-                          >
-                            <FileText className="h-4 w-4 mr-1" />
-                            View Details
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => handleApproveExcuseLetter(letter)}
-                            className="flex-1 bg-green-600 hover:bg-green-700"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleDeclineExcuseLetter(letter)}
-                            className="flex-1"
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            Decline
-                          </Button>
-                        </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewExcuseLetter(letter)}
+                          className="flex-1"
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          View Details
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleApproveExcuseLetter(letter)}
+                          className="flex-1 bg-green-600 hover:bg-green-700"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeclineExcuseLetter(letter)}
+                          className="flex-1"
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Decline
+                        </Button>
                       </div>
-                    </CardContent>
+                    </div>
+                  </CardContent>
                 </Card>
               ))}
             </div>
@@ -2224,73 +2232,71 @@ export default function InstructorDashboard() {
               </div>
               <div className="grid gap-4">
                 {excuseLetters.filter(el => el.InstructorStatus === 'approved' || el.InstructorStatus === 'declined').map((letter) => (
-                                      <Card key={letter.ExcuseLetterID} className="hover:shadow-md transition-shadow">
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg">
-                              {letter.SubjectCode} - {letter.SubjectTitle}
-                            </CardTitle>
-                            <CardDescription className="mt-1">
-                              <span className="flex items-center gap-2">
-                                <Users className="h-4 w-4" />
-                                {letter.StudentName}
-                              </span>
-                            </CardDescription>
-                          </div>
-                          <Badge variant={letter.InstructorStatus === 'approved' ? 'default' : 'destructive'}>
-                            {letter.InstructorStatus === 'approved' ? 'Approved' : 'Declined'}
+                  <Card key={letter.ExcuseLetterID} className="hover:shadow-md transition-shadow">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">
+                            {letter.SubjectCode} - {letter.SubjectTitle}
+                          </CardTitle>
+                          <CardDescription className="mt-1">
+                            <span className="flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              {letter.StudentName}
+                            </span>
+                          </CardDescription>
+                        </div>
+                        <Badge variant={letter.InstructorStatus === 'approved' ? 'default' : 'destructive'}>
+                          {letter.InstructorStatus === 'approved' ? 'Approved' : 'Declined'}
+                        </Badge>
+                      </div>
+                      {/* Show Dean and Coordinator Approval Status - Prominent Display */}
+                      <div className="flex items-center gap-3 mt-3 pt-3 border-t">
+                        <span className="text-sm font-semibold text-gray-700">Approval Status:</span>
+                        <div className="flex items-center gap-2">
+                          <Badge className={`flex items-center gap-1 ${letter.DeanStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
+                              letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
+                                'bg-gray-100 text-gray-700 border border-gray-300'
+                            }`}>
+                            {letter.DeanStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
+                            {letter.DeanStatus === 'declined' && <XCircle className="h-3 w-3" />}
+                            {(!letter.DeanStatus || letter.DeanStatus === 'pending') && <Clock className="h-3 w-3" />}
+                            <span className="font-medium">Dean: {letter.DeanStatus || 'pending'}</span>
+                          </Badge>
+                          <Badge className={`flex items-center gap-1 ${letter.CoordinatorStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
+                              letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
+                                'bg-gray-100 text-gray-700 border border-gray-300'
+                            }`}>
+                            {letter.CoordinatorStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
+                            {letter.CoordinatorStatus === 'declined' && <XCircle className="h-3 w-3" />}
+                            {(!letter.CoordinatorStatus || letter.CoordinatorStatus === 'pending') && <Clock className="h-3 w-3" />}
+                            <span className="font-medium">Coordinator: {letter.CoordinatorStatus || 'pending'}</span>
                           </Badge>
                         </div>
-                        {/* Show Dean and Coordinator Approval Status - Prominent Display */}
-                        <div className="flex items-center gap-3 mt-3 pt-3 border-t">
-                          <span className="text-sm font-semibold text-gray-700">Approval Status:</span>
-                          <div className="flex items-center gap-2">
-                            <Badge className={`flex items-center gap-1 ${
-                              letter.DeanStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
-                              letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
-                              'bg-gray-100 text-gray-700 border border-gray-300'
-                            }`}>
-                              {letter.DeanStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
-                              {letter.DeanStatus === 'declined' && <XCircle className="h-3 w-3" />}
-                              {(!letter.DeanStatus || letter.DeanStatus === 'pending') && <Clock className="h-3 w-3" />}
-                              <span className="font-medium">Dean: {letter.DeanStatus || 'pending'}</span>
-                            </Badge>
-                            <Badge className={`flex items-center gap-1 ${
-                              letter.CoordinatorStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
-                              letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
-                              'bg-gray-100 text-gray-700 border border-gray-300'
-                            }`}>
-                              {letter.CoordinatorStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
-                              {letter.CoordinatorStatus === 'declined' && <XCircle className="h-3 w-3" />}
-                              {(!letter.CoordinatorStatus || letter.CoordinatorStatus === 'pending') && <Clock className="h-3 w-3" />}
-                              <span className="font-medium">Coordinator: {letter.CoordinatorStatus || 'pending'}</span>
-                            </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Reason:</p>
+                          <p className="text-sm text-gray-600">{letter.Reason}</p>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            <span>{new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}</span>
                           </div>
                         </div>
-                      </CardHeader>
-                                            <CardContent>
-                          <div className="space-y-3">
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">Reason:</p>
-                              <p className="text-sm text-gray-600">{letter.Reason}</p>
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-gray-600">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                <span>{new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleViewExcuseLetter(letter)}
-                          >
-                            <FileText className="h-4 w-4 mr-1" />
-                            View Details
-                          </Button>
-                        </div>
-                      </CardContent>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewExcuseLetter(letter)}
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          View Details
+                        </Button>
+                      </div>
+                    </CardContent>
                   </Card>
                 ))}
               </div>
@@ -2359,21 +2365,21 @@ export default function InstructorDashboard() {
               </Card>
             </div>
           ) : (
-            <EnhancedSeatPlanModal 
+            <EnhancedSeatPlanModal
               schedule={{
                 ...selectedSchedule,
                 SeatCols: selectedSchedule.SeatCols || 4,
                 SeatMap: selectedSchedule.SeatMap || '',
                 LectureSeatCols: selectedSchedule.LectureSeatCols || 4,
                 LaboratorySeatCols: selectedSchedule.LaboratorySeatCols || 2
-              }} 
+              }}
               onClose={handleSeatPlanClose}
               onDataSaved={async () => {
                 try {
                   const sessionCookie = document.cookie
                     .split('; ')
                     .find(row => row.startsWith('userSession='));
-                  
+
                   if (sessionCookie) {
                     const session = JSON.parse(decodeURIComponent(sessionCookie.split('=')[1]));
                     await fetchSchedules(session.userId);
@@ -2411,78 +2417,76 @@ export default function InstructorDashboard() {
                       </div>
                       <Badge className={
                         letter.InstructorStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                        letter.InstructorStatus === 'declined' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
+                          letter.InstructorStatus === 'declined' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
                       }>
                         {letter.InstructorStatus}
                       </Badge>
                     </div>
                   </CardHeader>
-                                      <CardContent>
-                      <div className="space-y-4">
-                        <p className="text-sm text-gray-700">{letter.Reason}</p>
-                        
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            {new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}
-                          </span>
-                        </div>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <p className="text-sm text-gray-700">{letter.Reason}</p>
 
-                        {/* Show Dean and Coordinator Approval Status */}
-                        <div className="flex items-center gap-2 pt-2 border-t">
-                          <span className="text-xs font-medium text-gray-600">Other Approvals:</span>
-                          <Badge className={`text-xs ${
-                            letter.DeanStatus === 'approved' ? 'bg-green-100 text-green-700' :
-                            letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-700' :
-                            'bg-gray-100 text-gray-600'
-                          }`}>
-                            Dean: {letter.DeanStatus || 'pending'}
-                          </Badge>
-                          <Badge className={`text-xs ${
-                            letter.CoordinatorStatus === 'approved' ? 'bg-green-100 text-green-700' :
-                            letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-700' :
-                            'bg-gray-100 text-gray-600'
-                          }`}>
-                            Coordinator: {letter.CoordinatorStatus || 'pending'}
-                          </Badge>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedExcuseLetter(letter)}
-                          >
-                            View Details
-                          </Button>
-                          {letter.InstructorStatus === 'pending' && (
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => handleApprovalAction(letter, 'approved')}
-                                className="bg-green-600 hover:bg-green-700"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleApprovalAction(letter, 'declined')}
-                              >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Decline
-                              </Button>
-                            </div>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          {new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}
+                        </span>
                       </div>
-                    </CardContent>
+
+                      {/* Show Dean and Coordinator Approval Status */}
+                      <div className="flex items-center gap-2 pt-2 border-t">
+                        <span className="text-xs font-medium text-gray-600">Other Approvals:</span>
+                        <Badge className={`text-xs ${letter.DeanStatus === 'approved' ? 'bg-green-100 text-green-700' :
+                            letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-700' :
+                              'bg-gray-100 text-gray-600'
+                          }`}>
+                          Dean: {letter.DeanStatus || 'pending'}
+                        </Badge>
+                        <Badge className={`text-xs ${letter.CoordinatorStatus === 'approved' ? 'bg-green-100 text-green-700' :
+                            letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-700' :
+                              'bg-gray-100 text-gray-600'
+                          }`}>
+                          Coordinator: {letter.CoordinatorStatus || 'pending'}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedExcuseLetter(letter)}
+                        >
+                          View Details
+                        </Button>
+                        {letter.InstructorStatus === 'pending' && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleApprovalAction(letter, 'approved')}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleApprovalAction(letter, 'declined')}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Decline
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
                 </Card>
               ))
             )}
@@ -2531,7 +2535,7 @@ export default function InstructorDashboard() {
                 <div className="text-2xl font-bold text-green-600">
                   {allInstructorGrades.length > 0
                     ? Math.round((allInstructorGrades.reduce((sum, grade) => sum + grade.passedCount, 0) /
-                        allInstructorGrades.reduce((sum, grade) => sum + grade.studentCount, 0)) * 100) || 0
+                      allInstructorGrades.reduce((sum, grade) => sum + grade.studentCount, 0)) * 100) || 0
                     : 0}%
                 </div>
               </CardContent>
@@ -2597,11 +2601,10 @@ export default function InstructorDashboard() {
 
                       {/* Midterm Average */}
                       <div className="text-center p-3 bg-blue-50 rounded-lg">
-                        <div className={`text-lg font-semibold ${
-                          gradeData.midterm !== null ?
+                        <div className={`text-lg font-semibold ${gradeData.midterm !== null ?
                             (gradeData.midterm <= 3.0 ? 'text-green-600' : 'text-red-600') :
                             'text-gray-400'
-                        }`}>
+                          }`}>
                           {gradeData.midterm !== null ? gradeData.midterm.toFixed(2) : 'N/A'}
                         </div>
                         <div className="text-sm text-gray-600">Midterm Avg</div>
@@ -2609,11 +2612,10 @@ export default function InstructorDashboard() {
 
                       {/* Final Average */}
                       <div className="text-center p-3 bg-green-50 rounded-lg">
-                        <div className={`text-lg font-semibold ${
-                          gradeData.final !== null ?
+                        <div className={`text-lg font-semibold ${gradeData.final !== null ?
                             (gradeData.final <= 3.0 ? 'text-green-600' : 'text-red-600') :
                             'text-gray-400'
-                        }`}>
+                          }`}>
                           {gradeData.final !== null ? gradeData.final.toFixed(2) : 'N/A'}
                         </div>
                         <div className="text-sm text-gray-600">Final Avg</div>
@@ -2653,20 +2655,20 @@ export default function InstructorDashboard() {
           <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Mark All Present</h3>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setShowBulkModal(false)}
                 disabled={bulkMarkingLoading}
               >
                 ✕
               </Button>
             </div>
-            
+
             <p className="text-sm text-gray-600 mb-4">
               Mark all {students.filter(student => !student.IsDisabled).length} eligible students as present for {currentSessionType} session {currentSessionNumber}?
             </p>
-            
+
             <div className="space-y-4">
               <div className="bg-blue-50 p-3 rounded-lg">
                 <div className="flex items-center gap-2">
@@ -2680,18 +2682,18 @@ export default function InstructorDashboard() {
                 </p>
               </div>
             </div>
-            
+
             <div className="mt-6 flex gap-3">
-              <Button 
-                variant="outline" 
-                className="flex-1" 
+              <Button
+                variant="outline"
+                className="flex-1"
                 onClick={() => setShowBulkModal(false)}
                 disabled={bulkMarkingLoading}
               >
                 Cancel
               </Button>
-              <Button 
-                className="flex-1 bg-green-600 hover:bg-green-700" 
+              <Button
+                className="flex-1 bg-green-600 hover:bg-green-700"
                 onClick={() => {
                   markAllPresentForSession();
                   setShowBulkModal(false);
@@ -2708,7 +2710,7 @@ export default function InstructorDashboard() {
                 )}
               </Button>
             </div>
-            
+
             {bulkMarkingLoading && (
               <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
                 <div className="flex items-center gap-2">
@@ -2773,9 +2775,8 @@ export default function InstructorDashboard() {
                     </div>
                   ) : (
                     students.map((student) => (
-                      <div key={student.StudentID} className={`rounded-lg p-4 transition-colors ${
-                        student.IsDisabled ? 'bg-red-50 border border-red-200' : 'bg-gray-50 hover:bg-gray-100'
-                      }`}>
+                      <div key={student.StudentID} className={`rounded-lg p-4 transition-colors ${student.IsDisabled ? 'bg-red-50 border border-red-200' : 'bg-gray-50 hover:bg-gray-100'
+                        }`}>
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className={`font-semibold text-base ${student.IsDisabled ? 'text-red-800' : 'text-gray-800'}`}>
@@ -2903,22 +2904,22 @@ export default function InstructorDashboard() {
           <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Class Cancellation</h3>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setShowCCModal(false)}
               >
                 ✕
               </Button>
             </div>
-            
+
             <p className="text-sm text-gray-600 mb-4">
-              {ccStudentId ? 
+              {ccStudentId ?
                 `Record class cancellation for individual student for ${ccSessionType} session ${currentSessionNumber}?` :
                 `Record class cancellation for ALL students for ${ccSessionType} session ${currentSessionNumber}?`
               }
             </p>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2932,7 +2933,7 @@ export default function InstructorDashboard() {
                   rows={3}
                 />
               </div>
-              
+
               <div className="bg-red-50 p-3 rounded-lg">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-red-600 rounded"></div>
@@ -2944,7 +2945,7 @@ export default function InstructorDashboard() {
                   CC status will not count against attendance metrics.
                 </p>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -2958,26 +2959,26 @@ export default function InstructorDashboard() {
                 </label>
               </div>
             </div>
-            
+
             <div className="mt-6 flex gap-3">
-              <Button 
-                variant="outline" 
-                className="flex-1" 
+              <Button
+                variant="outline"
+                className="flex-1"
                 onClick={() => setShowCCModal(false)}
               >
                 Cancel
               </Button>
               {ccStudentId ? (
-                <Button 
-                  className="flex-1 bg-red-600 hover:bg-red-700" 
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700"
                   onClick={markCCWithReason}
                   disabled={!ccReason.trim()}
                 >
                   Mark as CC
                 </Button>
               ) : (
-                <Button 
-                  className="flex-1 bg-red-600 hover:bg-red-700" 
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700"
                   onClick={markAllCCForSession}
                   disabled={!ccReason.trim()}
                 >
@@ -3048,7 +3049,7 @@ export default function InstructorDashboard() {
               console.error('Error updating excuse letter:', error);
               brandedToast.error('Failed to update excuse letter');
             }
-            
+
             setShowApprovalModal(false);
             setSelectedLetter(null);
           }}

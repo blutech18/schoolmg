@@ -6,13 +6,14 @@ import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { FileText, Calendar, GraduationCap, Clock, Plus, AlertCircle, ChevronDown, ChevronUp, Paperclip, BookOpen } from "lucide-react";
+import { FileText, Calendar, GraduationCap, Clock, Plus, AlertCircle, ChevronDown, ChevronUp, Paperclip, BookOpen, Printer } from "lucide-react";
 import { brandedToast } from "@/components/ui/branded-toast";
 import SubmitExcuseLetterModal from "./components/SubmitExcuseLetterModal";
 import ViewExcuseLetterModal from "./components/ViewExcuseLetterModal";
 import StudentScheduleHub from "./components/StudentScheduleHub";
 import { formatScheduleEntry, type ScheduleDisplayData } from "@/lib/utils";
 import ScheduleCard from "@/app/components/ScheduleCard";
+import { printDocument, generatePrintStyles, generatePrintHeader } from "@/lib/printUtils";
 
 interface StudentData {
   userId: number;
@@ -92,15 +93,15 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [showExcuseModal, setShowExcuseModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedSubjects, setExpandedSubjects] = useState<{[key: string]: boolean}>({});
-  const [expandedGrades, setExpandedGrades] = useState<{[key: number]: boolean}>({});
+  const [expandedSubjects, setExpandedSubjects] = useState<{ [key: string]: boolean }>({});
+  const [expandedGrades, setExpandedGrades] = useState<{ [key: number]: boolean }>({});
   const [selectedExcuseLetter, setSelectedExcuseLetter] = useState<ExcuseLetter | null>(null);
-  const [excuseLetterFiles, setExcuseLetterFiles] = useState<{[key: number]: any[]}>({});
+  const [excuseLetterFiles, setExcuseLetterFiles] = useState<{ [key: number]: any[] }>({});
   const [currentSessionType, setCurrentSessionType] = useState<'lecture' | 'lab'>('lecture');
   const [currentSessionNumber, setCurrentSessionNumber] = useState(1);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [scheduleAttendance, setScheduleAttendance] = useState<AttendanceData[]>([]);
-  const [cancelledSessions, setCancelledSessions] = useState<{[key: string]: {reason: string, cancelledBy: string, cancelledAt: string}}>({});
+  const [cancelledSessions, setCancelledSessions] = useState<{ [key: string]: { reason: string, cancelledBy: string, cancelledAt: string } }>({});
   const [selectedGradesSchedule, setSelectedGradesSchedule] = useState<Schedule | null>(null);
   const [scheduleGrades, setScheduleGrades] = useState<GradeData[]>([]);
 
@@ -117,7 +118,7 @@ export default function StudentDashboard() {
       await fetchAttendance();
       setLoading(false);
     };
-    
+
     loadData();
   }, []);
 
@@ -133,7 +134,7 @@ export default function StudentDashboard() {
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (!sessionCookie) {
         const errorMsg = "Session not found. Please log in again.";
         setError(errorMsg);
@@ -153,7 +154,7 @@ export default function StudentDashboard() {
         console.error("Student page error: Failed to parse session:", parseError);
         return;
       }
-      
+
       if (!session.userId) {
         const errorMsg = "User ID not found in session. Please log in again.";
         setError(errorMsg);
@@ -161,11 +162,11 @@ export default function StudentDashboard() {
         console.error("Student page error: No userId in session", session);
         return;
       }
-      
+
       // Fetch student details
       console.log(`Fetching student data for userId: ${session.userId}`);
       const response = await fetch(`/api/students?userId=${session.userId}`);
-      
+
       if (!response.ok) {
         const errorMsg = `API request failed with status: ${response.status} ${response.statusText}`;
         setError(errorMsg);
@@ -173,7 +174,7 @@ export default function StudentDashboard() {
         console.error("Student page error:", errorMsg);
         return;
       }
-      
+
       const data = await response.json();
       console.log("Student data response:", data); // Debug log
 
@@ -190,7 +191,7 @@ export default function StudentDashboard() {
       if (Array.isArray(data) && data.length > 0) {
         const student = data[0];
         console.log("Processing student data:", student);
-        
+
         // Validate required fields
         if (!student.FirstName || !student.LastName || !student.Course) {
           const errorMsg = "Incomplete student data received from server";
@@ -199,7 +200,7 @@ export default function StudentDashboard() {
           console.error("Student page error: Missing required fields:", student);
           return;
         }
-        
+
         const studentInfo = {
           userId: session.userId,
           studentId: student.StudentID,
@@ -239,7 +240,7 @@ export default function StudentDashboard() {
       const response = await fetch(`/api/excuse-letters/files?excuseLetterID=${excuseLetterID}`, {
         credentials: 'include'
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         return data.files || [];
@@ -255,7 +256,7 @@ export default function StudentDashboard() {
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (!sessionCookie) {
         console.log("No session cookie found for excuse letters fetch");
         return;
@@ -263,24 +264,24 @@ export default function StudentDashboard() {
 
       const session = JSON.parse(decodeURIComponent(sessionCookie.split('=')[1]));
       console.log(`Fetching excuse letters for userId: ${session.userId}`);
-      
+
       const response = await fetch(`/api/excuse-letters?role=student&userId=${session.userId}`);
-      
+
       if (!response.ok) {
         console.error(`Excuse letters API failed: ${response.status} ${response.statusText}`);
         brandedToast.error("Failed to fetch excuse letters from server");
         return;
       }
-      
+
       const data = await response.json();
       console.log("Excuse letters response:", data);
 
       if (data.success) {
         const letters = data.data || [];
         setExcuseLetters(letters);
-        
+
         // Fetch files for each excuse letter
-        const filesMap: {[key: number]: any[]} = {};
+        const filesMap: { [key: number]: any[] } = {};
         for (const letter of letters) {
           const files = await fetchFilesForExcuseLetter(letter.ExcuseLetterID);
           filesMap[letter.ExcuseLetterID] = files;
@@ -304,7 +305,7 @@ export default function StudentDashboard() {
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (!sessionCookie) {
         console.log("No session cookie found for schedules fetch");
         return;
@@ -312,15 +313,15 @@ export default function StudentDashboard() {
 
       const session = JSON.parse(decodeURIComponent(sessionCookie.split('=')[1]));
       console.log(`Fetching schedules for userId: ${session.userId}`);
-      
+
       const response = await fetch(`/api/schedules?role=student&userId=${session.userId}`);
-      
+
       if (!response.ok) {
         console.error(`Schedules API failed: ${response.status} ${response.statusText}`);
         brandedToast.error("Failed to fetch schedules from server");
         return;
       }
-      
+
       const data = await response.json();
       console.log("Schedules response:", data);
 
@@ -348,20 +349,20 @@ export default function StudentDashboard() {
       }
 
       console.log(`Fetching grades for studentId: ${studentData.studentId}`);
-      
+
       const response = await fetch(`/api/grades?role=student&userId=${studentData.studentId}`, {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         console.error(`Grades API failed: ${response.status} ${response.statusText}`);
         brandedToast.error(`Failed to fetch grades: ${response.status} ${response.statusText}`);
         return;
       }
-      
+
       const data = await response.json();
       console.log("Grades API response:", data);
 
@@ -381,7 +382,7 @@ export default function StudentDashboard() {
           };
         });
         console.log("Processed grades array:", gradesArray);
-        
+
         // Filter by specific schedule if provided
         if (scheduleId) {
           const filteredGrades = gradesArray.filter(grade => grade.ScheduleID === scheduleId);
@@ -389,7 +390,7 @@ export default function StudentDashboard() {
         } else {
           setGrades(gradesArray);
         }
-        
+
         if (gradesArray.length === 0) {
           console.log("No grades available for this student");
           brandedToast.info("No grades have been entered for your subjects yet.");
@@ -429,7 +430,7 @@ export default function StudentDashboard() {
       const sessionCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('userSession='));
-      
+
       if (!sessionCookie) {
         console.log("No session cookie found for attendance fetch");
         return;
@@ -437,38 +438,38 @@ export default function StudentDashboard() {
 
       const session = JSON.parse(decodeURIComponent(sessionCookie.split('=')[1]));
       console.log(`Fetching attendance for userId: ${session.userId}`);
-      
+
       // Build query parameters
       const queryParams = new URLSearchParams({
         role: 'student',
         userId: session.userId.toString()
       });
-      
+
       // Add schedule filter if specified
       if (scheduleId) {
         queryParams.append('scheduleId', scheduleId.toString());
       }
-      
+
       // Add session type filter if specified
       if (sessionType) {
         queryParams.append('sessionType', sessionType);
       }
-      
+
       // Add session number filter if specified
       if (sessionNumber) {
         queryParams.append('week', sessionNumber.toString());
       }
-      
+
       const response = await fetch(`/api/attendance?${queryParams.toString()}`, {
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         console.error(`Attendance API failed: ${response.status} ${response.statusText}`);
         brandedToast.error("Failed to fetch attendance from server");
         return;
       }
-      
+
       const data = await response.json();
       console.log("Attendance response:", data);
 
@@ -531,7 +532,7 @@ export default function StudentDashboard() {
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-    
+
     return (
       <Badge className={config.color}>
         {config.label}
@@ -551,9 +552,9 @@ export default function StudentDashboard() {
         {statuses.map((item, index) => (
           <div key={index} className="flex items-center gap-1">
             <span className="text-xs font-medium">{item.label}:</span>
-            <Badge 
-              variant={item.status === "approved" ? "default" : 
-                      item.status === "declined" ? "destructive" : "secondary"}
+            <Badge
+              variant={item.status === "approved" ? "default" :
+                item.status === "declined" ? "destructive" : "secondary"}
               className="text-xs"
             >
               {item.status}
@@ -572,10 +573,10 @@ export default function StudentDashboard() {
         const result = await res.json()
         console.log('Cancelled sessions API response:', result)
         const cancelledData = result.success ? result.data : result
-        
+
         if (Array.isArray(cancelledData) && cancelledData.length > 0) {
-          const cancelledSessionsMap: {[key: string]: {reason: string, cancelledBy: string, cancelledAt: string}} = {}
-          
+          const cancelledSessionsMap: { [key: string]: { reason: string, cancelledBy: string, cancelledAt: string } } = {}
+
           cancelledData.forEach((record: any) => {
             const sessionKey = `${record.ScheduleID}-${record.Week}`
             cancelledSessionsMap[sessionKey] = {
@@ -584,7 +585,7 @@ export default function StudentDashboard() {
               cancelledAt: record.Date || new Date().toISOString()
             }
           })
-          
+
           console.log('Processed cancelled sessions:', cancelledSessionsMap)
           setCancelledSessions(cancelledSessionsMap)
         }
@@ -646,13 +647,28 @@ export default function StudentDashboard() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Student Dashboard</h1>
+      <div className="bg-gradient-to-r from-[#566d3a] to-[#3d4f29] rounded-xl p-6 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <img
+              src="/img/cca-logo.png"
+              alt="School Logo"
+              className="h-16 w-16 rounded-full bg-white p-1 shadow-md"
+            />
+            <div>
+              <h1 className="text-2xl font-bold">Student Dashboard</h1>
+              {studentData && (
+                <p className="text-green-100 mt-1">
+                  Welcome back, <span className="font-semibold text-white">{studentData.name}</span>
+                </p>
+              )}
+            </div>
+          </div>
           {studentData && (
-            <p className="text-gray-600 mt-1">
-              Welcome back, {studentData.name}
-            </p>
+            <div className="hidden md:block text-right">
+              <p className="text-sm text-green-100">Student Number</p>
+              <p className="font-semibold text-lg">{studentData.studentNumber}</p>
+            </div>
           )}
         </div>
       </div>
@@ -678,7 +694,7 @@ export default function StudentDashboard() {
               const attEffectivePresent = attendance.filter(r => r.Status === 'P' || r.Status === 'E').length;
               const attendanceRate = attTotal > 0 ? Math.round((attEffectivePresent / attTotal) * 100) : 0;
               return (
-                <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <div className="text-center">
                     <p className="text-sm text-gray-600">Course</p>
                     <p className="font-semibold">{studentData.course}</p>
@@ -692,20 +708,12 @@ export default function StudentDashboard() {
                     <p className="font-semibold">{studentData.section}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-600">Subjects</p>
-                    <p className="font-semibold">{totalSubjects}</p>
+                    <p className="text-sm text-gray-600">Excuse Letters</p>
+                    <p className="font-semibold">{new Set(excuseLetters.map(el => el.SubjectCode)).size}</p>
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-gray-600">Total Units</p>
                     <p className="font-semibold">{totalUnits > 0 ? totalUnits : '—'}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600">Overall Grade</p>
-                    <p className={`font-semibold ${overallGrade !== 'N/A' ? (parseFloat(overallGrade) <= 3.0 ? 'text-green-700' : 'text-red-700') : 'text-gray-700'}`}>{overallGrade}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600">Attendance Rate</p>
-                    <p className="font-semibold">{attendanceRate}%</p>
                   </div>
                 </div>
               );
@@ -757,8 +765,8 @@ export default function StudentDashboard() {
                         {recentAttendance.map((item, idx) => {
                           const schedule = schedules.find(s => s.ScheduleID === item.ScheduleID);
                           return (
-                            <div 
-                              key={`notif-att-${idx}`} 
+                            <div
+                              key={`notif-att-${idx}`}
                               className="p-4 flex items-start gap-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors"
                               onClick={() => {
                                 if (schedule) {
@@ -777,16 +785,15 @@ export default function StudentDashboard() {
                                   </div>
                                 </div>
                                 <div className="mt-1 text-sm text-gray-700 flex items-center gap-2">
-                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                    item.Status === 'P' ? 'bg-green-100 text-green-800' :
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.Status === 'P' ? 'bg-green-100 text-green-800' :
                                     item.Status === 'A' ? 'bg-red-100 text-red-800' :
-                                    item.Status === 'E' ? 'bg-blue-100 text-blue-800' :
-                                    item.Status === 'L' ? 'bg-yellow-100 text-yellow-800' :
-                                    item.Status === 'D' ? 'bg-orange-100 text-orange-800' :
-                                    item.Status === 'FA' ? 'bg-red-200 text-red-900' :
-                                    item.Status === 'CC' ? 'bg-purple-100 text-purple-800' :
-                                    'bg-gray-100 text-gray-800'
-                                  }`}>
+                                      item.Status === 'E' ? 'bg-blue-100 text-blue-800' :
+                                        item.Status === 'L' ? 'bg-yellow-100 text-yellow-800' :
+                                          item.Status === 'D' ? 'bg-orange-100 text-orange-800' :
+                                            item.Status === 'FA' ? 'bg-red-200 text-red-900' :
+                                              item.Status === 'CC' ? 'bg-purple-100 text-purple-800' :
+                                                'bg-gray-100 text-gray-800'
+                                    }`}>
                                     {getStatusText(item.Status)}
                                   </span>
                                   <span className="text-xs text-gray-500">• Week {item.Week}</span>
@@ -799,8 +806,8 @@ export default function StudentDashboard() {
                         {gradedSubjects.map((g, idx) => {
                           const schedule = schedules.find(s => s.ScheduleID === g.ScheduleID);
                           return (
-                            <div 
-                              key={`notif-grade-${idx}`} 
+                            <div
+                              key={`notif-grade-${idx}`}
                               className="p-4 flex items-start gap-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors"
                               onClick={() => {
                                 if (schedule) {
@@ -832,13 +839,13 @@ export default function StudentDashboard() {
 
                 {/* No New Notifications */}
                 {grades.every(g => g.midterm === null && g.final === null && g.summary === null) &&
-                 attendance.filter(r => r.Status === 'A' || r.Status === 'FA').length === 0 && (
-                  <div className="text-center py-8">
-                    <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-600">No new notifications</p>
-                    <p className="text-sm text-gray-500 mt-2">You're all caught up!</p>
-                  </div>
-                )}
+                  attendance.filter(r => r.Status === 'A' || r.Status === 'FA').length === 0 && (
+                    <div className="text-center py-8">
+                      <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-600">No new notifications</p>
+                      <p className="text-sm text-gray-500 mt-2">You're all caught up!</p>
+                    </div>
+                  )}
               </div>
             </CardContent>
           </Card>
@@ -851,6 +858,93 @@ export default function StudentDashboard() {
               <h2 className="text-xl font-semibold">My Grades</h2>
               <p className="text-sm text-gray-600">View your academic performance across all subjects</p>
             </div>
+            {grades.length > 0 && (
+              <Button
+                onClick={() => {
+                  // Generate print content for all grades
+                  const header = generatePrintHeader({
+                    school: 'City College of Angeles',
+                    course: studentData?.course || 'N/A',
+                    section: studentData?.section || 'N/A',
+                    subject: 'All Subjects - Grade Report',
+                    instructor: 'Multiple Instructors',
+                    date: new Date().toLocaleDateString(),
+                  });
+
+                  const validGrades = grades.filter(g => g.summary !== null);
+                  const overallGPA = validGrades.length > 0
+                    ? (validGrades.reduce((sum, g) => sum + (g.summary || 0), 0) / validGrades.length).toFixed(2)
+                    : 'N/A';
+
+                  const gradesRows = grades.map(g => `
+                    <tr>
+                      <td style="border: 1px solid #000; padding: 8px; font-weight: bold;">${g.SubjectCode}</td>
+                      <td style="border: 1px solid #000; padding: 8px;">${g.SubjectName || g.SubjectTitle || 'N/A'}</td>
+                      <td style="border: 1px solid #000; padding: 8px; text-align: center;">${g.midterm !== null ? g.midterm.toFixed(2) : 'N/A'}</td>
+                      <td style="border: 1px solid #000; padding: 8px; text-align: center;">${g.final !== null ? g.final.toFixed(2) : 'N/A'}</td>
+                      <td style="border: 1px solid #000; padding: 8px; text-align: center; font-weight: bold; color: ${g.summary !== null && g.summary <= 3.0 ? '#155724' : '#721c24'};">${g.summary !== null ? g.summary.toFixed(2) : 'N/A'}</td>
+                      <td style="border: 1px solid #000; padding: 8px; text-align: center;">
+                        <span style="padding: 4px 8px; border-radius: 4px; font-size: 12px; background-color: ${g.summary !== null && g.summary <= 3.0 ? '#d4edda' : '#f8d7da'}; color: ${g.summary !== null && g.summary <= 3.0 ? '#155724' : '#721c24'};">
+                          ${g.summary !== null ? (g.summary <= 3.0 ? 'Passed' : 'Failed') : 'N/A'}
+                        </span>
+                      </td>
+                    </tr>
+                  `).join('');
+
+                  const content = `
+                    ${header}
+                    <div style="margin: 20px 0; padding: 15px; background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 4px;">
+                      <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold;">Student Information</h3>
+                      <p style="margin: 5px 0;"><strong>Name:</strong> ${studentData?.name || 'N/A'}</p>
+                      <p style="margin: 5px 0;"><strong>Student Number:</strong> ${studentData?.studentNumber || 'N/A'}</p>
+                      <p style="margin: 5px 0;"><strong>Course:</strong> ${studentData?.course || 'N/A'}</p>
+                      <p style="margin: 5px 0;"><strong>Year Level:</strong> ${studentData?.yearLevel || 'N/A'}</p>
+                      <p style="margin: 5px 0;"><strong>Section:</strong> ${studentData?.section || 'N/A'}</p>
+                    </div>
+                    
+                    <h3 style="margin: 20px 0 10px 0; font-size: 16px; font-weight: bold;">Academic Performance Report</h3>
+                    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                      <thead>
+                        <tr style="background-color: #f0f0f0;">
+                          <th style="border: 1px solid #000; padding: 10px; text-align: left;">Code</th>
+                          <th style="border: 1px solid #000; padding: 10px; text-align: left;">Subject</th>
+                          <th style="border: 1px solid #000; padding: 10px; text-align: center;">Midterm</th>
+                          <th style="border: 1px solid #000; padding: 10px; text-align: center;">Final</th>
+                          <th style="border: 1px solid #000; padding: 10px; text-align: center;">Overall</th>
+                          <th style="border: 1px solid #000; padding: 10px; text-align: center;">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${gradesRows}
+                      </tbody>
+                    </table>
+                    
+                    <div style="margin: 30px 0; padding: 20px; background: linear-gradient(135deg, #e8f5e9 0%, #e3f2fd 100%); border: 2px solid #4caf50; border-radius: 8px; text-align: center;">
+                      <p style="margin: 0 0 5px 0; font-size: 14px; color: #666;">OVERALL GRADE POINT AVERAGE (GPA)</p>
+                      <p style="margin: 0; font-size: 36px; font-weight: bold; color: #1a1a1a;">${overallGPA}</p>
+                      ${overallGPA !== 'N/A' ? `
+                        <p style="margin: 10px 0 0 0;">
+                          <span style="padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: bold; background-color: ${parseFloat(overallGPA) <= 3.0 ? '#4caf50' : '#f44336'}; color: white;">
+                            ${parseFloat(overallGPA) <= 3.0 ? 'Good Standing' : 'Needs Improvement'}
+                          </span>
+                        </p>
+                      ` : ''}
+                      <p style="margin: 15px 0 0 0; font-size: 12px; color: #666;">Based on ${validGrades.length} subject(s) with recorded grades</p>
+                    </div>
+                    
+                    <div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 10px; text-align: center; color: #666;">
+                      <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+                    </div>
+                  `;
+
+                  printDocument(content, 'All Grades - Grade Report');
+                }}
+                className="flex items-center gap-2"
+              >
+                <Printer className="h-4 w-4" />
+                Print All Grades
+              </Button>
+            )}
           </div>
 
           {grades.length === 0 ? (
@@ -989,7 +1083,7 @@ export default function StudentDashboard() {
         <TabsContent value="excuse-letters" className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">My Excuse Letters</h2>
-            <Button 
+            <Button
               className="flex items-center gap-2"
               onClick={() => {
                 console.log("Button clicked, studentData:", studentData); // Debug log
@@ -1009,27 +1103,27 @@ export default function StudentDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {excuseLetters.length === 0 ? (
               <div className="col-span-full">
-              <Card>
-                <CardContent className="text-center py-8">
-                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No excuse letters submitted yet.</p>
-                  <Button 
-                    className="mt-4"
-                    onClick={() => {
-                      console.log("First excuse letter button clicked, studentData:", studentData); // Debug log
-                      if (!studentData) {
-                        brandedToast.error("Student data not loaded. Please refresh the page.");
-                        return;
-                      }
-                      setShowExcuseModal(true);
-                    }}
-                    disabled={!studentData}
-                  >
-                    Submit Your First Excuse Letter
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+                <Card>
+                  <CardContent className="text-center py-8">
+                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No excuse letters submitted yet.</p>
+                    <Button
+                      className="mt-4"
+                      onClick={() => {
+                        console.log("First excuse letter button clicked, studentData:", studentData); // Debug log
+                        if (!studentData) {
+                          brandedToast.error("Student data not loaded. Please refresh the page.");
+                          return;
+                        }
+                        setShowExcuseModal(true);
+                      }}
+                      disabled={!studentData}
+                    >
+                      Submit Your First Excuse Letter
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             ) : (
               excuseLetters.map((letter) => (
                 <Card key={letter.ExcuseLetterID} className="flex flex-col hover:shadow-md transition-shadow">
@@ -1046,7 +1140,7 @@ export default function StudentDashboard() {
                   </CardHeader>
                   <CardContent className="flex-1 pt-0 space-y-2">
                     <p className="text-sm text-gray-600 line-clamp-2 leading-snug">{letter.Reason}</p>
-                    
+
                     <div className="flex flex-col gap-1 text-xs text-gray-500">
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
@@ -1062,8 +1156,8 @@ export default function StudentDashboard() {
                       )}
                     </div>
 
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       className="w-full mt-2 text-xs"
                       onClick={() => setSelectedExcuseLetter(letter)}
@@ -1102,19 +1196,19 @@ export default function StudentDashboard() {
         userRole="student"
       />
 
-              {/* Student Schedule Hub Modal */}
-        {showScheduleHub && selectedScheduleForHub && studentData && (
-          <StudentScheduleHub
-            schedule={selectedScheduleForHub}
-            studentId={studentData.studentId}
-            studentName={studentData.name}
-            studentNumber={studentData.studentNumber}
-            onClose={() => {
-              setShowScheduleHub(false);
-              setSelectedScheduleForHub(null);
-            }}
-          />
-        )}
+      {/* Student Schedule Hub Modal */}
+      {showScheduleHub && selectedScheduleForHub && studentData && (
+        <StudentScheduleHub
+          schedule={selectedScheduleForHub}
+          studentId={studentData.studentId}
+          studentName={studentData.name}
+          studentNumber={studentData.studentNumber}
+          onClose={() => {
+            setShowScheduleHub(false);
+            setSelectedScheduleForHub(null);
+          }}
+        />
+      )}
     </div>
   );
 }

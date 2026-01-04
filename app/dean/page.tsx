@@ -10,6 +10,10 @@ interface DashboardStats {
   totalExcuseLetters: number;
   pendingApprovals: number;
   averageAttendance: number;
+  presentRate: number;
+  absentRate: number;
+  excusedRate: number;
+  lateRate: number;
 }
 
 export default function DeanDashboard() {
@@ -17,7 +21,11 @@ export default function DeanDashboard() {
     totalStudents: 0,
     totalExcuseLetters: 0,
     pendingApprovals: 0,
-    averageAttendance: 0
+    averageAttendance: 0,
+    presentRate: 0,
+    absentRate: 0,
+    excusedRate: 0,
+    lateRate: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -57,11 +65,22 @@ export default function DeanDashboard() {
         ? Math.round(attendanceStatsData.data.averageAttendance * 10) / 10
         : 0;
 
+      // Calculate percentage rates for each attendance type
+      const totalRecords = attendanceStatsData.success ? attendanceStatsData.data.totalRecords || 0 : 0;
+      const presentRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.presentRecords / totalRecords) * 1000) / 10 : 0;
+      const absentRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.absentRecords / totalRecords) * 1000) / 10 : 0;
+      const excusedRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.excusedRecords / totalRecords) * 1000) / 10 : 0;
+      const lateRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.lateRecords / totalRecords) * 1000) / 10 : 0;
+
       setStats({
         totalStudents: Array.isArray(studentsData) ? studentsData.length : 0,
         totalExcuseLetters: excuseLettersData.success ? excuseLettersData.data.length : 0,
         pendingApprovals,
-        averageAttendance
+        averageAttendance,
+        presentRate,
+        absentRate,
+        excusedRate,
+        lateRate
       });
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -128,11 +147,28 @@ export default function DeanDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Attendance</CardTitle>
+            <CardTitle className="text-sm font-medium">Attendance Breakdown</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.averageAttendance}%</div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-green-600 font-medium">Present</span>
+                <span className="font-semibold">{stats.presentRate || 0}%</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-red-600 font-medium">Absent</span>
+                <span className="font-semibold">{stats.absentRate || 0}%</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-blue-600 font-medium">Excused</span>
+                <span className="font-semibold">{stats.excusedRate || 0}%</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-yellow-600 font-medium">Late</span>
+                <span className="font-semibold">{stats.lateRate || 0}%</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -200,7 +236,7 @@ export default function DeanDashboard() {
             <CardTitle className="text-lg">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <button 
+            <button
               onClick={() => window.location.href = '/dean/excuse-letters'}
               className="w-full text-left p-3 rounded-lg border hover:bg-gray-50 transition-colors"
             >
@@ -212,8 +248,8 @@ export default function DeanDashboard() {
                 </div>
               </div>
             </button>
-            
-            <button 
+
+            <button
               onClick={() => window.location.href = '/dean/student-performance'}
               className="w-full text-left p-3 rounded-lg border hover:bg-gray-50 transition-colors"
             >
@@ -225,8 +261,8 @@ export default function DeanDashboard() {
                 </div>
               </div>
             </button>
-            
-            <button 
+
+            <button
               onClick={() => window.location.href = '/dean/grades'}
               className="w-full text-left p-3 rounded-lg border hover:bg-gray-50 transition-colors"
             >
