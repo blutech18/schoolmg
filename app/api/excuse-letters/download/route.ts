@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/app/lib/db";
-import fs from "fs";
-import path from "path";
 
-// GET - Download a specific file
+// GET - Download a specific file (redirects to Vercel Blob URL with download header)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -18,8 +16,8 @@ export async function GET(request: NextRequest) {
 
     const query = `
       SELECT 
-        FileName,
         FilePath,
+        OriginalName,
         FileType
       FROM excuse_letter_files
       WHERE FileID = ?
@@ -35,38 +33,32 @@ export async function GET(request: NextRequest) {
     }
 
     const file = rows[0] as any;
-    const filePath = path.join(process.cwd(), 'public', file.FilePath);
 
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
+    // FilePath contains the Vercel Blob URL
+    // For download, we fetch the blob and return it with download headers
+    const blobResponse = await fetch(file.FilePath);
+
+    if (!blobResponse.ok) {
       return NextResponse.json(
-        { success: false, error: "File not found on server" },
+        { success: false, error: "File not accessible" },
         { status: 404 }
       );
     }
 
-    // Read the file
-    const fileBuffer = fs.readFileSync(filePath);
+    const blob = await blobResponse.blob();
 
-    // Return the file with appropriate headers
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(blob, {
       headers: {
         'Content-Type': file.FileType || 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${file.FileName}"`,
-        'Content-Length': fileBuffer.length.toString(),
+        'Content-Disposition': `attachment; filename="${file.OriginalName}"`,
       },
     });
+
   } catch (error: any) {
     console.error("Error downloading file:", error);
-    console.error("Error details:", {
-      message: error?.message,
-      code: error?.code,
-      sqlState: error?.sqlState,
-      sqlMessage: error?.sqlMessage
-    });
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: "Failed to download file",
         details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/app/lib/db";
-import fs from "fs";
-import path from "path";
 
-// GET - View a specific file (for images and PDFs - opens in new tab)
+// GET - View a specific file (redirects to Vercel Blob URL)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -18,9 +16,9 @@ export async function GET(request: NextRequest) {
 
     const query = `
       SELECT 
-        FileName,
         FilePath,
-        FileType
+        FileType,
+        OriginalName
       FROM excuse_letter_files
       WHERE FileID = ?
     `;
@@ -35,38 +33,15 @@ export async function GET(request: NextRequest) {
     }
 
     const file = rows[0] as any;
-    const filePath = path.join(process.cwd(), 'public', file.FilePath);
 
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-      return NextResponse.json(
-        { success: false, error: "File not found on server" },
-        { status: 404 }
-      );
-    }
+    // FilePath now contains the Vercel Blob URL, so we redirect to it
+    return NextResponse.redirect(file.FilePath);
 
-    // Read the file
-    const fileBuffer = fs.readFileSync(filePath);
-
-    // Return the file with appropriate headers for viewing (not downloading)
-    return new NextResponse(fileBuffer, {
-      headers: {
-        'Content-Type': file.FileType || 'application/octet-stream',
-        'Content-Length': fileBuffer.length.toString(),
-        // Note: No Content-Disposition header, so browser will try to display the file
-      },
-    });
   } catch (error: any) {
     console.error("Error viewing file:", error);
-    console.error("Error details:", {
-      message: error?.message,
-      code: error?.code,
-      sqlState: error?.sqlState,
-      sqlMessage: error?.sqlMessage
-    });
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: "Failed to view file",
         details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },
