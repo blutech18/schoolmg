@@ -169,7 +169,11 @@ export async function GET(request: NextRequest) {
         LEFT JOIN subjects subj ON sch.SubjectID = subj.SubjectID
         LEFT JOIN users inst ON sch.InstructorID = inst.UserID
         WHERE a.StudentID = ?
-        GROUP BY a.ScheduleID, sch.SubjectCode, sch.SubjectName, sch.SubjectTitle, subj.SubjectCode, subj.SubjectName, inst.FirstName, inst.LastName
+        GROUP BY 
+          a.ScheduleID,
+          COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown Code'),
+          COALESCE(sch.SubjectName, sch.SubjectTitle, subj.SubjectName, 'Unknown Subject'),
+          CONCAT(COALESCE(inst.FirstName, ''), ' ', COALESCE(inst.LastName, ''))
         ORDER BY COALESCE(sch.SubjectCode, subj.SubjectCode, 'Unknown Code')
         `,
         [studentIdNum],
@@ -274,8 +278,8 @@ export async function GET(request: NextRequest) {
         }))
     };
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: studentDetails,
       message: "Student details retrieved successfully"
     });
