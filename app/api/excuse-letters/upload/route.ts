@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/app/lib/db";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { put, del } from '@vercel/blob';
 
 // Allowed file types
 const ALLOWED_FILE_TYPES = [
@@ -37,10 +36,6 @@ export async function POST(request: NextRequest) {
 
     const uploadedFiles = [];
 
-    // Create upload directory if it doesn't exist
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'excuse-letters');
-    await mkdir(uploadDir, { recursive: true });
-
     for (const file of files) {
       // Validate file type
       if (!ALLOWED_FILE_TYPES.includes(file.type)) {
@@ -59,17 +54,16 @@ export async function POST(request: NextRequest) {
       }
 
       // Generate unique filename
-      const fileExtension = path.extname(file.name);
+      const fileExtension = file.name.split('.').pop();
       const timestamp = Date.now();
       const randomString = Math.random().toString(36).substring(2, 15);
-      const fileName = `${excuseLetterID}_${timestamp}_${randomString}${fileExtension}`;
-      const filePath = path.join(uploadDir, fileName);
-      const relativePath = `/uploads/excuse-letters/${fileName}`;
+      const fileName = `excuse-letters/${excuseLetterID}_${timestamp}_${randomString}.${fileExtension}`;
 
-      // Save file to disk
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      await writeFile(filePath, buffer);
+      // Upload to Vercel Blob
+      const blob = await put(fileName, file, {
+        access: 'public',
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
 
       // Save file info to database
       const insertQuery = `
@@ -84,7 +78,7 @@ export async function POST(request: NextRequest) {
         file.name,
         file.size,
         file.type,
-        relativePath
+        blob.url  // Store the blob URL instead of local path
       ]);
 
       uploadedFiles.push({
@@ -93,7 +87,7 @@ export async function POST(request: NextRequest) {
         originalName: file.name,
         fileSize: file.size,
         fileType: file.type,
-        filePath: relativePath
+        filePath: blob.url
       });
     }
 
@@ -179,13 +173,13 @@ export async function DELETE(request: NextRequest) {
       [fileId]
     );
 
-    // Try to delete physical file (don't fail if file doesn't exist)
+    // Delete from Vercel Blob storage
     try {
-      const fs = require('fs').promises;
-      const fullPath = path.join(process.cwd(), 'public', fileInfo.FilePath);
-      await fs.unlink(fullPath);
-    } catch (fileError) {
-      console.warn("Could not delete physical file:", fileError);
+      await del(fileInfo.FilePath, {
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
+    } catch (blobError) {
+      console.warn("Could not delete file from blob storage:", blobError);
     }
 
     return NextResponse.json({
