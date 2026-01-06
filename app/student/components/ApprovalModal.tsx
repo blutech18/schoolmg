@@ -56,13 +56,13 @@ export default function ApprovalModal({
 
   const fetchFiles = async () => {
     if (!excuseLetter) return;
-    
+
     setLoading(true);
     try {
       const response = await fetch(`/api/excuse-letters/files?excuseLetterID=${excuseLetter.ExcuseLetterID}`, {
         credentials: 'include'
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setFiles(data.files || []);
@@ -100,17 +100,17 @@ export default function ApprovalModal({
           window.URL.revokeObjectURL(url);
         }
       } else {
-        // For images and PDFs - open in new tab
+        // For images and PDFs - get the blob URL from API and open it
         const response = await fetch(`/api/excuse-letters/view?fileId=${file.FileID}`, {
           credentials: 'include'
         });
 
         if (response.ok) {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          window.open(url, '_blank');
-          // Clean up after a delay to ensure the browser can access it
-          setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+          const data = await response.json();
+          if (data.success && data.url) {
+            // Open the Vercel Blob URL directly in a new tab
+            window.open(data.url, '_blank');
+          }
         }
       }
     } catch (error) {

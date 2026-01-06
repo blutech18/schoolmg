@@ -95,13 +95,13 @@ export default function ViewExcuseLetterModal({
 
   const fetchFiles = async () => {
     if (!excuseLetter) return;
-    
+
     setLoading(true);
     try {
       const response = await fetch(`/api/excuse-letters/files?excuseLetterID=${excuseLetter.ExcuseLetterID}`, {
         credentials: 'include'
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setFiles(data.files || []);
@@ -115,16 +115,16 @@ export default function ViewExcuseLetterModal({
 
   const fetchSubjects = async () => {
     if (!excuseLetter) return;
-    
+
     console.log('Fetching subjects for excuse letter:', excuseLetter.ExcuseLetterID);
-    
+
     try {
       const response = await fetch(`/api/excuse-letters/subjects?excuseLetterId=${excuseLetter.ExcuseLetterID}`, {
         credentials: 'include'
       });
-      
+
       console.log('Subjects API response status:', response.status);
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('Subjects API response data:', data);
@@ -144,7 +144,7 @@ export default function ViewExcuseLetterModal({
       declined: { color: 'bg-red-100 text-red-800', text: 'Declined' },
       partial: { color: 'bg-blue-100 text-blue-800', text: 'Partial Approval' }
     };
-    
+
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
     return (
       <Badge className={`${config.color} border-0`}>
@@ -177,17 +177,17 @@ export default function ViewExcuseLetterModal({
           window.URL.revokeObjectURL(url);
         }
       } else {
-        // For images and PDFs - open in new tab
+        // For images and PDFs - get the blob URL from API and open it
         const response = await fetch(`/api/excuse-letters/view?fileId=${file.FileID}`, {
           credentials: 'include'
         });
 
         if (response.ok) {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          window.open(url, '_blank');
-          // Clean up after a delay to ensure the browser can access it
-          setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+          const data = await response.json();
+          if (data.success && data.url) {
+            // Open the Vercel Blob URL directly in a new tab
+            window.open(data.url, '_blank');
+          }
         }
       }
     } catch (error) {
@@ -311,7 +311,7 @@ export default function ViewExcuseLetterModal({
                   <p className="text-sm mt-1">{letterData.Subject}</p>
                 )}
               </div>
-              
+
               <div>
                 <label className="text-xs font-medium text-gray-600">Reason:</label>
                 {editMode ? (
@@ -325,7 +325,7 @@ export default function ViewExcuseLetterModal({
                   <p className="text-sm mt-1 whitespace-pre-wrap">{letterData.Reason}</p>
                 )}
               </div>
-              
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-gray-600">Date From:</label>
@@ -336,10 +336,10 @@ export default function ViewExcuseLetterModal({
                       onChange={(e) => setFormDateFrom(e.target.value)}
                     />
                   ) : (
-                  <p className="text-sm mt-1 flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
+                    <p className="text-sm mt-1 flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
                       {new Date(letterData.DateFrom).toLocaleDateString()}
-                  </p>
+                    </p>
                   )}
                 </div>
                 <div>
@@ -351,10 +351,10 @@ export default function ViewExcuseLetterModal({
                       onChange={(e) => setFormDateTo(e.target.value)}
                     />
                   ) : (
-                  <p className="text-sm mt-1 flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
+                    <p className="text-sm mt-1 flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
                       {new Date(letterData.DateTo).toLocaleDateString()}
-                  </p>
+                    </p>
                   )}
                 </div>
               </div>
@@ -408,18 +408,18 @@ export default function ViewExcuseLetterModal({
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-gray-600">Subject Code:</label>
-                        <p className="text-sm mt-1">{letterData.SubjectCode || 'N/A'}</p>
+                      <p className="text-sm mt-1">{letterData.SubjectCode || 'N/A'}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Subject Name:</label>
-                        <p className="text-sm mt-1">{letterData.SubjectTitle || 'N/A'}</p>
+                      <p className="text-sm mt-1">{letterData.SubjectTitle || 'N/A'}</p>
                     </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Instructor:</label>
                     <p className="text-sm mt-1 flex items-center gap-1">
                       <User className="h-4 w-4" />
-                        {letterData.InstructorName}
+                      {letterData.InstructorName}
                     </p>
                   </div>
                 </div>
@@ -526,9 +526,9 @@ export default function ViewExcuseLetterModal({
                 </Button>
               </>
             )}
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
           </div>
         </div>
       </DialogContent>

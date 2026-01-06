@@ -8,10 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SearchBar } from "@/components/ui/searchbar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { 
-  FileText, 
-  Calendar, 
-  Clock, 
+import {
+  FileText,
+  Calendar,
+  Clock,
   CheckCircle,
   XCircle,
   AlertCircle,
@@ -76,14 +76,14 @@ export default function AdminExcuseLettersPage() {
   const [excuseLetters, setExcuseLetters] = useState<ExcuseLetter[]>([]);
   const [filteredLetters, setFilteredLetters] = useState<ExcuseLetter[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [courseFilter, setCourseFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
-  
+
   // Modal states
   const [selectedLetter, setSelectedLetter] = useState<ExcuseLetter | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -119,23 +119,23 @@ export default function AdminExcuseLettersPage() {
       if (data.success) {
         const letters = data.data;
         const today = new Date().toDateString();
-        
-        const pendingApprovals = letters.filter((letter: ExcuseLetter) => 
+
+        const pendingApprovals = letters.filter((letter: ExcuseLetter) =>
           letter.Status === 'pending' || letter.Status === 'partial'
         ).length;
-        
-        const approvedToday = letters.filter((letter: ExcuseLetter) => 
-          letter.Status === 'approved' && 
+
+        const approvedToday = letters.filter((letter: ExcuseLetter) =>
+          letter.Status === 'approved' &&
           (letter.DeanActionDate && new Date(letter.DeanActionDate).toDateString() === today ||
-           letter.CoordinatorActionDate && new Date(letter.CoordinatorActionDate).toDateString() === today ||
-           letter.InstructorActionDate && new Date(letter.InstructorActionDate).toDateString() === today)
+            letter.CoordinatorActionDate && new Date(letter.CoordinatorActionDate).toDateString() === today ||
+            letter.InstructorActionDate && new Date(letter.InstructorActionDate).toDateString() === today)
         ).length;
-        
-        const declinedToday = letters.filter((letter: ExcuseLetter) => 
-          letter.Status === 'declined' && 
+
+        const declinedToday = letters.filter((letter: ExcuseLetter) =>
+          letter.Status === 'declined' &&
           (letter.DeanActionDate && new Date(letter.DeanActionDate).toDateString() === today ||
-           letter.CoordinatorActionDate && new Date(letter.CoordinatorActionDate).toDateString() === today ||
-           letter.InstructorActionDate && new Date(letter.InstructorActionDate).toDateString() === today)
+            letter.CoordinatorActionDate && new Date(letter.CoordinatorActionDate).toDateString() === today ||
+            letter.InstructorActionDate && new Date(letter.InstructorActionDate).toDateString() === today)
         ).length;
 
         setStats({
@@ -208,23 +208,23 @@ export default function AdminExcuseLettersPage() {
     if (dateFilter !== "all") {
       const today = new Date();
       const filterDate = new Date();
-      
+
       switch (dateFilter) {
         case "today":
           filterDate.setHours(0, 0, 0, 0);
-          filtered = filtered.filter(letter => 
+          filtered = filtered.filter(letter =>
             new Date(letter.SubmissionDate) >= filterDate
           );
           break;
         case "week":
           filterDate.setDate(today.getDate() - 7);
-          filtered = filtered.filter(letter => 
+          filtered = filtered.filter(letter =>
             new Date(letter.SubmissionDate) >= filterDate
           );
           break;
         case "month":
           filterDate.setMonth(today.getMonth() - 1);
-          filtered = filtered.filter(letter => 
+          filtered = filtered.filter(letter =>
             new Date(letter.SubmissionDate) >= filterDate
           );
           break;
@@ -312,17 +312,17 @@ export default function AdminExcuseLettersPage() {
           window.URL.revokeObjectURL(url);
         }
       } else {
-        // For images and PDFs - open in new tab
+        // For images and PDFs - get the blob URL from API and open it
         const response = await fetch(`/api/excuse-letters/view?fileId=${file.FileID}`, {
           credentials: 'include'
         });
 
         if (response.ok) {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          window.open(url, '_blank');
-          // Clean up after a delay to ensure the browser can access it
-          setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+          const data = await response.json();
+          if (data.success && data.url) {
+            // Open the Vercel Blob URL directly in a new tab
+            window.open(data.url, '_blank');
+          }
         }
       }
     } catch (error) {
@@ -504,7 +504,7 @@ export default function AdminExcuseLettersPage() {
                         <h3 className="font-semibold">{letter.Subject}</h3>
                         {getStatusBadge(letter.Status)}
                       </div>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-sm text-gray-600 mb-3">
                         <span><strong>Student:</strong> {letter.StudentName}</span>
                         <span><strong>Course:</strong> {letter.Course} Year {letter.YearLevel}</span>
@@ -585,11 +585,11 @@ export default function AdminExcuseLettersPage() {
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      {selectedLetter.DeanStatus === 'approved' ? 
+                      {selectedLetter.DeanStatus === 'approved' ?
                         <CheckCircle className="h-4 w-4 text-green-600" /> :
                         selectedLetter.DeanStatus === 'declined' ?
-                        <XCircle className="h-4 w-4 text-red-600" /> :
-                        <Clock className="h-4 w-4 text-yellow-600" />
+                          <XCircle className="h-4 w-4 text-red-600" /> :
+                          <Clock className="h-4 w-4 text-yellow-600" />
                       }
                       Dean Status
                     </CardTitle>
@@ -597,8 +597,8 @@ export default function AdminExcuseLettersPage() {
                   <CardContent className="pt-0">
                     <Badge className={
                       selectedLetter.DeanStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                      selectedLetter.DeanStatus === 'declined' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
+                        selectedLetter.DeanStatus === 'declined' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
                     }>
                       {selectedLetter.DeanStatus}
                     </Badge>
@@ -616,11 +616,11 @@ export default function AdminExcuseLettersPage() {
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      {selectedLetter.CoordinatorStatus === 'approved' ? 
+                      {selectedLetter.CoordinatorStatus === 'approved' ?
                         <CheckCircle className="h-4 w-4 text-green-600" /> :
                         selectedLetter.CoordinatorStatus === 'declined' ?
-                        <XCircle className="h-4 w-4 text-red-600" /> :
-                        <Clock className="h-4 w-4 text-yellow-600" />
+                          <XCircle className="h-4 w-4 text-red-600" /> :
+                          <Clock className="h-4 w-4 text-yellow-600" />
                       }
                       Coordinator Status
                     </CardTitle>
@@ -628,8 +628,8 @@ export default function AdminExcuseLettersPage() {
                   <CardContent className="pt-0">
                     <Badge className={
                       selectedLetter.CoordinatorStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                      selectedLetter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
+                        selectedLetter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
                     }>
                       {selectedLetter.CoordinatorStatus}
                     </Badge>
@@ -647,11 +647,11 @@ export default function AdminExcuseLettersPage() {
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      {selectedLetter.InstructorStatus === 'approved' ? 
+                      {selectedLetter.InstructorStatus === 'approved' ?
                         <CheckCircle className="h-4 w-4 text-green-600" /> :
                         selectedLetter.InstructorStatus === 'declined' ?
-                        <XCircle className="h-4 w-4 text-red-600" /> :
-                        <Clock className="h-4 w-4 text-yellow-600" />
+                          <XCircle className="h-4 w-4 text-red-600" /> :
+                          <Clock className="h-4 w-4 text-yellow-600" />
                       }
                       Instructor Status
                     </CardTitle>
@@ -659,8 +659,8 @@ export default function AdminExcuseLettersPage() {
                   <CardContent className="pt-0">
                     <Badge className={
                       selectedLetter.InstructorStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                      selectedLetter.InstructorStatus === 'declined' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
+                        selectedLetter.InstructorStatus === 'declined' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
                     }>
                       {selectedLetter.InstructorStatus}
                     </Badge>
