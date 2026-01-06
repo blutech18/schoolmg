@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import ViewExcuseLetterModal from "../student/components/ViewExcuseLetterModal";
 import ApprovalModal from "../student/components/ApprovalModal";
+import { ExcuseLetterNotificationBar, calculateExcuseLetterCountsBySubject } from "@/components/ui/excuse-letter-notification-bar";
 
 interface CoordinatorStats {
   totalExcuseLetters: number;
@@ -292,6 +293,12 @@ export default function CoordinatorDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Pending Excuse Letters Notification Bar */}
+      <ExcuseLetterNotificationBar
+        excuseLetterCounts={calculateExcuseLetterCountsBySubject(excuseLetters, 'CoordinatorStatus')}
+        title="Pending Excuse Letters by Subject"
+      />
 
       {/* Main Content */}
       <Tabs defaultValue="pending" className="space-y-6">

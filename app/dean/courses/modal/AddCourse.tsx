@@ -16,7 +16,7 @@ import { Label } from "../../../../components/ui/label";
 import { Textarea } from "../../../../components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../components/ui/select";
 import { Plus } from "lucide-react";
-import { toast } from "sonner";
+import { brandedToast } from "@/components/ui/branded-toast";
 
 interface AddCourseDialogProps {
   onAdded: () => void;
@@ -53,7 +53,7 @@ export default function AddCourseDialog({ onAdded }: AddCourseDialogProps) {
         throw new Error(error.error || 'Failed to create course');
       }
 
-      toast.success('Course created successfully');
+      brandedToast.success('Course created successfully');
       setOpen(false);
       setFormData({
         CourseCode: '',
@@ -66,7 +66,7 @@ export default function AddCourseDialog({ onAdded }: AddCourseDialogProps) {
       onAdded();
     } catch (error) {
       console.error('Error creating course:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create course');
+      brandedToast.error(error instanceof Error ? error.message : 'Failed to create course');
     } finally {
       setLoading(false);
     }

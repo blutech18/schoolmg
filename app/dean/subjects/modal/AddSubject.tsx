@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Plus } from 'lucide-react'
+import { brandedToast } from '@/components/ui/branded-toast'
 
 interface Subject {
   SubjectCode: string
@@ -128,7 +129,7 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
       })
 
       if (response.ok) {
-        alert('Subject added successfully!')
+        brandedToast.success('Subject added successfully!')
         setForm({
           SubjectCode: '',
           SubjectName: '',
@@ -142,10 +143,10 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
         onAdded()
       } else {
         const error = await response.json()
-        alert(error.error || 'Failed to add subject')
+        brandedToast.error(error.error || 'Failed to add subject')
       }
     } catch (error) {
-      alert('Failed to add subject')
+      brandedToast.error('Failed to add subject')
     } finally {
       setLoading(false)
     }
@@ -218,39 +219,20 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
             </Select>
           </div>
           
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Class Type</label>
-              <Select value={form.ClassType} onValueChange={handleClassTypeChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select class type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="LECTURE">Lecture</SelectItem>
-                  <SelectItem value="LECTURE+LAB">Lecture and Laboratory</SelectItem>
-                  <SelectItem value="MAJOR">Cisco</SelectItem>
-                  <SelectItem value="NSTP">NSTP</SelectItem>
-                  <SelectItem value="OJT">OJT</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Assigned Instructor (optional)</label>
-              <Select value={form.InstructorID?.toString() || 'none'} onValueChange={handleInstructorChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select an instructor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No instructor assigned</SelectItem>
-                  {instructors.map((instructor) => (
-                    <SelectItem key={instructor.UserID} value={instructor.UserID.toString()}>
-                      {instructor.Name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Class Type</label>
+            <Select value={form.ClassType} onValueChange={handleClassTypeChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select class type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="LECTURE">Lecture</SelectItem>
+                <SelectItem value="LECTURE+LAB">Lecture and Laboratory</SelectItem>
+                <SelectItem value="MAJOR">Cisco</SelectItem>
+                <SelectItem value="NSTP">NSTP</SelectItem>
+                <SelectItem value="OJT">OJT</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           <Textarea 

@@ -35,6 +35,7 @@ import ScheduleHub from "./components/ScheduleHub";
 import AttendanceSheetWrapper from "./components/AttendanceSheetWrapper";
 import { NotificationBannerContainer, useNotificationBanner } from "@/components/ui/notification-banner";
 import ScheduleCard from "@/app/components/ScheduleCard";
+import { ExcuseLetterNotificationBar, calculateExcuseLetterCountsBySubject } from "@/components/ui/excuse-letter-notification-bar";
 
 interface InstructorStats {
   totalSchedules: number;
@@ -2123,6 +2124,12 @@ export default function InstructorDashboard() {
 
         {/* Excuse Letters Tab */}
         <TabsContent value="excuseLetters" className="space-y-4">
+          {/* Pending Excuse Letters Notification Bar */}
+          <ExcuseLetterNotificationBar
+            excuseLetterCounts={calculateExcuseLetterCountsBySubject(excuseLetters, 'InstructorStatus')}
+            title="Pending Excuse Letters by Subject"
+          />
+
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Pending Excuse Letters</h2>
           </div>

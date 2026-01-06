@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table"
 import { SearchBar } from '@/components/ui/searchbar'
 import { capitalizeString, getRoleColor } from '@/helpers/helper'
-import { Trash, Upload } from 'lucide-react'
+import { Trash, Upload, Download } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { enhancedPrint, getCurrentAcademicYear, getCurrentSemester } from '@/app/lib/printUtils'
 import { brandedToast } from '@/components/ui/branded-toast'
@@ -77,6 +77,68 @@ export default function StudentsTable() {
     fileInputRef.current?.click()
   }
 
+  const downloadImportTemplate = () => {
+    // Create CSV template content
+    const headers = [
+      'StudentNumber',
+      'FirstName',
+      'MiddleName',
+      'LastName',
+      'EmailAddress',
+      'ContactNumber',
+      'Course',
+      'YearLevel',
+      'Section',
+      'IsPWD',
+      'Status'
+    ]
+    
+    const sampleData = [
+      '2024-00001',
+      'Juan',
+      'Dela',
+      'Cruz',
+      'juan.delacruz@example.com',
+      '09123456789',
+      'BSIT',
+      '1',
+      'A',
+      'No',
+      'active'
+    ]
+    
+    const csvContent = [
+      headers.join(','),
+      sampleData.join(','),
+      '// Instructions:',
+      '// - StudentNumber: Unique student identifier (e.g., 2024-00001)',
+      '// - FirstName: Student first name (required)',
+      '// - MiddleName: Student middle name (optional)',
+      '// - LastName: Student last name (required)',
+      '// - EmailAddress: Valid email address (required)',
+      '// - ContactNumber: Phone number (optional)',
+      '// - Course: Course code (e.g., BSIT, BSCS) (required)',
+      '// - YearLevel: 1, 2, 3, or 4 (required)',
+      '// - Section: Section letter (e.g., A, B, C) (required)',
+      '// - IsPWD: Yes or No (optional, defaults to No)',
+      '// - Status: active or inactive (optional, defaults to active)',
+      '// Delete these instruction lines before importing'
+    ].join('\n')
+    
+    // Create and download the file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'student_import_template.csv')
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    brandedToast.success('Template downloaded! Fill in the data and import.')
+  }
+
   const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -132,6 +194,14 @@ export default function StudentsTable() {
         />
         <div className='flex gap-2 flex-shrink-0'>
           <Button onClick={handlePrint} variant="outline">Print Report</Button>
+          <Button 
+            onClick={downloadImportTemplate} 
+            variant="outline"
+            title="Download CSV template for importing students"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download Template
+          </Button>
           <Button 
             onClick={handleImportClick} 
             variant="outline"

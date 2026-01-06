@@ -10,6 +10,7 @@ import { FileText, Calendar, Clock, CheckCircle, XCircle, AlertCircle } from "lu
 import { toast } from "sonner";
 import ViewExcuseLetterModal from "@/app/student/components/ViewExcuseLetterModal";
 import ApprovalModal from "@/app/student/components/ApprovalModal";
+import { ExcuseLetterNotificationBar, calculateExcuseLetterCountsBySubject } from "@/components/ui/excuse-letter-notification-bar";
 
 interface ExcuseLetter {
   ExcuseLetterID: number;
@@ -157,6 +158,12 @@ export default function DeanExcuseLettersPage() {
           <p className="text-gray-600 mt-1">Approve or decline student excuse letters</p>
         </div>
       </div>
+
+      {/* Pending Excuse Letters Notification Bar */}
+      <ExcuseLetterNotificationBar
+        excuseLetterCounts={calculateExcuseLetterCountsBySubject(excuseLetters, 'DeanStatus')}
+        title="Pending Excuse Letters by Subject"
+      />
 
       <div className="flex flex-col sm:flex-row gap-4">
         <SearchBar placeholder="Search students or subjects..." value={searchTerm} onChange={setSearchTerm} className="w-full" />

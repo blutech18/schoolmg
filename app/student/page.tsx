@@ -14,6 +14,7 @@ import StudentScheduleHub from "./components/StudentScheduleHub";
 import { formatScheduleEntry, type ScheduleDisplayData } from "@/lib/utils";
 import ScheduleCard from "@/app/components/ScheduleCard";
 import { printDocument, generatePrintStyles, generatePrintHeader } from "@/lib/printUtils";
+import { ExcuseLetterNotificationBar, calculateExcuseLetterCountsBySubject } from "@/components/ui/excuse-letter-notification-bar";
 
 interface StudentData {
   userId: number;
@@ -1091,6 +1092,12 @@ export default function StudentDashboard() {
 
         {/* Excuse Letters Tab */}
         <TabsContent value="excuse-letters" className="space-y-4">
+          {/* Pending Excuse Letters Notification Bar */}
+          <ExcuseLetterNotificationBar
+            excuseLetterCounts={calculateExcuseLetterCountsBySubject(excuseLetters, 'Status')}
+            title="Pending Excuse Letters by Subject"
+          />
+
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">My Excuse Letters</h2>
             <Button
