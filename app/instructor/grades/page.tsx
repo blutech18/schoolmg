@@ -64,7 +64,7 @@ function InstructorGradesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const scheduleId = searchParams.get('scheduleId');
-  
+
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
@@ -79,7 +79,7 @@ function InstructorGradesContent() {
     // Use the trigger to ensure this function re-runs when max scores are updated
     const _ = maxScoreUpdateTrigger;
     const __ = selectedTerm; // Also depend on selectedTerm to re-run when term changes
-    
+
     if (!gradingConfig?.components) {
       // Default numerical fallback - allow 0 as minimum
       return 20;
@@ -99,18 +99,18 @@ function InstructorGradesContent() {
           return storedScores[itemNumber];
         }
       }
-      
+
       // Use maxScore directly from the component configuration
       if (configComponent.maxScore) {
         return configComponent.maxScore;
       }
-      
+
       // Legacy support for named max score properties
       const componentType = componentName.toLowerCase();
       if (componentType === 'quiz' && configComponent.maxItemsPerQuiz) {
         return configComponent.maxItemsPerQuiz;
       }
-      if (componentType === 'exam' && configComponent.maxItemsPerExam) {
+      if ((componentType === 'exam' || componentType === 'major exam') && configComponent.maxItemsPerExam) {
         return configComponent.maxItemsPerExam;
       }
       if (componentType === 'laboratory' && configComponent.maxItemsPerLab) {
@@ -204,7 +204,7 @@ function InstructorGradesContent() {
         credentials: 'include'
       });
       const data = await response.json();
-      
+
       if (data.success && data.data) {
         // If we got a single schedule object
         const scheduleData = !Array.isArray(data.data) ? data.data : data.data[0];
@@ -226,7 +226,7 @@ function InstructorGradesContent() {
         credentials: 'include'
       });
       const data = await response.json();
-      
+
       if (data.success) {
         // Filter out students with LOA, Drop, or UW status
         const filteredStudents = data.data.filter((student: any) => {
@@ -247,7 +247,7 @@ function InstructorGradesContent() {
         credentials: 'include'
       });
       const data = await response.json();
-      
+
       if (data.success) {
         // Process grades to ensure whole numbers are stored as integers
         const processedGrades = data.data.map((grade: any) => ({
@@ -269,7 +269,7 @@ function InstructorGradesContent() {
     LECTURE: {
       components: [
         { name: 'Quiz', weight: 60, items: 15, maxScore: 20 },
-        { name: 'Exam', weight: 40, items: 1, maxScore: 60 },
+        { name: 'Major Exam', weight: 40, items: 1, maxScore: 60 },
       ],
     },
     'LECTURE+LAB': {
@@ -277,7 +277,7 @@ function InstructorGradesContent() {
         { name: 'Quiz', weight: 15, items: 5, maxScore: 20 },
         { name: 'Laboratory', weight: 30, items: 5, maxScore: 20 },
         { name: 'OLO', weight: 15, items: 5, maxScore: 20 },
-        { name: 'Exam', weight: 40, items: 1, maxScore: 60 },
+        { name: 'Major Exam', weight: 40, items: 1, maxScore: 60 },
       ],
     },
     MAJOR: {
@@ -285,13 +285,13 @@ function InstructorGradesContent() {
         { name: 'Quiz', weight: 15, items: 5, maxScore: 20 },
         { name: 'Laboratory', weight: 40, items: 5, maxScore: 20 },
         { name: 'OLO', weight: 15, items: 5, maxScore: 20 },
-        { name: 'Exam', weight: 30, items: 1, maxScore: 60 },
+        { name: 'Major Exam', weight: 30, items: 1, maxScore: 60 },
       ],
     },
     NSTP: {
       components: [
         { name: 'Quiz', weight: 60, items: 15, maxScore: 20 },
-        { name: 'Exam', weight: 40, items: 1, maxScore: 60 },
+        { name: 'Major Exam', weight: 40, items: 1, maxScore: 60 },
       ],
     },
     OJT: {
@@ -378,13 +378,13 @@ function InstructorGradesContent() {
     // Handle empty string as null/undefined (no grade entered)
     if (score === '' || score === null || score === undefined) {
       setGrades(prevGrades => {
-        const existingGradeIndex = prevGrades.findIndex(g => 
-          g.StudentID === studentId && 
-          g.Component === component && 
+        const existingGradeIndex = prevGrades.findIndex(g =>
+          g.StudentID === studentId &&
+          g.Component === component &&
           g.ItemNumber === itemNumber &&
           g.Term === selectedTerm
         );
-        
+
         if (existingGradeIndex >= 0) {
           const updatedGrades = [...prevGrades];
           updatedGrades.splice(existingGradeIndex, 1);
@@ -395,42 +395,42 @@ function InstructorGradesContent() {
       });
       return;
     }
-    
+
     let numericScore = parseFloat(score);
-    
+
     // Check if the parsed value is NaN (invalid input)
     if (isNaN(numericScore)) {
       brandedToast.error('Please enter a valid number');
       return;
     }
-    
+
     // Get max score based on component type and item number
     const maxScore = getMaxScore(component, itemNumber);
-    
+
     // Validate score doesn't exceed maximum allowed
     if (numericScore > maxScore) {
       brandedToast.error(`Score cannot exceed ${maxScore} for ${component} ${itemNumber}`);
       numericScore = maxScore; // Cap the score at maximum
     }
-    
+
     // Ensure score is not negative
     if (numericScore < 0) {
       numericScore = 0;
     }
-    
+
     // Allow 0 as a valid score (no minimum enforced)
-    
+
     // Convert to integer (whole number) to avoid decimal display
     numericScore = Math.round(numericScore);
-    
+
     setGrades(prevGrades => {
-      const existingGradeIndex = prevGrades.findIndex(g => 
-        g.StudentID === studentId && 
-        g.Component === component && 
+      const existingGradeIndex = prevGrades.findIndex(g =>
+        g.StudentID === studentId &&
+        g.Component === component &&
         g.ItemNumber === itemNumber &&
         g.Term === selectedTerm
       );
-      
+
       if (existingGradeIndex >= 0) {
         const updatedGrades = [...prevGrades];
         updatedGrades[existingGradeIndex] = {
@@ -452,7 +452,7 @@ function InstructorGradesContent() {
         return [...prevGrades, newGrade];
       }
     });
-    
+
     setUnsavedChanges(true);
   };
 
@@ -476,7 +476,7 @@ function InstructorGradesContent() {
 
       // Get the current max score before updating
       const currentMaxScore = getMaxScore(componentName, itemNumber);
-      
+
       // Store individual item max scores in localStorage with term-specific keys
       const itemMaxScoresKey = `itemMaxScores_${schedule?.SubjectID}_${schedule?.ClassType}_${componentName}_${selectedTerm}`;
       const existingScores = JSON.parse(localStorage.getItem(itemMaxScoresKey) || '{}');
@@ -487,15 +487,15 @@ function InstructorGradesContent() {
       if (currentMaxScore > 0 && newMaxScore !== currentMaxScore) {
         const adjustmentRatio = newMaxScore / currentMaxScore;
         let adjustedCount = 0;
-        
+
         setGrades(prevGrades => {
           return prevGrades.map(grade => {
             // Check if this grade is for the same component, item, and term
-            if (grade.Component === componentName && 
-                grade.ItemNumber === itemNumber && 
-                grade.Term === selectedTerm && 
-                grade.Score !== null) {
-              
+            if (grade.Component === componentName &&
+              grade.ItemNumber === itemNumber &&
+              grade.Term === selectedTerm &&
+              grade.Score !== null) {
+
               // Handle zero scores - keep them as zero
               if (grade.Score === 0) {
                 return {
@@ -503,25 +503,25 @@ function InstructorGradesContent() {
                   MaxScore: newMaxScore
                 };
               }
-              
+
               // Calculate new score proportionally
               let newScore = grade.Score * adjustmentRatio;
-              
+
               // Round to 1 decimal place for better precision
               newScore = Math.round(newScore * 10) / 10;
-              
+
               // Ensure the new score doesn't exceed the new max score
               if (newScore > newMaxScore) {
                 newScore = newMaxScore;
               }
-              
+
               // If the score was a perfect score (equal to old max), make it perfect for new max
               if (Math.abs(grade.Score - currentMaxScore) < 0.01) {
                 newScore = newMaxScore;
               }
-              
+
               adjustedCount++;
-              
+
               return {
                 ...grade,
                 Score: newScore,
@@ -531,7 +531,7 @@ function InstructorGradesContent() {
             return grade;
           });
         });
-        
+
         if (adjustedCount > 0) {
           brandedToast.success(`${componentName} ${itemNumber} max score updated to ${newMaxScore} points. ${adjustedCount} existing scores adjusted proportionally.`);
         } else {
@@ -544,7 +544,7 @@ function InstructorGradesContent() {
       // Trigger a re-render to update the UI
       setMaxScoreUpdateTrigger(prev => prev + 1);
       setUnsavedChanges(true);
-      
+
     } catch (error) {
       console.error('Error updating item max score:', error);
       brandedToast.error('Failed to update max score');
@@ -609,7 +609,7 @@ function InstructorGradesContent() {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         brandedToast.success(`Grades saved successfully! ${data.summary?.updated || 0} updated, ${data.summary?.inserted || 0} inserted.`);
         setUnsavedChanges(false);
@@ -627,19 +627,19 @@ function InstructorGradesContent() {
 
 
   // State to store calculated grades from API
-  const [calculatedGrades, setCalculatedGrades] = useState<{[key: string]: any}>({});
+  const [calculatedGrades, setCalculatedGrades] = useState<{ [key: string]: any }>({});
 
   // Fetch calculated grades from API for consistency
   const fetchCalculatedGrades = async () => {
     if (!scheduleId || students.length === 0) return;
-    
+
     const gradePromises = students.map(async (student) => {
       try {
         const response = await fetch(`/api/grades?role=student&userId=${student.StudentID}`, {
           credentials: 'include'
         });
         const data = await response.json();
-        
+
         if (data.success && data.summary && data.summary[scheduleId]) {
           return {
             studentId: student.StudentID,
@@ -663,8 +663,8 @@ function InstructorGradesContent() {
     const gradesMap = results.reduce((acc, result) => {
       acc[result.studentId] = result.grades;
       return acc;
-    }, {} as {[key: string]: any});
-    
+    }, {} as { [key: string]: any });
+
     setCalculatedGrades(gradesMap);
   };
 
@@ -679,7 +679,7 @@ function InstructorGradesContent() {
   const calculateStudentGrade = (studentId: number, term: string): number => {
     const studentGrades = calculatedGrades[studentId];
     if (!studentGrades) return 5.0;
-    
+
     if (term === 'midterm') {
       return studentGrades.midterm || 5.0;
     } else if (term === 'final') {
@@ -689,13 +689,13 @@ function InstructorGradesContent() {
   };
 
   const getGradeValue = (studentId: number, component: string, itemNumber: number): string => {
-    const grade = grades.find(g => 
-      g.StudentID === studentId && 
-      g.Component === component && 
+    const grade = grades.find(g =>
+      g.StudentID === studentId &&
+      g.Component === component &&
       g.ItemNumber === itemNumber &&
       g.Term === selectedTerm
     );
-    
+
     if (grade && grade.Score !== null) {
       // Always display as whole number (integer)
       return Math.round(grade.Score).toString();
@@ -720,14 +720,14 @@ function InstructorGradesContent() {
         <div className="text-center py-8">
           <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600">Schedule not found</p>
-          <Button 
+          <Button
             onClick={() => {
               if (typeof window !== 'undefined' && window.history.length > 1) {
                 router.back();
               } else {
                 router.push('/instructor');
               }
-            }} 
+            }}
             className="mt-4"
             variant="outline"
           >
@@ -744,15 +744,15 @@ function InstructorGradesContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button 
+          <Button
             onClick={() => {
               if (typeof window !== 'undefined' && window.history.length > 1) {
                 router.back();
               } else {
                 router.push('/instructor');
               }
-            }} 
-            variant="outline" 
+            }}
+            variant="outline"
             size="sm"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -795,7 +795,7 @@ function InstructorGradesContent() {
           </Select>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
+          <Button
             onClick={printGradingSheet}
             variant="outline"
             className="print-hide"
@@ -803,8 +803,8 @@ function InstructorGradesContent() {
             <Printer className="h-4 w-4 mr-2" />
             Print
           </Button>
-          <Button 
-            onClick={saveGrades} 
+          <Button
+            onClick={saveGrades}
             disabled={!unsavedChanges}
             className="bg-blue-600 hover:bg-blue-700"
           >
@@ -834,14 +834,14 @@ function InstructorGradesContent() {
                     </th>
                     {gradingConfig?.components?.map((component) => (
                       Array.from({ length: component.items }, (_, index) => (
-                        <th 
-                          key={`${component.name}-${index + 1}`} 
+                        <th
+                          key={`${component.name}-${index + 1}`}
                           className="border border-gray-300 p-2 text-center font-medium min-w-[80px]"
                         >
                           <div className="text-sm font-bold">
-                            {component.name === 'Laboratory' ? 'Lab' : 
-                             component.name === 'Online Course' ? 'Online' :
-                             component.name} {index + 1}
+                            {component.name === 'Laboratory' ? 'Lab' :
+                              component.name === 'Online Course' ? 'Online' :
+                                component.name} {index + 1}
                           </div>
                         </th>
                       ))
@@ -850,7 +850,7 @@ function InstructorGradesContent() {
                       <div className="text-sm font-bold">Final Grade</div>
                     </th>
                   </tr>
-                  
+
                   {/* Total Items Row */}
                   <tr className="bg-blue-50 text-xs">
                     <td className="border border-gray-300 p-2 font-medium sticky left-0 bg-blue-50 z-10 border-r-2 border-r-gray-400">
@@ -858,8 +858,8 @@ function InstructorGradesContent() {
                     </td>
                     {gradingConfig?.components?.map((component) => (
                       Array.from({ length: component.items }, (_, index) => (
-                        <td 
-                          key={`max-${component.name}-${index + 1}`} 
+                        <td
+                          key={`max-${component.name}-${index + 1}`}
                           className="border border-gray-300 p-1 text-center"
                         >
                           <Input
@@ -869,9 +869,9 @@ function InstructorGradesContent() {
                             value={getMaxScore(component.name, index + 1)}
                             onChange={(e) => updateItemMaxScore(component.name, index + 1, Math.round(parseFloat(e.target.value) || 0))}
                             className="w-full h-6 text-center border-0 bg-transparent focus:bg-white focus:border focus:border-blue-300 text-xs font-bold"
-                            title={`Edit total items for ${component.name === 'Laboratory' ? 'Lab' : 
-                                   component.name === 'Online Course' ? 'Online Course' : 
-                                   component.name} ${index + 1}`}
+                            title={`Edit total items for ${component.name === 'Laboratory' ? 'Lab' :
+                              component.name === 'Online Course' ? 'Online Course' :
+                                component.name} ${index + 1}`}
                           />
                         </td>
                       ))
@@ -880,16 +880,16 @@ function InstructorGradesContent() {
                       -
                     </td>
                   </tr>
-                  
+
                 </thead>
                 <tbody>
                   {students.map((student, studentIndex) => {
                     const termAverage = calculateStudentGrade(student.StudentID, selectedTerm);
                     const isEvenRow = studentIndex % 2 === 0;
-                    
+
                     return (
-                      <tr 
-                        key={student.StudentID} 
+                      <tr
+                        key={student.StudentID}
                         className={`hover:bg-blue-50 ${isEvenRow ? 'bg-white' : 'bg-gray-25'}`}
                       >
                         <td className="border border-gray-300 p-3 font-medium sticky left-0 bg-white z-10 border-r-2 border-r-gray-400">
@@ -900,8 +900,8 @@ function InstructorGradesContent() {
                         </td>
                         {gradingConfig?.components?.map((component) => (
                           Array.from({ length: component.items }, (_, index) => (
-                            <td 
-                              key={`${student.StudentID}-${component.name}-${index + 1}`} 
+                            <td
+                              key={`${student.StudentID}-${component.name}-${index + 1}`}
                               className="border border-gray-300 p-1"
                             >
                               <Input
@@ -927,8 +927,8 @@ function InstructorGradesContent() {
                 </tbody>
               </table>
             </div>
-            
-            
+
+
             {/* Summary Table for Midterm and Finals */}
             <div className="mt-8">
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -971,10 +971,10 @@ function InstructorGradesContent() {
                         ? (overallAverage <= 3.0 ? 'Passed' : 'Failed')
                         : 'Incomplete';
                       const isEvenRow = studentIndex % 2 === 0;
-                      
+
                       return (
-                        <tr 
-                          key={`summary-${student.StudentID}`} 
+                        <tr
+                          key={`summary-${student.StudentID}`}
                           className={`hover:bg-blue-50 ${isEvenRow ? 'bg-white' : 'bg-gray-25'}`}
                         >
                           <td className="border border-gray-300 p-3 font-medium sticky left-0 bg-white z-10">
@@ -990,7 +990,7 @@ function InstructorGradesContent() {
                                 ({studentGrades.midtermPercentage.toFixed(1)}%)
                               </div>
                             )}
-                            <Badge 
+                            <Badge
                               variant={midtermGrade <= 3.0 ? 'default' : 'destructive'}
                               className={`text-xs mt-1 ${midtermGrade <= 3.0 ? 'bg-green-600' : ''}`}
                             >
@@ -1004,7 +1004,7 @@ function InstructorGradesContent() {
                                 ({studentGrades.finalPercentage.toFixed(1)}%)
                               </div>
                             )}
-                            <Badge 
+                            <Badge
                               variant={finalGrade <= 3.0 ? 'default' : 'destructive'}
                               className={`text-xs mt-1 ${finalGrade <= 3.0 ? 'bg-green-600' : ''}`}
                             >
@@ -1020,14 +1020,13 @@ function InstructorGradesContent() {
                             <Badge
                               variant={
                                 finalStatus === 'Passed' ? 'default' :
-                                finalStatus === 'Failed' ? 'destructive' :
-                                'secondary'
+                                  finalStatus === 'Failed' ? 'destructive' :
+                                    'secondary'
                               }
-                              className={`text-sm px-3 py-1 ${
-                                finalStatus === 'Passed' ? 'bg-green-600' :
+                              className={`text-sm px-3 py-1 ${finalStatus === 'Passed' ? 'bg-green-600' :
                                 finalStatus === 'Failed' ? 'bg-red-600' :
-                                'bg-gray-500'
-                              }`}
+                                  'bg-gray-500'
+                                }`}
                             >
                               {finalStatus}
                             </Badge>
@@ -1038,7 +1037,7 @@ function InstructorGradesContent() {
                   </tbody>
                 </table>
               </div>
-              
+
               {/* Summary Statistics */}
               <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg">
@@ -1048,8 +1047,8 @@ function InstructorGradesContent() {
                       const studentsWithCompleteGrades = students.filter(student => {
                         const studentGrades = calculatedGrades[student.StudentID];
                         return studentGrades &&
-                               studentGrades.midterm !== null && studentGrades.midterm !== undefined &&
-                               studentGrades.final !== null && studentGrades.final !== undefined;
+                          studentGrades.midterm !== null && studentGrades.midterm !== undefined &&
+                          studentGrades.final !== null && studentGrades.final !== undefined;
                       });
 
                       if (studentsWithCompleteGrades.length === 0) return 'N/A';
@@ -1070,8 +1069,8 @@ function InstructorGradesContent() {
                     {students.filter(student => {
                       const studentGrades = calculatedGrades[student.StudentID];
                       if (!studentGrades ||
-                          studentGrades.midterm === null || studentGrades.midterm === undefined ||
-                          studentGrades.final === null || studentGrades.final === undefined) {
+                        studentGrades.midterm === null || studentGrades.midterm === undefined ||
+                        studentGrades.final === null || studentGrades.final === undefined) {
                         return false; // Don't count incomplete grades
                       }
                       const midterm = calculateStudentGrade(student.StudentID, 'midterm');
@@ -1086,8 +1085,8 @@ function InstructorGradesContent() {
                     {students.filter(student => {
                       const studentGrades = calculatedGrades[student.StudentID];
                       if (!studentGrades ||
-                          studentGrades.midterm === null || studentGrades.midterm === undefined ||
-                          studentGrades.final === null || studentGrades.final === undefined) {
+                        studentGrades.midterm === null || studentGrades.midterm === undefined ||
+                        studentGrades.final === null || studentGrades.final === undefined) {
                         return false; // Don't count incomplete grades
                       }
                       const midterm = calculateStudentGrade(student.StudentID, 'midterm');
@@ -1103,8 +1102,8 @@ function InstructorGradesContent() {
                       const studentsWithCompleteGrades = students.filter(student => {
                         const studentGrades = calculatedGrades[student.StudentID];
                         return studentGrades &&
-                               studentGrades.midterm !== null && studentGrades.midterm !== undefined &&
-                               studentGrades.final !== null && studentGrades.final !== undefined;
+                          studentGrades.midterm !== null && studentGrades.midterm !== undefined &&
+                          studentGrades.final !== null && studentGrades.final !== undefined;
                       });
 
                       if (studentsWithCompleteGrades.length === 0) return 'N/A';

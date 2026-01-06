@@ -653,7 +653,7 @@ export default function StudentDashboard() {
             <img
               src="/img/cca-logo.png"
               alt="School Logo"
-              className="h-16 w-16 rounded-full bg-white p-1 shadow-md"
+              className="h-16 w-16 rounded-full shadow-md"
             />
             <div>
               <h1 className="text-2xl font-bold">Student Dashboard</h1>
@@ -709,7 +709,17 @@ export default function StudentDashboard() {
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-gray-600">Excuse Letters</p>
-                    <p className="font-semibold">{new Set(excuseLetters.map(el => el.SubjectCode)).size}</p>
+                    <p className="font-semibold text-xs">
+                      {(() => {
+                        const subjectCounts: { [key: string]: number } = {};
+                        excuseLetters.forEach(el => {
+                          subjectCounts[el.SubjectCode] = (subjectCounts[el.SubjectCode] || 0) + 1;
+                        });
+                        const entries = Object.entries(subjectCounts);
+                        if (entries.length === 0) return '0';
+                        return entries.map(([code, count]) => `${code}: ${count}`).join(', ');
+                      })()}
+                    </p>
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-gray-600">Total Units</p>
@@ -1145,7 +1155,7 @@ export default function StudentDashboard() {
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         <span className="truncate">
-                          {new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}
+                          {new Date(letter.DateFrom).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - {new Date(letter.DateTo).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </span>
                       </div>
                       {excuseLetterFiles[letter.ExcuseLetterID] && excuseLetterFiles[letter.ExcuseLetterID].length > 0 && (

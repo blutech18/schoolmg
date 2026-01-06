@@ -1981,11 +1981,21 @@ export default function InstructorDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Subjects with Excuse Letters</CardTitle>
+            <CardTitle className="text-sm font-medium">Excuse Letters by Subject</CardTitle>
             <FileText className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{new Set(excuseLetters.map(el => el.SubjectCode)).size}</div>
+            <div className="text-xs font-semibold text-blue-600">
+              {(() => {
+                const subjectCounts: { [key: string]: number } = {};
+                excuseLetters.forEach(el => {
+                  subjectCounts[el.SubjectCode] = (subjectCounts[el.SubjectCode] || 0) + 1;
+                });
+                const entries = Object.entries(subjectCounts);
+                if (entries.length === 0) return '0';
+                return entries.map(([code, count]) => `${code}: ${count}`).join(', ');
+              })()}
+            </div>
           </CardContent>
         </Card>
 
@@ -2153,8 +2163,8 @@ export default function InstructorDashboard() {
                       <span className="text-sm font-semibold text-gray-700">Approval Status:</span>
                       <div className="flex items-center gap-2">
                         <Badge className={`flex items-center gap-1 ${letter.DeanStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
-                            letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
-                              'bg-gray-100 text-gray-700 border border-gray-300'
+                          letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
+                            'bg-gray-100 text-gray-700 border border-gray-300'
                           }`}>
                           {letter.DeanStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
                           {letter.DeanStatus === 'declined' && <XCircle className="h-3 w-3" />}
@@ -2162,8 +2172,8 @@ export default function InstructorDashboard() {
                           <span className="font-medium">Dean: {letter.DeanStatus || 'pending'}</span>
                         </Badge>
                         <Badge className={`flex items-center gap-1 ${letter.CoordinatorStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
-                            letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
-                              'bg-gray-100 text-gray-700 border border-gray-300'
+                          letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
+                            'bg-gray-100 text-gray-700 border border-gray-300'
                           }`}>
                           {letter.CoordinatorStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
                           {letter.CoordinatorStatus === 'declined' && <XCircle className="h-3 w-3" />}
@@ -2255,8 +2265,8 @@ export default function InstructorDashboard() {
                         <span className="text-sm font-semibold text-gray-700">Approval Status:</span>
                         <div className="flex items-center gap-2">
                           <Badge className={`flex items-center gap-1 ${letter.DeanStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
-                              letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
-                                'bg-gray-100 text-gray-700 border border-gray-300'
+                            letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
+                              'bg-gray-100 text-gray-700 border border-gray-300'
                             }`}>
                             {letter.DeanStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
                             {letter.DeanStatus === 'declined' && <XCircle className="h-3 w-3" />}
@@ -2264,8 +2274,8 @@ export default function InstructorDashboard() {
                             <span className="font-medium">Dean: {letter.DeanStatus || 'pending'}</span>
                           </Badge>
                           <Badge className={`flex items-center gap-1 ${letter.CoordinatorStatus === 'approved' ? 'bg-green-100 text-green-800 border border-green-300' :
-                              letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
-                                'bg-gray-100 text-gray-700 border border-gray-300'
+                            letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-800 border border-red-300' :
+                              'bg-gray-100 text-gray-700 border border-gray-300'
                             }`}>
                             {letter.CoordinatorStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
                             {letter.CoordinatorStatus === 'declined' && <XCircle className="h-3 w-3" />}
@@ -2443,14 +2453,14 @@ export default function InstructorDashboard() {
                       <div className="flex items-center gap-2 pt-2 border-t">
                         <span className="text-xs font-medium text-gray-600">Other Approvals:</span>
                         <Badge className={`text-xs ${letter.DeanStatus === 'approved' ? 'bg-green-100 text-green-700' :
-                            letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-700' :
-                              'bg-gray-100 text-gray-600'
+                          letter.DeanStatus === 'declined' ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-600'
                           }`}>
                           Dean: {letter.DeanStatus || 'pending'}
                         </Badge>
                         <Badge className={`text-xs ${letter.CoordinatorStatus === 'approved' ? 'bg-green-100 text-green-700' :
-                            letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-700' :
-                              'bg-gray-100 text-gray-600'
+                          letter.CoordinatorStatus === 'declined' ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-600'
                           }`}>
                           Coordinator: {letter.CoordinatorStatus || 'pending'}
                         </Badge>
@@ -2602,8 +2612,8 @@ export default function InstructorDashboard() {
                       {/* Midterm Average */}
                       <div className="text-center p-3 bg-blue-50 rounded-lg">
                         <div className={`text-lg font-semibold ${gradeData.midterm !== null ?
-                            (gradeData.midterm <= 3.0 ? 'text-green-600' : 'text-red-600') :
-                            'text-gray-400'
+                          (gradeData.midterm <= 3.0 ? 'text-green-600' : 'text-red-600') :
+                          'text-gray-400'
                           }`}>
                           {gradeData.midterm !== null ? gradeData.midterm.toFixed(2) : 'N/A'}
                         </div>
@@ -2613,8 +2623,8 @@ export default function InstructorDashboard() {
                       {/* Final Average */}
                       <div className="text-center p-3 bg-green-50 rounded-lg">
                         <div className={`text-lg font-semibold ${gradeData.final !== null ?
-                            (gradeData.final <= 3.0 ? 'text-green-600' : 'text-red-600') :
-                            'text-gray-400'
+                          (gradeData.final <= 3.0 ? 'text-green-600' : 'text-red-600') :
+                          'text-gray-400'
                           }`}>
                           {gradeData.final !== null ? gradeData.final.toFixed(2) : 'N/A'}
                         </div>

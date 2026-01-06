@@ -12,7 +12,6 @@ import {
 } from "../../../components/ui/table";
 import { SearchBar } from '../../../components/ui/searchbar';
 import { useEffect, useRef, useState } from 'react';
-import { useDownloadExcel } from 'react-export-table-to-excel';
 import { enhancedPrint, getCurrentAcademicYear, getCurrentSemester } from '@/app/lib/printUtils';
 import AddCourseDialog from './modal/AddCourse';
 import EditCourseDialog from './modal/EditCourse';
@@ -41,19 +40,19 @@ export default function CoursesTable() {
     try {
       setLoading(true);
       console.log('Fetching courses for CoursesTable');
-      
+
       // Fetch courses
       const coursesRes = await fetch('/api/courses', { credentials: 'include' });
       if (!coursesRes.ok) {
         console.error(`Courses API failed: ${coursesRes.status} ${coursesRes.statusText}`);
         throw new Error("Failed to fetch courses");
       }
-      
+
       const coursesResult = await coursesRes.json();
       console.log('Courses API response:', coursesResult);
-      
+
       let coursesData = Array.isArray(coursesResult) ? coursesResult : (coursesResult.data || []);
-      
+
       // Fetch student counts for each course
       const coursesWithCounts = await Promise.all(
         coursesData.map(async (course: any) => {
@@ -61,7 +60,7 @@ export default function CoursesTable() {
             const countRes = await fetch(`/api/students?course=${course.CourseCode}`, { credentials: 'include' });
             const studentsData = countRes.ok ? await countRes.json() : [];
             const students = Array.isArray(studentsData) ? studentsData : (studentsData.data || []);
-            
+
             return {
               ...course,
               StudentCount: students.length
@@ -75,7 +74,7 @@ export default function CoursesTable() {
           }
         })
       );
-      
+
       setCourses(coursesWithCounts);
     } catch (err) {
       console.error('Error fetching courses:', err);
@@ -111,12 +110,6 @@ export default function CoursesTable() {
     });
   }
 
-  const { onDownload } = useDownloadExcel({
-    currentTableRef: tableRef.current,
-    filename: `Course_Catalog_${new Date().toISOString().split('T')[0]}`,
-    sheet: 'Courses'
-  });
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -142,9 +135,6 @@ export default function CoursesTable() {
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handlePrint} className="whitespace-nowrap">
             Print Report
-          </Button>
-          <Button variant="outline" onClick={onDownload} className="whitespace-nowrap">
-            Export to Excel
           </Button>
           <AddCourseDialog onAdded={fetchData} />
         </div>
@@ -185,11 +175,10 @@ export default function CoursesTable() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      course.Status === 'active' 
-                        ? 'bg-green-100 text-green-800' 
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${course.Status === 'active'
+                        ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
-                    }`}>
+                      }`}>
                       {course.Status === 'active' ? 'Active' : 'Inactive'}
                     </span>
                   </TableCell>

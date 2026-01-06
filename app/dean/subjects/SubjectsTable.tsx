@@ -12,7 +12,6 @@ import {
 } from "../../../components/ui/table"
 import { SearchBar } from '../../../components/ui/searchbar'
 import { useEffect, useRef, useState } from 'react'
-import { useDownloadExcel } from 'react-export-table-to-excel'
 import { enhancedPrint, getCurrentAcademicYear, getCurrentSemester } from '@/app/lib/printUtils'
 import AddSubjectDialog from './modal/AddSubject'
 import EditSubjectDialog from './modal/EditSubject'
@@ -39,20 +38,20 @@ export default function SubjectsTable() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function fetchData(){
-    try{
+  async function fetchData() {
+    try {
       setLoading(true);
       console.log('Fetching subjects for SubjectsTable');
       const res = await fetch('/api/subjects');
-      
-      if(!res.ok) {
+
+      if (!res.ok) {
         console.error(`Subjects API failed: ${res.status} ${res.statusText}`);
         throw new Error("Failed to fetch subjects");
       }
-      
+
       const result = await res.json();
       console.log('Subjects API response:', result);
-      
+
       // Handle API response format
       if (result.success && Array.isArray(result.data)) {
         setSubjects(result.data);
@@ -63,7 +62,7 @@ export default function SubjectsTable() {
         setSubjects([]);
       }
     }
-    catch(err){
+    catch (err) {
       console.error('Error fetching subjects:', err);
       setSubjects([]);
     } finally {
@@ -73,7 +72,7 @@ export default function SubjectsTable() {
 
   useEffect(() => {
     fetchData();
-  },[])
+  }, [])
 
   const safeSubjects = Array.isArray(subjects) ? subjects : [];
   const filteredSubjects = safeSubjects.filter(subject =>
@@ -103,12 +102,6 @@ export default function SubjectsTable() {
     });
   }
 
-  const { onDownload } = useDownloadExcel({
-    currentTableRef: tableRef.current,
-    filename: `Subject_Catalog_${new Date().toISOString().split('T')[0]}`,
-    sheet: 'Subjects'
-  })
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -134,9 +127,6 @@ export default function SubjectsTable() {
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handlePrint} className="whitespace-nowrap">
             Print Report
-          </Button>
-          <Button variant="outline" onClick={onDownload} className="whitespace-nowrap">
-            Export to Excel
           </Button>
           <AddSubjectDialog onAdded={fetchData} />
         </div>
@@ -171,19 +161,18 @@ export default function SubjectsTable() {
                   <TableCell>{subject.SubjectName}</TableCell>
                   <TableCell className="text-center">{subject.Units}</TableCell>
                   <TableCell>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                       subject.ClassType === 'LECTURE+LAB' ? 'bg-blue-100 text-blue-800' :
-                       subject.ClassType === 'MAJOR' ? 'bg-red-100 text-red-800' :
-                       subject.ClassType === 'NSTP' ? 'bg-green-100 text-green-800' :
-                       subject.ClassType === 'OJT' ? 'bg-purple-100 text-purple-800' :
-                       'bg-gray-100 text-gray-800'
-                     }`}>
-                       {subject.ClassType === 'LECTURE+LAB' ? 'Lecture and Laboratory' :
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${subject.ClassType === 'LECTURE+LAB' ? 'bg-blue-100 text-blue-800' :
+                        subject.ClassType === 'MAJOR' ? 'bg-red-100 text-red-800' :
+                          subject.ClassType === 'NSTP' ? 'bg-green-100 text-green-800' :
+                            subject.ClassType === 'OJT' ? 'bg-purple-100 text-purple-800' :
+                              'bg-gray-100 text-gray-800'
+                      }`}>
+                      {subject.ClassType === 'LECTURE+LAB' ? 'Lecture and Laboratory' :
                         subject.ClassType === 'MAJOR' ? 'Cisco' :
-                        subject.ClassType === 'NSTP' ? 'NSTP' :
-                        subject.ClassType === 'OJT' ? 'OJT' :
-                        'Lecture'}
-                     </span>
+                          subject.ClassType === 'NSTP' ? 'NSTP' :
+                            subject.ClassType === 'OJT' ? 'OJT' :
+                              'Lecture'}
+                    </span>
                   </TableCell>
                   <TableCell>{subject.Prerequisites || 'None'}</TableCell>
                   <TableCell>

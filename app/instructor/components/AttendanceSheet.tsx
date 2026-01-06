@@ -55,8 +55,8 @@ interface AttendanceSheetProps {
   schedule: Schedule
   students: Student[]
   excuseLetters: any[]
-  lectureAttendance?: {[key: string]: {[sessionNumber: number]: string}}
-  labAttendance?: {[key: string]: {[sessionNumber: number]: string}}
+  lectureAttendance?: { [key: string]: { [sessionNumber: number]: string } }
+  labAttendance?: { [key: string]: { [sessionNumber: number]: string } }
   onAttendanceMarked: (studentId: number, status: string, sessionType: 'lecture' | 'lab', sessionNumber: number) => void
   onBulkMarking: (status: string, sessionType: 'lecture' | 'lab', sessionNumber: number) => void
   onClassCancellation: (reason: string, notifyStudents: boolean, sessionType: 'lecture' | 'lab', sessionNumber: number, studentId?: number) => void
@@ -81,12 +81,12 @@ export default function AttendanceSheet({
     const status = student.Status?.toLowerCase();
     return status !== 'loa' && status !== 'drop' && status !== 'uw';
   });
-  
+
   const [currentSessionNumber, setCurrentSessionNumber] = useState(1)
   const [currentSessionType, setCurrentSessionType] = useState<'lecture' | 'lab'>('lecture')
-  const [lectureAttendance, setLectureAttendance] = useState<{[key: string]: {[sessionNumber: number]: string}}>(propLectureAttendance || {})
-  const [labAttendance, setLabAttendance] = useState<{[key: string]: {[sessionNumber: number]: string}}>(propLabAttendance || {})
-  
+  const [lectureAttendance, setLectureAttendance] = useState<{ [key: string]: { [sessionNumber: number]: string } }>(propLectureAttendance || {})
+  const [labAttendance, setLabAttendance] = useState<{ [key: string]: { [sessionNumber: number]: string } }>(propLabAttendance || {})
+
   // Update local state when props change
   useEffect(() => {
     if (propLectureAttendance) {
@@ -99,7 +99,7 @@ export default function AttendanceSheet({
       setLabAttendance(propLabAttendance)
     }
   }, [propLabAttendance])
-  
+
   // CC Modal states
   const [showCCModal, setShowCCModal] = useState(false)
   const [ccReason, setCCReason] = useState('')
@@ -117,13 +117,13 @@ export default function AttendanceSheet({
   }
 
   // Check if this is a Cisco schedule
-  const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' || 
-                          (schedule.Room && schedule.Room.toLowerCase().includes('cisco'))
-  
+  const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' ||
+    (schedule.Room && schedule.Room.toLowerCase().includes('cisco'))
+
   // Determine which components to show based on lecture and lab hours
   const hasLectureHours = (schedule.Lecture || 0) > 0
   const hasLabHours = (schedule.Laboratory || 0) > 0
-  
+
   // If subject has both lecture and lab hours, show both attendance sheets
   const hasLecture = hasLectureHours
   const hasLaboratory = hasLabHours
@@ -139,7 +139,7 @@ export default function AttendanceSheet({
       if (isCiscoLab) return 'Cisco Lab'
       return 'Cisco Lecture'
     }
-    
+
     const classType = schedule.ClassType || 'LECTURE'
     switch (classType.toUpperCase()) {
       case 'LECTURE':
@@ -164,8 +164,8 @@ export default function AttendanceSheet({
 
   // Get available session types for this schedule
   const getAvailableSessionTypes = () => {
-    const types: Array<{value: 'lecture' | 'lab', label: string, icon: string}> = []
-    
+    const types: Array<{ value: 'lecture' | 'lab', label: string, icon: string }> = []
+
     if (hasLecture) {
       types.push({
         value: 'lecture',
@@ -173,7 +173,7 @@ export default function AttendanceSheet({
         icon: '📚'
       })
     }
-    
+
     if (hasLaboratory) {
       types.push({
         value: 'lab',
@@ -181,7 +181,7 @@ export default function AttendanceSheet({
         icon: '🧪'
       })
     }
-    
+
     return types
   }
 
@@ -242,7 +242,7 @@ export default function AttendanceSheet({
   // Mark all students present for current session
   const markAllPresentForSession = () => {
     onBulkMarking('P', currentSessionType, currentSessionNumber)
-    brandedToast.success(`Marked all students as present for ${currentSessionType} session ${currentSessionNumber}`)
+    brandedToast.success(`✅ All ${filteredStudents.length} students have been marked as PRESENT for Week ${currentSessionNumber} (${currentSessionType.charAt(0).toUpperCase() + currentSessionType.slice(1)})`)
   }
 
   // Cancel class for current session
@@ -318,14 +318,14 @@ export default function AttendanceSheet({
   // Print attendance sheet
   const printAttendanceSheet = () => {
     try {
-      const attendanceDataMap: {[key: string]: {[sessionNumber: number]: string}} = {}
-      
+      const attendanceDataMap: { [key: string]: { [sessionNumber: number]: string } } = {}
+
       filteredStudents.forEach(student => {
         const studentKey = `${student.StudentID}`
         const currentAttendanceData = currentSessionType === 'lecture' ? lectureAttendance : labAttendance
         const studentAttendance = currentAttendanceData[studentKey] || {}
         const currentStatus = studentAttendance[currentSessionNumber] || 'A'
-        
+
         if (!attendanceDataMap[studentKey]) {
           attendanceDataMap[studentKey] = {}
         }
@@ -434,8 +434,8 @@ export default function AttendanceSheet({
             {/* Week Number Selector */}
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-700">Week:</span>
-              <Select 
-                value={currentSessionNumber.toString()} 
+              <Select
+                value={currentSessionNumber.toString()}
                 onValueChange={(value) => setCurrentSessionNumber(parseInt(value))}
                 disabled={isCurrentSessionCancelled()}
               >
@@ -460,9 +460,9 @@ export default function AttendanceSheet({
 
             {/* Action Buttons */}
             <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={markAllPresentForSession}
                 className="flex items-center gap-2"
                 disabled={isCurrentSessionCancelled()}
@@ -471,15 +471,15 @@ export default function AttendanceSheet({
                 Mark All Present
               </Button>
               {!isCurrentSessionCancelled() ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={cancelClassForSession}
-                className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
-              >
-                <AlertCircle className="h-4 w-4" />
-                Cancel Class
-              </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={cancelClassForSession}
+                  className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  Cancel Class
+                </Button>
               ) : (
                 <Button
                   variant="outline"
@@ -568,17 +568,17 @@ export default function AttendanceSheet({
                     filteredStudents.map((student) => {
                       const currentAttendanceData = currentSessionType === 'lecture' ? lectureAttendance : labAttendance
                       const studentAttendance = currentAttendanceData[`${student.StudentID}`] || {}
-                      
+
                       // Check if student has D or FA status in ANY session (lecture or lab)
                       const allLectureAttendance = lectureAttendance[`${student.StudentID}`] || {}
                       const allLabAttendance = labAttendance[`${student.StudentID}`] || {}
-                      
+
                       // Check for D or FA status across all sessions
-                      const hasDroppedStatus = Object.values(allLectureAttendance).includes('D') || 
-                                             Object.values(allLabAttendance).includes('D')
-                      const hasFailedStatus = Object.values(allLectureAttendance).includes('FA') || 
-                                            Object.values(allLabAttendance).includes('FA')
-                      
+                      const hasDroppedStatus = Object.values(allLectureAttendance).includes('D') ||
+                        Object.values(allLabAttendance).includes('D')
+                      const hasFailedStatus = Object.values(allLectureAttendance).includes('FA') ||
+                        Object.values(allLabAttendance).includes('FA')
+
                       // If student has D or FA status, show that status for ALL sessions
                       let currentStatus
                       if (hasDroppedStatus) {
@@ -589,7 +589,7 @@ export default function AttendanceSheet({
                         // Get the current session status for the specific session number
                         currentStatus = studentAttendance[currentSessionNumber] || 'A' // Default to Absent
                       }
-                      
+
                       // Check if student is disabled (has D or FA status)
                       const isStudentDisabled = hasDroppedStatus || hasFailedStatus
 
@@ -614,21 +614,20 @@ export default function AttendanceSheet({
                           </td>
                           <td className="px-3 py-3 text-center border-r">
                             <div className="flex justify-center">
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                currentStatus === 'P' ? 'bg-green-100 text-green-800' :
-                                currentStatus === 'A' ? 'bg-red-100 text-red-800' :
-                                currentStatus === 'E' ? 'bg-blue-100 text-blue-800' :
-                                currentStatus === 'L' ? 'bg-yellow-100 text-yellow-800' :
-                                currentStatus === 'D' ? 'bg-orange-100 text-orange-800' :
-                                currentStatus === 'FA' ? 'bg-red-200 text-red-900' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${currentStatus === 'P' ? 'bg-green-100 text-green-800' :
+                                  currentStatus === 'A' ? 'bg-red-100 text-red-800' :
+                                    currentStatus === 'E' ? 'bg-blue-100 text-blue-800' :
+                                      currentStatus === 'L' ? 'bg-yellow-100 text-yellow-800' :
+                                        currentStatus === 'D' ? 'bg-orange-100 text-orange-800' :
+                                          currentStatus === 'FA' ? 'bg-red-200 text-red-900' :
+                                            'bg-gray-100 text-gray-800'
+                                }`}>
                                 {currentStatus === 'P' ? 'Present' :
-                                 currentStatus === 'A' ? 'Absent' :
-                                 currentStatus === 'E' ? 'Excused' :
-                                 currentStatus === 'L' ? 'Late' :
-                                 currentStatus === 'D' ? 'Dropped' :
-                                 currentStatus === 'FA' ? 'Failed' : 'Not Marked'}
+                                  currentStatus === 'A' ? 'Absent' :
+                                    currentStatus === 'E' ? 'Excused' :
+                                      currentStatus === 'L' ? 'Late' :
+                                        currentStatus === 'D' ? 'Dropped' :
+                                          currentStatus === 'FA' ? 'Failed' : 'Not Marked'}
                               </span>
                             </div>
                           </td>
@@ -641,8 +640,8 @@ export default function AttendanceSheet({
                               <div className="flex justify-center gap-1">
                                 {['P', 'A', 'L', 'E', 'CC'].map((status) => {
                                   // Check if student has approved excuse letters for Excused status
-                                  const hasApprovedExcuseLetters = status === 'E' && excuseLetters.some(letter => 
-                                    letter.StudentID === student.StudentID && 
+                                  const hasApprovedExcuseLetters = status === 'E' && excuseLetters.some(letter =>
+                                    letter.StudentID === student.StudentID &&
                                     letter.ScheduleID === schedule.ScheduleID &&
                                     letter.InstructorStatus === 'approved'
                                   )
@@ -652,28 +651,26 @@ export default function AttendanceSheet({
                                       key={status}
                                       size="sm"
                                       variant={currentStatus === status ? "default" : "outline"}
-                                      className={`w-8 h-8 p-0 text-xs relative ${
-                                        status === 'P' ? (currentStatus === status ? 'bg-green-600 hover:bg-green-700 text-white' : 'hover:bg-green-100 hover:text-green-700') :
-                                        status === 'A' ? (currentStatus === status ? 'bg-red-600 hover:bg-red-700 text-white' : 'hover:bg-red-100 hover:text-red-700') :
-                                        status === 'E' ? (currentStatus === status ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'hover:bg-blue-100 hover:text-blue-700') :
-                                        status === 'CC' ? (currentStatus === status ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'hover:bg-gray-100 hover:text-gray-700') :
-                                        (currentStatus === status ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : 'hover:bg-yellow-100 hover:text-yellow-700')
-                                      } ${isCurrentSessionCancelled() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                      className={`w-8 h-8 p-0 text-xs relative ${status === 'P' ? (currentStatus === status ? 'bg-green-600 hover:bg-green-700 text-white' : 'hover:bg-green-100 hover:text-green-700') :
+                                          status === 'A' ? (currentStatus === status ? 'bg-red-600 hover:bg-red-700 text-white' : 'hover:bg-red-100 hover:text-red-700') :
+                                            status === 'E' ? (currentStatus === status ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'hover:bg-blue-100 hover:text-blue-700') :
+                                              status === 'CC' ? (currentStatus === status ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'hover:bg-gray-100 hover:text-gray-700') :
+                                                (currentStatus === status ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : 'hover:bg-yellow-100 hover:text-yellow-700')
+                                        } ${isCurrentSessionCancelled() ? 'opacity-50 cursor-not-allowed' : ''}`}
                                       onClick={() => !isCurrentSessionCancelled() && markAttendanceForSession(student.StudentID, status)}
                                       disabled={isCurrentSessionCancelled()}
-                                      title={isCurrentSessionCancelled() ? 'Session cancelled - attendance cannot be modified' : `Mark as ${
-                                        status === 'P' ? 'Present' :
-                                        status === 'A' ? 'Absent' :
-                                        status === 'L' ? 'Late' :
-                                        status === 'E' ? 'Excused' :
-                                        status === 'CC' ? 'Class Cancelled' :
-                                        'Unknown'
-                                      } for ${currentSessionType} session`}
+                                      title={isCurrentSessionCancelled() ? 'Session cancelled - attendance cannot be modified' : `Mark as ${status === 'P' ? 'Present' :
+                                          status === 'A' ? 'Absent' :
+                                            status === 'L' ? 'Late' :
+                                              status === 'E' ? 'Excused' :
+                                                status === 'CC' ? 'Class Cancelled' :
+                                                  'Unknown'
+                                        } for ${currentSessionType} session`}
                                     >
                                       {status}
                                       {hasApprovedExcuseLetters && (
-                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border border-white" 
-                                             title="Has approved excuse letter" />
+                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border border-white"
+                                          title="Has approved excuse letter" />
                                       )}
                                     </Button>
                                   )

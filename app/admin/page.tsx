@@ -7,12 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from "next/navigation";
 import { getSession } from "@/helpers/session";
-import { 
-  Users, 
-  Calendar, 
-  BookOpen, 
-  GraduationCap, 
-  FileText, 
+import {
+  Users,
+  Calendar,
+  BookOpen,
+  GraduationCap,
+  FileText,
   BarChart3,
   Settings,
   UserCheck,
@@ -376,20 +376,20 @@ export default function AdminDashboard() {
                 {systemAlerts.length > 0 ? (
                   systemAlerts.map((alert) => {
                     const bgColor = alert.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
-                                   alert.type === 'error' ? 'bg-red-50 border-red-200' :
-                                   'bg-blue-50 border-blue-200';
+                      alert.type === 'error' ? 'bg-red-50 border-red-200' :
+                        'bg-blue-50 border-blue-200';
                     const dotColor = alert.type === 'warning' ? 'bg-yellow-500' :
-                                    alert.type === 'error' ? 'bg-red-500' :
-                                    'bg-blue-500';
+                      alert.type === 'error' ? 'bg-red-500' :
+                        'bg-blue-500';
                     const textColor = alert.type === 'warning' ? 'text-yellow-800' :
-                                     alert.type === 'error' ? 'text-red-800' :
-                                     'text-blue-800';
+                      alert.type === 'error' ? 'text-red-800' :
+                        'text-blue-800';
                     const descColor = alert.type === 'warning' ? 'text-yellow-600' :
-                                     alert.type === 'error' ? 'text-red-600' :
-                                     'text-blue-600';
+                      alert.type === 'error' ? 'text-red-600' :
+                        'text-blue-600';
                     const badgeColor = alert.type === 'warning' ? 'text-yellow-700 border-yellow-300' :
-                                      alert.type === 'error' ? 'text-red-700 border-red-300' :
-                                      'text-blue-700 border-blue-300';
+                      alert.type === 'error' ? 'text-red-700 border-red-300' :
+                        'text-blue-700 border-blue-300';
 
                     return (
                       <div key={alert.id} className={`flex items-center space-x-4 p-3 ${bgColor} border rounded-lg`}>
@@ -429,14 +429,6 @@ export default function AdminDashboard() {
                 >
                   <BarChart3 className="h-5 w-5 mb-1" />
                   <span className="text-sm">Enrollment Report</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-16 flex flex-col"
-                  onClick={() => router.push('/admin/grades')}
-                >
-                  <FileText className="h-5 w-5 mb-1" />
-                  <span className="text-sm">Grade Summary</span>
                 </Button>
                 <Button
                   variant="outline"

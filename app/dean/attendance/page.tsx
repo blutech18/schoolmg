@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
-import { 
-  Search, Download, Users, BookOpen, ChevronDown, ChevronRight, Clock
+import {
+  Search, Download, Users, BookOpen, ChevronDown, ChevronRight, Clock, Filter
 } from "lucide-react";
 import { brandedToast } from "@/components/ui/branded-toast";
 
@@ -40,7 +40,7 @@ interface AttendanceRecord {
 }
 
 interface ScheduleWithStudents extends Schedule {
-  students: Array<Student & { attendance: {[key: string]: AttendanceRecord[]} }>;
+  students: Array<Student & { attendance: { [key: string]: AttendanceRecord[] } }>;
 }
 
 export default function DeanAttendancePage() {
@@ -49,6 +49,11 @@ export default function DeanAttendancePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedSchedules, setExpandedSchedules] = useState<Set<number>>(new Set());
 
+  // Filter states
+  const [selectedCourse, setSelectedCourse] = useState<string>("all");
+  const [selectedYearLevel, setSelectedYearLevel] = useState<string>("all");
+  const [selectedSection, setSelectedSection] = useState<string>("all");
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -56,12 +61,12 @@ export default function DeanAttendancePage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch all schedules
       const schedulesRes = await fetch("/api/schedules");
       const schedulesData = schedulesRes.ok ? await schedulesRes.json() : { success: true, data: [] };
       const allSchedules = schedulesData.success ? (Array.isArray(schedulesData.data) ? schedulesData.data : []) : [];
-      
+
       console.log("Schedules fetched:", allSchedules.length, allSchedules);
 
       // Fetch attendance and students for each schedule
@@ -76,7 +81,7 @@ export default function DeanAttendancePage() {
           const studentsRes = await fetch("/api/students");
           const studentsData = studentsRes.ok ? await studentsRes.json() : [];
           const allStudents = Array.isArray(studentsData) ? studentsData : [];
-          
+
           console.log(`Schedule ${schedule.ScheduleID}: ${enrollments.length} enrollments, ${allStudents.length} students`);
 
           // Map enrollments to students with attendance
@@ -93,7 +98,7 @@ export default function DeanAttendancePage() {
               const records = Array.isArray(attendanceData) ? attendanceData : (attendanceData.success ? attendanceData.data : []);
 
               // Organize attendance by week and session type
-              const attendance: {[key: string]: AttendanceRecord[]} = {};
+              const attendance: { [key: string]: AttendanceRecord[] } = {};
               records.forEach((record: any) => {
                 const key = `${record.SessionType}_week${record.Week}`;
                 if (!attendance[key]) {
@@ -143,7 +148,7 @@ export default function DeanAttendancePage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig: {[key: string]: {color: string, label: string}} = {
+    const statusConfig: { [key: string]: { color: string, label: string } } = {
       "P": { color: "bg-green-100 text-green-800", label: "Present" },
       "A": { color: "bg-red-100 text-red-800", label: "Absent" },
       "E": { color: "bg-blue-100 text-blue-800", label: "Excused" },
@@ -157,11 +162,23 @@ export default function DeanAttendancePage() {
     return <Badge className={config.color}>{config.label}</Badge>;
   };
 
-  const filteredSchedules = schedules.filter(schedule =>
-    schedule.SubjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    schedule.SubjectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    schedule.Course.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Get unique filter options from schedules
+  const courses = [...new Set(schedules.map(s => s.Course))].filter(Boolean).sort();
+  const yearLevels = [...new Set(schedules.map(s => s.YearLevel))].filter(Boolean).sort();
+  const sections = [...new Set(schedules.map(s => s.Section))].filter(Boolean).sort();
+
+  const filteredSchedules = schedules.filter(schedule => {
+    const matchesSearch =
+      schedule.SubjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      schedule.SubjectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      schedule.Course.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesCourse = selectedCourse === "all" || schedule.Course === selectedCourse;
+    const matchesYearLevel = selectedYearLevel === "all" || schedule.YearLevel === parseInt(selectedYearLevel);
+    const matchesSection = selectedSection === "all" || schedule.Section === selectedSection;
+
+    return matchesSearch && matchesCourse && matchesYearLevel && matchesSection;
+  });
 
   if (loading) {
     return (
@@ -177,25 +194,88 @@ export default function DeanAttendancePage() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Attendance Sheets</h1>
-          <p className="text-gray-600 mt-1">View attendance by subject schedule</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search subjects..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-64"
-            />
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Attendance Sheets</h1>
+            <p className="text-gray-600 mt-1">View attendance by subject schedule</p>
           </div>
           <Button onClick={fetchData} variant="outline" className="flex items-center gap-2">
             <Download className="h-4 w-4" />
             Refresh
           </Button>
+        </div>
+
+        {/* Filters Row */}
+        <div className="flex flex-wrap items-center gap-4 bg-gray-50 p-4 rounded-lg border">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-700">Filters:</span>
+          </div>
+
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search subjects..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {/* Course Filter */}
+          <select
+            value={selectedCourse}
+            onChange={(e) => setSelectedCourse(e.target.value)}
+            className="px-3 py-2 border rounded-md bg-white text-sm min-w-[150px]"
+          >
+            <option value="all">All Courses</option>
+            {courses.map(course => (
+              <option key={course} value={course}>{course}</option>
+            ))}
+          </select>
+
+          {/* Year Level Filter */}
+          <select
+            value={selectedYearLevel}
+            onChange={(e) => setSelectedYearLevel(e.target.value)}
+            className="px-3 py-2 border rounded-md bg-white text-sm min-w-[120px]"
+          >
+            <option value="all">All Years</option>
+            {yearLevels.map(year => (
+              <option key={year} value={year.toString()}>Year {year}</option>
+            ))}
+          </select>
+
+          {/* Section Filter */}
+          <select
+            value={selectedSection}
+            onChange={(e) => setSelectedSection(e.target.value)}
+            className="px-3 py-2 border rounded-md bg-white text-sm min-w-[120px]"
+          >
+            <option value="all">All Sections</option>
+            {sections.map(section => (
+              <option key={section} value={section}>{section}</option>
+            ))}
+          </select>
+
+          {/* Clear Filters */}
+          {(selectedCourse !== "all" || selectedYearLevel !== "all" || selectedSection !== "all" || searchTerm) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedCourse("all");
+                setSelectedYearLevel("all");
+                setSelectedSection("all");
+                setSearchTerm("");
+              }}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              Clear Filters
+            </Button>
+          )}
         </div>
       </div>
 
@@ -261,11 +341,11 @@ export default function DeanAttendancePage() {
             ) : (
               filteredSchedules.map((schedule) => {
                 const isExpanded = expandedSchedules.has(schedule.ScheduleID);
-                
+
                 return (
                   <div key={schedule.ScheduleID} className="border rounded-lg">
                     {/* Schedule Header */}
-                    <div 
+                    <div
                       className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                       onClick={() => toggleScheduleExpansion(schedule.ScheduleID)}
                     >
@@ -292,17 +372,17 @@ export default function DeanAttendancePage() {
                     {/* Expanded Attendance Sheet */}
                     {isExpanded && (() => {
                       // Check if this is a Cisco schedule
-                      const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' || 
-                                              (schedule.Room && schedule.Room.toLowerCase().includes('cisco'));
-                      
+                      const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' ||
+                        (schedule.Room && schedule.Room.toLowerCase().includes('cisco'));
+
                       // Only Cisco schedules can show both Lecture and Laboratory sections
                       // Non-Cisco schedules should only show ONE section (prefer lecture if both have hours)
                       const hasLectureHours = (schedule.Lecture || 0) > 0;
                       const hasLabHours = (schedule.Laboratory || 0) > 0;
-                      
+
                       let hasLecture = false;
                       let hasLab = false;
-                      
+
                       if (isCiscoSchedule) {
                         // Cisco schedules: show both sections if both hours are configured
                         hasLecture = hasLectureHours;
@@ -317,9 +397,9 @@ export default function DeanAttendancePage() {
                           hasLab = true;
                         }
                       }
-                      
+
                       const hasBoth = hasLecture && hasLab;
-                      
+
                       return (
                         <div className="border-t bg-gray-50 p-4">
                           <div className="overflow-x-scroll w-full pb-2">
@@ -396,10 +476,10 @@ export default function DeanAttendancePage() {
                                           const labKey = `lab_week${week}`;
                                           const lectureAtt = student.attendance[lectureKey]?.[0];
                                           const labAtt = student.attendance[labKey]?.[0];
-                                          
+
                                           // Prioritize lecture attendance, fallback to lab
                                           const attendance = lectureAtt || labAtt;
-                                          
+
                                           return (
                                             <TableCell key={week} className="text-center">
                                               {attendance ? getStatusBadge(attendance.Status) : (

@@ -68,7 +68,7 @@ export default function CoordinatorDashboard() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [courseFilter, setCourseFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
-  
+
   // Modal states
   const [selectedExcuseLetter, setSelectedExcuseLetter] = useState<ExcuseLetter | null>(null);
   const [selectedLetter, setSelectedLetter] = useState<ExcuseLetter | null>(null);
@@ -193,7 +193,7 @@ export default function CoordinatorDashboard() {
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
     const IconComponent = config.icon;
-    
+
     return (
       <Badge className={`${config.color} flex items-center gap-1`}>
         <IconComponent className="h-3 w-3" />
@@ -205,7 +205,7 @@ export default function CoordinatorDashboard() {
   const getApprovalPriority = (letter: ExcuseLetter) => {
     const submissionDate = new Date(letter.SubmissionDate);
     const daysSinceSubmission = Math.floor((Date.now() - submissionDate.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (daysSinceSubmission > 3) return { priority: 'high', color: 'text-red-600' };
     if (daysSinceSubmission > 1) return { priority: 'medium', color: 'text-yellow-600' };
     return { priority: 'normal', color: 'text-green-600' };
@@ -216,13 +216,13 @@ export default function CoordinatorDashboard() {
   const filteredExcuseLetters = excuseLetters.filter(letter => {
     const coordinatorStatus = letter.CoordinatorStatus || letter.Status || 'pending';
     const matchesSearch = letter.StudentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         letter.Subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         letter.SubjectCode.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      letter.Subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      letter.SubjectCode.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesStatus = statusFilter === 'all' || coordinatorStatus === statusFilter;
     const matchesCourse = courseFilter === 'all' || letter.Course === courseFilter;
     const matchesYear = yearFilter === 'all' || letter.YearLevel.toString() === yearFilter;
-    
+
     return matchesSearch && matchesStatus && matchesCourse && matchesYear;
   });
 
@@ -326,7 +326,7 @@ export default function CoordinatorDashboard() {
             ) : (
               excuseLetters
                 .filter(letter => letter.CoordinatorStatus === 'pending')
-                .filter(letter => 
+                .filter(letter =>
                   letter.StudentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                   letter.Subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
                   letter.SubjectCode.toLowerCase().includes(searchTerm.toLowerCase())
@@ -357,7 +357,7 @@ export default function CoordinatorDashboard() {
                       <CardContent>
                         <div className="space-y-4">
                           <p className="text-sm text-gray-700">{letter.Reason}</p>
-                          
+
                           <div className="flex items-center gap-4 text-sm text-gray-600">
                             <span className="flex items-center gap-1">
                               <Calendar className="h-4 w-4" />
@@ -393,22 +393,6 @@ export default function CoordinatorDashboard() {
                             >
                               <FileText className="h-4 w-4 mr-1" />
                               View Details
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleApprovalAction(letter, 'approved')}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleApprovalAction(letter, 'declined')}
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Decline
                             </Button>
                           </div>
                         </div>
@@ -488,7 +472,7 @@ export default function CoordinatorDashboard() {
                       <span>{new Date(letter.DateFrom).toLocaleDateString()} - {new Date(letter.DateTo).toLocaleDateString()}</span>
                       <span>Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}</span>
                     </div>
-                    
+
                     {/* Approval Status Section */}
                     <div className="pt-2 border-t border-gray-200">
                       <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -502,23 +486,23 @@ export default function CoordinatorDashboard() {
                         </div>
                       </div>
                     </div>
-                    
+
                     {letter.CoordinatorComment && (
                       <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
                         <strong>Your Comment:</strong> {letter.CoordinatorComment}
                       </div>
                     )}
 
-                        <div className="pt-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setSelectedExcuseLetter(letter)}
-                          >
-                            <FileText className="h-4 w-4 mr-1" />
-                            View Details
-                          </Button>
-                        </div>
+                    <div className="pt-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedExcuseLetter(letter)}
+                      >
+                        <FileText className="h-4 w-4 mr-1" />
+                        View Details
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -552,9 +536,9 @@ export default function CoordinatorDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {excuseLetters.filter(letter => letter.CoordinatorStatus !== 'pending').length > 0 
-                    ? Math.round((excuseLetters.filter(letter => letter.CoordinatorStatus === 'approved').length / 
-                        excuseLetters.filter(letter => letter.CoordinatorStatus !== 'pending').length) * 100)
+                  {excuseLetters.filter(letter => letter.CoordinatorStatus !== 'pending').length > 0
+                    ? Math.round((excuseLetters.filter(letter => letter.CoordinatorStatus === 'approved').length /
+                      excuseLetters.filter(letter => letter.CoordinatorStatus !== 'pending').length) * 100)
                     : 0}%
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -573,7 +557,7 @@ export default function CoordinatorDashboard() {
                   {(() => {
                     const oneWeekAgo = new Date();
                     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-                    return excuseLetters.filter(letter => 
+                    return excuseLetters.filter(letter =>
                       new Date(letter.SubmissionDate) >= oneWeekAgo
                     ).length;
                   })()}
@@ -584,37 +568,6 @@ export default function CoordinatorDashboard() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avg. Response Time</CardTitle>
-                <Clock className="h-4 w-4 text-orange-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {(() => {
-                    const processedLetters = excuseLetters.filter(letter =>
-                      letter.CoordinatorStatus !== 'pending' && letter.CoordinatorActionDate
-                    );
-
-                    if (processedLetters.length === 0) return "0";
-
-                    const totalDays = processedLetters.reduce((sum, letter) => {
-                      const submissionDate = new Date(letter.SubmissionDate);
-                      const actionDate = new Date(letter.CoordinatorActionDate);
-                      const diffTime = actionDate.getTime() - submissionDate.getTime();
-                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                      return sum + Math.max(0, diffDays); // Ensure non-negative
-                    }, 0);
-
-                    const avgDays = totalDays / processedLetters.length;
-                    return avgDays.toFixed(1);
-                  })()}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Days to process
-                </p>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Status Distribution */}
@@ -664,7 +617,7 @@ export default function CoordinatorDashboard() {
                     }, {} as Record<string, number>);
 
                     const courseEntries = Object.entries(courseStats)
-                      .sort(([,a], [,b]) => b - a)
+                      .sort(([, a], [, b]) => b - a)
                       .slice(0, 5);
 
                     if (courseEntries.length === 0) {
@@ -720,10 +673,9 @@ export default function CoordinatorDashboard() {
                     .map((letter) => (
                       <div key={letter.ExcuseLetterID} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center gap-3">
-                          <div className={`w-2 h-2 rounded-full ${
-                            letter.CoordinatorStatus === 'approved' ? 'bg-green-500' :
-                            letter.CoordinatorStatus === 'declined' ? 'bg-red-500' : 'bg-yellow-500'
-                          }`}></div>
+                          <div className={`w-2 h-2 rounded-full ${letter.CoordinatorStatus === 'approved' ? 'bg-green-500' :
+                              letter.CoordinatorStatus === 'declined' ? 'bg-red-500' : 'bg-yellow-500'
+                            }`}></div>
                           <div>
                             <p className="text-sm font-medium">{letter.StudentName || 'Unknown Student'}</p>
                             <p className="text-xs text-gray-600">
@@ -736,7 +688,7 @@ export default function CoordinatorDashboard() {
                             {letter.SubmissionDate ? new Date(letter.SubmissionDate).toLocaleDateString() : 'Unknown Date'}
                           </p>
                           <Badge variant={letter.CoordinatorStatus === 'approved' ? 'default' :
-                                       letter.CoordinatorStatus === 'declined' ? 'destructive' : 'secondary'}>
+                            letter.CoordinatorStatus === 'declined' ? 'destructive' : 'secondary'}>
                             {letter.CoordinatorStatus || 'pending'}
                           </Badge>
                         </div>
