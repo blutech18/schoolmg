@@ -34,8 +34,14 @@ export async function GET(request: NextRequest) {
 
     const file = rows[0] as any;
 
-    // FilePath now contains the Vercel Blob URL, so we redirect to it
-    return NextResponse.redirect(file.FilePath);
+    // Return the Vercel Blob URL so the frontend can open it directly
+    // This avoids CORS issues with redirects and credentials
+    return NextResponse.json({
+      success: true,
+      url: file.FilePath,
+      fileName: file.OriginalName,
+      fileType: file.FileType
+    });
 
   } catch (error: any) {
     console.error("Error viewing file:", error);
