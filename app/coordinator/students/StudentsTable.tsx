@@ -28,17 +28,17 @@ export default function StudentsTable() {
   const [students, setStudents] = useState<IStudent[]>([])
   const [isImporting, setIsImporting] = useState(false)
 
-  async function fetchData(){
-    try{
+  async function fetchData() {
+    try {
       const res = await fetch('/api/students');
-      if(!res.ok) throw new Error("Error!")
-      
+      if (!res.ok) throw new Error("Error!")
+
       const result = await res.json();
-      
+
       // The students API should return student data with joined user information
       setStudents(result);
     }
-    catch(err){
+    catch (err) {
       console.error(err);
       setStudents([]);
     }
@@ -46,7 +46,7 @@ export default function StudentsTable() {
 
   useEffect(() => {
     fetchData();
-  },[])
+  }, [])
 
   const filteredUsers = students.filter(student =>
     student.FirstName.toLowerCase().includes(filter.toLowerCase()) ||
@@ -78,7 +78,7 @@ export default function StudentsTable() {
   }
 
   const downloadImportTemplate = () => {
-    // Create CSV template content
+    // Create CSV template content with Excel-compatible format
     const headers = [
       'StudentNumber',
       'FirstName',
@@ -92,8 +92,9 @@ export default function StudentsTable() {
       'IsPWD',
       'Status'
     ]
-    
-    const sampleData = [
+
+    // Sample data rows for guidance
+    const sampleData1 = [
       '2024-00001',
       'Juan',
       'Dela',
@@ -106,27 +107,43 @@ export default function StudentsTable() {
       'No',
       'active'
     ]
-    
+
+    const sampleData2 = [
+      '2024-00002',
+      'Maria',
+      'Santos',
+      'Garcia',
+      'maria.garcia@example.com',
+      '09987654321',
+      'BSCS',
+      '2',
+      'B',
+      'No',
+      'active'
+    ]
+
     const csvContent = [
       headers.join(','),
-      sampleData.join(','),
-      '// Instructions:',
-      '// - StudentNumber: Unique student identifier (e.g., 2024-00001)',
-      '// - FirstName: Student first name (required)',
-      '// - MiddleName: Student middle name (optional)',
-      '// - LastName: Student last name (required)',
-      '// - EmailAddress: Valid email address (required)',
-      '// - ContactNumber: Phone number (optional)',
-      '// - Course: Course code (e.g., BSIT, BSCS) (required)',
-      '// - YearLevel: 1, 2, 3, or 4 (required)',
-      '// - Section: Section letter (e.g., A, B, C) (required)',
-      '// - IsPWD: Yes or No (optional, defaults to No)',
-      '// - Status: active or inactive (optional, defaults to active)',
-      '// Delete these instruction lines before importing'
+      sampleData1.join(','),
+      sampleData2.join(','),
+      '',
+      'INSTRUCTIONS (Delete these rows before importing):',
+      'StudentNumber - Unique student identifier (e.g. 2024-00001)',
+      'FirstName - Student first name (required)',
+      'MiddleName - Student middle name (optional)',
+      'LastName - Student last name (required)',
+      'EmailAddress - Valid email address (required)',
+      'ContactNumber - Phone number (optional)',
+      'Course - Course code such as BSIT or BSCS (required)',
+      'YearLevel - 1 or 2 or 3 or 4 (required)',
+      'Section - Section letter such as A or B or C (required)',
+      'IsPWD - Yes or No (optional - defaults to No)',
+      'Status - active or inactive (optional - defaults to active)'
     ].join('\n')
-    
-    // Create and download the file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+
+    // Add BOM for proper UTF-8 encoding in Excel
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
     link.setAttribute('href', url)
@@ -135,8 +152,9 @@ export default function StudentsTable() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    
-    brandedToast.success('Template downloaded! Fill in the data and import.')
+    URL.revokeObjectURL(url)
+
+    brandedToast.success('Excel-compatible template downloaded! Open in Excel, fill in student data, and import.')
   }
 
   const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,7 +167,7 @@ export default function StudentsTable() {
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     ]
-    
+
     if (!validTypes.includes(file.type) && !file.name.match(/\.(csv|xlsx|xls)$/i)) {
       brandedToast.error('Please upload a valid CSV or Excel file')
       event.target.value = ''
@@ -194,16 +212,16 @@ export default function StudentsTable() {
         />
         <div className='flex gap-2 flex-shrink-0'>
           <Button onClick={handlePrint} variant="outline">Print Report</Button>
-          <Button 
-            onClick={downloadImportTemplate} 
+          <Button
+            onClick={downloadImportTemplate}
             variant="outline"
             title="Download CSV template for importing students"
           >
             <Download className="h-4 w-4 mr-2" />
             Download Template
           </Button>
-          <Button 
-            onClick={handleImportClick} 
+          <Button
+            onClick={handleImportClick}
             variant="outline"
             disabled={isImporting}
           >
@@ -217,7 +235,7 @@ export default function StudentsTable() {
             onChange={handleFileImport}
             style={{ display: 'none' }}
           />
-          <AddStudentDialog onAdded={fetchData}/>
+          <AddStudentDialog onAdded={fetchData} />
         </div>
       </div>
 

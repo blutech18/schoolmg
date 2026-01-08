@@ -168,6 +168,12 @@ export default function DeanDashboard() {
                 <span className="text-yellow-600 font-medium">Late</span>
                 <span className="font-semibold">{stats.lateRate || 0}%</span>
               </div>
+              <div className="flex justify-between text-sm border-t pt-2">
+                <span className="text-gray-500 font-medium">Unmarked</span>
+                <span className="font-semibold text-gray-500">
+                  {Math.max(0, Math.round((100 - (stats.presentRate || 0) - (stats.absentRate || 0) - (stats.excusedRate || 0) - (stats.lateRate || 0)) * 10) / 10)}%
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>

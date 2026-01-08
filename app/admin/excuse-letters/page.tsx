@@ -22,6 +22,7 @@ import {
   Filter
 } from "lucide-react";
 import { toast } from "sonner";
+import { ExcuseLetterNotificationBar, calculateExcuseLetterCountsBySubject } from "@/components/ui/excuse-letter-notification-bar";
 
 interface AdminStats {
   totalExcuseLetters: number;
@@ -404,6 +405,12 @@ export default function AdminExcuseLettersPage() {
 
 
       </div>
+
+      {/* Pending Excuse Letters Notification Bar */}
+      <ExcuseLetterNotificationBar
+        excuseLetterCounts={calculateExcuseLetterCountsBySubject(excuseLetters, 'Status')}
+        title="Pending Excuse Letters by Subject"
+      />
 
       {/* Filters */}
       <Card>

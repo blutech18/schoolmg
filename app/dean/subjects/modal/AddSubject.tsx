@@ -40,7 +40,7 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
     Prerequisites: '',
     Description: '',
     InstructorID: null,
-    ClassType: 'lecture-only',
+    ClassType: 'LECTURE',
   })
   const [loading, setLoading] = useState(false)
   const [instructors, setInstructors] = useState<Instructor[]>([])
@@ -118,7 +118,7 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
 
   const handleSubmit = async () => {
     setLoading(true)
-    
+
     try {
       const response = await fetch('/api/subjects', {
         method: 'POST',
@@ -168,12 +168,12 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
 
         <div className="space-y-4 mt-4">
           <div className="grid grid-cols-2 gap-4">
-            <Input 
-              name="SubjectCode" 
-              placeholder="Subject Code" 
-              value={form.SubjectCode} 
-              onChange={handleChange} 
-              required 
+            <Input
+              name="SubjectCode"
+              placeholder="Subject Code"
+              value={form.SubjectCode}
+              onChange={handleChange}
+              required
             />
             <Input
               name="Units"
@@ -186,15 +186,15 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
               required
             />
           </div>
-          
-          <Input 
-            name="SubjectName" 
-            placeholder="Subject Name" 
-            value={form.SubjectName} 
-            onChange={handleChange} 
-            required 
+
+          <Input
+            name="SubjectName"
+            placeholder="Subject Name"
+            value={form.SubjectName}
+            onChange={handleChange}
+            required
           />
-          
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Prerequisite (optional)</label>
             <Select
@@ -218,7 +218,7 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
               </SelectContent>
             </Select>
           </div>
-          
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Class Type</label>
             <Select value={form.ClassType} onValueChange={handleClassTypeChange}>
@@ -234,11 +234,11 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
               </SelectContent>
             </Select>
           </div>
-          
-          <Textarea 
-            name="Description" 
-            placeholder="Subject Description (optional)" 
-            value={form.Description} 
+
+          <Textarea
+            name="Description"
+            placeholder="Subject Description (optional)"
+            value={form.Description}
             onChange={handleChange}
             rows={3}
           />
@@ -247,15 +247,15 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
         </div>
 
         <DialogFooter className="mt-6 flex justify-end space-x-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => setDialogOpen(false)}
             disabled={loading}
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleSubmit} 
+          <Button
+            onClick={handleSubmit}
             className="bg-green-900 text-white"
             disabled={loading}
           >

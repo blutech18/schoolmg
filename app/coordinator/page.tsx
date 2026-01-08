@@ -401,6 +401,22 @@ export default function CoordinatorDashboard() {
                               <FileText className="h-4 w-4 mr-1" />
                               View Details
                             </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleApprovalAction(letter, 'approved')}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleApprovalAction(letter, 'declined')}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Decline
+                            </Button>
                           </div>
                         </div>
                       </CardContent>
@@ -681,7 +697,7 @@ export default function CoordinatorDashboard() {
                       <div key={letter.ExcuseLetterID} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className={`w-2 h-2 rounded-full ${letter.CoordinatorStatus === 'approved' ? 'bg-green-500' :
-                              letter.CoordinatorStatus === 'declined' ? 'bg-red-500' : 'bg-yellow-500'
+                            letter.CoordinatorStatus === 'declined' ? 'bg-red-500' : 'bg-yellow-500'
                             }`}></div>
                           <div>
                             <p className="text-sm font-medium">{letter.StudentName || 'Unknown Student'}</p>
