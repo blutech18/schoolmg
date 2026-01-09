@@ -117,6 +117,16 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
   }
 
   const handleSubmit = async () => {
+    // Validate required fields before submission
+    if (!form.SubjectCode.trim()) {
+      brandedToast.error('Subject code is required', { title: '⚠️ Validation Error' })
+      return
+    }
+    if (!form.SubjectName.trim()) {
+      brandedToast.error('Subject name is required', { title: '⚠️ Validation Error' })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -129,7 +139,10 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
       })
 
       if (response.ok) {
-        brandedToast.success('Subject added successfully!')
+        brandedToast.success(
+          `Subject "${form.SubjectCode}" has been added to the curriculum.`,
+          { title: '✅ Subject Created Successfully', duration: 5000 }
+        )
         setForm({
           SubjectCode: '',
           SubjectName: '',
@@ -143,10 +156,16 @@ export default function AddSubjectDialog({ onAdded }: { onAdded: () => void }) {
         onAdded()
       } else {
         const error = await response.json()
-        brandedToast.error(error.error || 'Failed to add subject')
+        brandedToast.error(
+          error.error || 'Failed to add subject. Please try again.',
+          { title: '❌ Subject Creation Failed' }
+        )
       }
     } catch (error) {
-      brandedToast.error('Failed to add subject')
+      brandedToast.error(
+        'A network error occurred. Please check your connection.',
+        { title: '❌ Connection Error' }
+      )
     } finally {
       setLoading(false)
     }

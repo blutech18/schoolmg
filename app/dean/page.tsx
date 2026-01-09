@@ -215,6 +215,18 @@ export default function DeanDashboard() {
         </Card>
       </div>
 
+      {/* Section Overview - Consolidated View */}
+      <Card className="hover:shadow-md transition-shadow cursor-pointer border-2 border-blue-200 bg-blue-50" onClick={() => window.location.href = '/dean/section-overview'}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">📊 Section Overview (Consolidated)</CardTitle>
+          <Users className="h-4 w-4 text-blue-600" />
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-700">View all sections with subjects and students in one place</p>
+          <p className="text-xs text-blue-600 mt-2 font-medium">Filter by Course → Year → Section → Subjects</p>
+        </CardContent>
+      </Card>
+
       {/* Recent Activity Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>

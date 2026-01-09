@@ -69,13 +69,13 @@ export async function GET(req: NextRequest) {
       if (!instructorIdToUse) {
         return NextResponse.json({ success: false, error: 'Instructor ID is required' }, { status: 400 });
       }
-      
+
       // Validate that instructorId is a valid number
       const parsedInstructorId = parseInt(instructorIdToUse.toString(), 10);
       if (isNaN(parsedInstructorId)) {
         return NextResponse.json({ success: false, error: 'Invalid instructor ID format' }, { status: 400 });
       }
-      
+
       const query = `
         SELECT
           s.*,
@@ -135,8 +135,8 @@ export async function GET(req: NextRequest) {
       sqlMessage: error?.sqlMessage,
       stack: error?.stack
     });
-    return NextResponse.json({ 
-      success: false, 
+    return NextResponse.json({
+      success: false,
       error: 'Failed to fetch schedules',
       details: process.env.NODE_ENV === 'development' ? error?.message : undefined
     }, { status: 500 });
@@ -247,7 +247,7 @@ export async function POST(req: NextRequest) {
       ]);
 
       console.log(`Auto-enrolled ${enrollmentResult.affectedRows} students for schedule ${scheduleId}`);
-      
+
       // Log which students were enrolled for debugging
       if (enrollmentResult.affectedRows > 0) {
         const [enrolledStudents]: any = await db.query(`
@@ -256,7 +256,7 @@ export async function POST(req: NextRequest) {
           JOIN enrollments e ON s.StudentID = e.StudentID
           WHERE e.ScheduleID = ? AND e.Status = 'enrolled'
         `, [scheduleId]);
-        
+
         console.log('Enrolled students:', enrolledStudents);
       }
     } catch (enrollmentError) {
@@ -264,14 +264,40 @@ export async function POST(req: NextRequest) {
       // Don't fail the entire operation if auto-enrollment fails
     }
 
-    return NextResponse.json({ 
-      message: 'Schedule created', 
+    return NextResponse.json({
+      message: 'Schedule created',
       ScheduleID: scheduleId,
       autoEnrolled: true
     });
-  } catch (error) {
-    console.error('POST error:', error);
-    return NextResponse.json({ error: 'Failed to create schedule' }, { status: 500 });
+  } catch (error: any) {
+    console.error('POST schedule error:', error);
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
+
+    // Handle foreign key constraint errors
+    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+      return NextResponse.json({
+        error: 'Invalid reference: The selected instructor or subject does not exist.',
+        details: process.env.NODE_ENV === 'development' ? error?.sqlMessage : undefined
+      }, { status: 400 });
+    }
+
+    // Handle database schema mismatch
+    if (error.code === 'ER_BAD_FIELD_ERROR') {
+      return NextResponse.json({
+        error: `Database column issue: Please check database schema.`,
+        details: process.env.NODE_ENV === 'development' ? error?.sqlMessage : undefined
+      }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      error: 'Failed to create schedule. Please check all required fields.',
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    }, { status: 500 });
   }
 }
 

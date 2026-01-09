@@ -242,7 +242,13 @@ export default function AttendanceSheet({
   // Mark all students present for current session
   const markAllPresentForSession = () => {
     onBulkMarking('P', currentSessionType, currentSessionNumber)
-    brandedToast.success(`✅ All ${filteredStudents.length} students have been marked as PRESENT for Week ${currentSessionNumber} (${currentSessionType.charAt(0).toUpperCase() + currentSessionType.slice(1)})`)
+    brandedToast.success(
+      `All ${filteredStudents.length} students have been marked as PRESENT for Week ${currentSessionNumber} (${currentSessionType.charAt(0).toUpperCase() + currentSessionType.slice(1)})`,
+      {
+        title: '✅ Attendance Recorded Successfully',
+        duration: 5000
+      }
+    )
   }
 
   // Cancel class for current session
@@ -615,12 +621,12 @@ export default function AttendanceSheet({
                           <td className="px-3 py-3 text-center border-r">
                             <div className="flex justify-center">
                               <span className={`px-2 py-1 rounded text-xs font-medium ${currentStatus === 'P' ? 'bg-green-100 text-green-800' :
-                                  currentStatus === 'A' ? 'bg-red-100 text-red-800' :
-                                    currentStatus === 'E' ? 'bg-blue-100 text-blue-800' :
-                                      currentStatus === 'L' ? 'bg-yellow-100 text-yellow-800' :
-                                        currentStatus === 'D' ? 'bg-orange-100 text-orange-800' :
-                                          currentStatus === 'FA' ? 'bg-red-200 text-red-900' :
-                                            'bg-gray-100 text-gray-800'
+                                currentStatus === 'A' ? 'bg-red-100 text-red-800' :
+                                  currentStatus === 'E' ? 'bg-blue-100 text-blue-800' :
+                                    currentStatus === 'L' ? 'bg-yellow-100 text-yellow-800' :
+                                      currentStatus === 'D' ? 'bg-orange-100 text-orange-800' :
+                                        currentStatus === 'FA' ? 'bg-red-200 text-red-900' :
+                                          'bg-gray-100 text-gray-800'
                                 }`}>
                                 {currentStatus === 'P' ? 'Present' :
                                   currentStatus === 'A' ? 'Absent' :
@@ -652,19 +658,19 @@ export default function AttendanceSheet({
                                       size="sm"
                                       variant={currentStatus === status ? "default" : "outline"}
                                       className={`w-8 h-8 p-0 text-xs relative ${status === 'P' ? (currentStatus === status ? 'bg-green-600 hover:bg-green-700 text-white' : 'hover:bg-green-100 hover:text-green-700') :
-                                          status === 'A' ? (currentStatus === status ? 'bg-red-600 hover:bg-red-700 text-white' : 'hover:bg-red-100 hover:text-red-700') :
-                                            status === 'E' ? (currentStatus === status ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'hover:bg-blue-100 hover:text-blue-700') :
-                                              status === 'CC' ? (currentStatus === status ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'hover:bg-gray-100 hover:text-gray-700') :
-                                                (currentStatus === status ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : 'hover:bg-yellow-100 hover:text-yellow-700')
+                                        status === 'A' ? (currentStatus === status ? 'bg-red-600 hover:bg-red-700 text-white' : 'hover:bg-red-100 hover:text-red-700') :
+                                          status === 'E' ? (currentStatus === status ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'hover:bg-blue-100 hover:text-blue-700') :
+                                            status === 'CC' ? (currentStatus === status ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'hover:bg-gray-100 hover:text-gray-700') :
+                                              (currentStatus === status ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : 'hover:bg-yellow-100 hover:text-yellow-700')
                                         } ${isCurrentSessionCancelled() ? 'opacity-50 cursor-not-allowed' : ''}`}
                                       onClick={() => !isCurrentSessionCancelled() && markAttendanceForSession(student.StudentID, status)}
                                       disabled={isCurrentSessionCancelled()}
                                       title={isCurrentSessionCancelled() ? 'Session cancelled - attendance cannot be modified' : `Mark as ${status === 'P' ? 'Present' :
-                                          status === 'A' ? 'Absent' :
-                                            status === 'L' ? 'Late' :
-                                              status === 'E' ? 'Excused' :
-                                                status === 'CC' ? 'Class Cancelled' :
-                                                  'Unknown'
+                                        status === 'A' ? 'Absent' :
+                                          status === 'L' ? 'Late' :
+                                            status === 'E' ? 'Excused' :
+                                              status === 'CC' ? 'Class Cancelled' :
+                                                'Unknown'
                                         } for ${currentSessionType} session`}
                                     >
                                       {status}

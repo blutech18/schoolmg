@@ -78,7 +78,7 @@ interface ICourse {
   Department: string;
 }
 
-export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
+export default function AddScheduleDialog({ onAdd }: { onAdd: () => void }) {
   const [open, setOpen] = useState(false)
   const [instructors, setInstructors] = useState<IUser[]>([]);
   const [subjects, setSubjects] = useState<ISubject[]>([]);
@@ -119,7 +119,7 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
         }
         const instructorData = await instructorResponse.json();
         setInstructors(instructorData);
-        
+
         // Fetch subjects
         const subjectResponse = await fetch('/api/subjects');
         if (!subjectResponse.ok) {
@@ -141,7 +141,7 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
         console.error("Error fetching data:", error);
       }
     }
-    fetchData(); 
+    fetchData();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -168,11 +168,11 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
       const combinedDay = [lectureDay ? `Lecture: ${lectureDay}` : null, labDay ? `Laboratory: ${labDay}` : null]
         .filter(Boolean)
         .join(', ');
-      
+
       // Build flexible time strings
       const lectureTimeStr = (lectureStartTime && lectureEndTime) ? `${lectureStartTime} - ${lectureEndTime}` : '';
       const labTimeStr = (labStartTime && labEndTime) ? `${labStartTime} - ${labEndTime}` : '';
-      
+
       const combinedTime = [lectureTimeStr ? `Lecture: ${lectureTimeStr}` : null, labTimeStr ? `Laboratory: ${labTimeStr}` : null]
         .filter(Boolean)
         .join(', ');
@@ -190,16 +190,19 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
       // Create the schedule data with subject units and numeric conversion for hours
       const scheduleData = {
         ...form,
+        SubjectID: parseInt(form.SubjectID, 10), // Convert to integer
+        InstructorID: parseInt(form.InstructorID, 10), // Convert to integer
         YearLevel: Number(form.YearLevel), // Convert YearLevel to number
         Lecture: Number(form.Lecture) || 0,
         Laboratory: Number(form.Laboratory) || 0,
+        TotalSeats: Number(form.TotalSeats) || 40, // Convert TotalSeats to number
         Units: selectedSubject.Units || 3,
         Day: combinedDay || form.Day,
         Time: combinedTime || form.Time,
         Room: combinedRoom || form.Room,
       };
 
-
+      console.log('Sending schedule data to API:', scheduleData);
 
       const response = await fetch('/api/schedules', {
         method: 'POST',
@@ -234,7 +237,7 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
       // Clear form and close modal
       clearForm();
       setOpen(false);
-      
+
       // Trigger data refresh after a brief delay to show toast
       setTimeout(() => {
         onAdd(); // This triggers the data refresh
@@ -300,12 +303,11 @@ export default function AddScheduleDialog({ onAdd } : {onAdd: () => void}) {
                 {subjects.map((subject) => (
                   <SelectItem key={subject.SubjectID} value={String(subject.SubjectID)}>
                     {subject.SubjectCode} - {subject.SubjectName} ({subject.Units} units)
-                    {subject.ClassType && ` - ${
-                      subject.ClassType === 'LECTURE+LAB' ? 'Lecture and Laboratory' :
-                      subject.ClassType === 'MAJOR' ? 'Cisco' :
-                      subject.ClassType === 'NSTP' ? 'NSTP' :
-                      subject.ClassType === 'OJT' ? 'OJT' :
-                      'Lecture'}`}
+                    {subject.ClassType && ` - ${subject.ClassType === 'LECTURE+LAB' ? 'Lecture and Laboratory' :
+                        subject.ClassType === 'MAJOR' ? 'Cisco' :
+                          subject.ClassType === 'NSTP' ? 'NSTP' :
+                            subject.ClassType === 'OJT' ? 'OJT' :
+                              'Lecture'}`}
                   </SelectItem>
                 ))}
               </SelectContent>

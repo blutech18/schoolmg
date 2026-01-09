@@ -11,11 +11,11 @@ export async function GET(req: NextRequest) {
     // Check if InstructorID and ClassType columns exist in subjects table
     let hasInstructorColumn = false;
     let hasClassTypeColumn = false;
-    
+
     try {
       const [instructorColumns]: any = await db.query("SHOW COLUMNS FROM subjects LIKE 'InstructorID'");
       hasInstructorColumn = instructorColumns.length > 0;
-      
+
       const [classTypeColumns]: any = await db.query("SHOW COLUMNS FROM subjects LIKE 'ClassType'");
       hasClassTypeColumn = classTypeColumns.length > 0;
     } catch (err) {
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       }
       const [rows]: any = await db.query(query, [parseInt(id)]);
       result = rows.length ? rows[0] : null;
-      
+
       // Add default fields if columns don't exist
       if (result && !hasInstructorColumn) {
         result.InstructorID = null;
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
       }
       const [rows]: any = await db.query(query);
       result = rows;
-      
+
       // Add default fields if columns don't exist
       if (!hasInstructorColumn && Array.isArray(result)) {
         result = result.map(subject => ({
@@ -76,14 +76,14 @@ export async function GET(req: NextRequest) {
           ClassType: 'LECTURE'
         }));
       }
-      
+
       // Check if Major column exists and add default if missing
       const [majorColumns]: any = await db.query(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'subjects' AND COLUMN_NAME = 'Major'
       `);
       const hasMajorColumn = majorColumns.length > 0;
-      
+
       if (!hasMajorColumn && Array.isArray(result)) {
         result = result.map(subject => ({
           ...subject,
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
   try {
     const subject = await req.json();
     console.log('Received subject data:', subject);
-    
+
     // Validate required fields
     if (!subject.SubjectCode || !subject.SubjectName) {
       return NextResponse.json({ success: false, error: 'Subject code and name are required' }, { status: 400 });
@@ -112,11 +112,11 @@ export async function POST(req: NextRequest) {
     // Check if InstructorID and ClassType columns exist in subjects table
     let hasInstructorColumn = false;
     let hasClassTypeColumn = false;
-    
+
     try {
       const [instructorColumns]: any = await db.query("SHOW COLUMNS FROM subjects LIKE 'InstructorID'");
       hasInstructorColumn = instructorColumns.length > 0;
-      
+
       const [classTypeColumns]: any = await db.query("SHOW COLUMNS FROM subjects LIKE 'ClassType'");
       hasClassTypeColumn = classTypeColumns.length > 0;
     } catch (err) {
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
 
     let insertQuery;
     let queryParams;
-    
+
     if (hasInstructorColumn && hasClassTypeColumn) {
       insertQuery = `
         INSERT INTO subjects (SubjectCode, SubjectName, Units, Prerequisites, Description, InstructorID, ClassType)
@@ -169,13 +169,13 @@ export async function POST(req: NextRequest) {
 
     console.log('Executing query:', insertQuery);
     console.log('Query params:', queryParams);
-    
+
     const [result]: any = await db.query(insertQuery, queryParams);
-    
+
     console.log('Insert result:', result);
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: 'Subject created successfully',
       data: {
         SubjectID: result.insertId,
@@ -184,13 +184,34 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('POST subject error:', error);
-    
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage
+    });
+
     // Handle duplicate subject code error
     if (error.code === 'ER_DUP_ENTRY') {
-      return NextResponse.json({ success: false, error: 'Subject code already exists' }, { status: 400 });
+      return NextResponse.json({
+        success: false,
+        error: 'Subject code already exists. Please use a unique subject code.'
+      }, { status: 400 });
     }
-    
-    return NextResponse.json({ success: false, error: 'Failed to create subject' }, { status: 500 });
+
+    // Handle unknown column errors (database schema mismatch)
+    if (error.code === 'ER_BAD_FIELD_ERROR') {
+      return NextResponse.json({
+        success: false,
+        error: `Database schema issue: ${error.sqlMessage}. Please contact administrator.`
+      }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to create subject. Please try again.',
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    }, { status: 500 });
   }
 }
 
@@ -199,7 +220,7 @@ export async function PUT(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     const subject = await req.json();
-    
+
 
     if (!id) {
       return NextResponse.json({ error: 'Subject ID is required' }, { status: 400 });
@@ -213,11 +234,11 @@ export async function PUT(req: NextRequest) {
     // Check if InstructorID and ClassType columns exist in subjects table
     let hasInstructorColumn = false;
     let hasClassTypeColumn = false;
-    
+
     try {
       const [instructorColumns]: any = await db.query("SHOW COLUMNS FROM subjects LIKE 'InstructorID'");
       hasInstructorColumn = instructorColumns.length > 0;
-      
+
       const [classTypeColumns]: any = await db.query("SHOW COLUMNS FROM subjects LIKE 'ClassType'");
       hasClassTypeColumn = classTypeColumns.length > 0;
     } catch (err) {
@@ -276,18 +297,18 @@ export async function PUT(req: NextRequest) {
 
     await db.query(updateQuery, queryParams);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      message: 'Subject updated successfully' 
+      message: 'Subject updated successfully'
     });
   } catch (error: any) {
     console.error('PUT subject error:', error);
-    
+
     // Handle duplicate subject code error
     if (error.code === 'ER_DUP_ENTRY') {
       return NextResponse.json({ error: 'Subject code already exists' }, { status: 400 });
     }
-    
+
     return NextResponse.json({ error: 'Failed to update subject' }, { status: 500 });
   }
 }
@@ -307,14 +328,14 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ message: 'Subject deleted successfully' });
   } catch (error: any) {
     console.error('DELETE subject error:', error);
-    
+
     // Handle foreign key constraint error
     if (error.code === 'ER_ROW_IS_REFERENCED_2') {
-      return NextResponse.json({ 
-        error: 'Cannot delete subject as it is being used in schedules or other records' 
+      return NextResponse.json({
+        error: 'Cannot delete subject as it is being used in schedules or other records'
       }, { status: 400 });
     }
-    
+
     return NextResponse.json({ error: 'Failed to delete subject' }, { status: 500 });
   }
 }

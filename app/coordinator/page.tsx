@@ -24,7 +24,6 @@ import {
 import { toast } from "sonner";
 import ViewExcuseLetterModal from "../student/components/ViewExcuseLetterModal";
 import ApprovalModal from "../student/components/ApprovalModal";
-import { ExcuseLetterNotificationBar, calculateExcuseLetterCountsBySubject } from "@/components/ui/excuse-letter-notification-bar";
 
 interface CoordinatorStats {
   totalExcuseLetters: number;
@@ -294,12 +293,6 @@ export default function CoordinatorDashboard() {
         </Card>
       </div>
 
-      {/* Pending Excuse Letters Notification Bar */}
-      <ExcuseLetterNotificationBar
-        excuseLetterCounts={calculateExcuseLetterCountsBySubject(excuseLetters, 'CoordinatorStatus')}
-        title="Pending Excuse Letters by Subject"
-      />
-
       {/* Main Content */}
       <Tabs defaultValue="pending" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
@@ -516,7 +509,7 @@ export default function CoordinatorDashboard() {
                       </div>
                     )}
 
-                    <div className="pt-3">
+                    <div className="pt-3 flex items-center gap-2">
                       <Button
                         size="sm"
                         variant="outline"
@@ -525,6 +518,26 @@ export default function CoordinatorDashboard() {
                         <FileText className="h-4 w-4 mr-1" />
                         View Details
                       </Button>
+                      {(letter.CoordinatorStatus === 'pending') && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => handleApprovalAction(letter, 'approved')}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleApprovalAction(letter, 'declined')}
+                          >
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Decline
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>

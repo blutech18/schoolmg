@@ -685,7 +685,7 @@ export default function StudentDashboard() {
           </CardHeader>
           <CardContent>
             {(() => {
-              const totalSubjects = schedules.length;
+              const totalSubjects = new Set(schedules.map(s => s.SubjectCode)).size;
               const totalUnits = schedules.reduce((sum, s) => sum + (s.Units || 0), 0);
               const gradeValues = grades.map(g => g.summary).filter(v => v !== null) as number[];
               const overallGrade = gradeValues.length > 0

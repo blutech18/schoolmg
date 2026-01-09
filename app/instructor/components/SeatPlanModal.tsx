@@ -316,13 +316,32 @@ export default function SeatPlanModal({ schedule, onClose, onDataSaved }: SeatPl
     try {
       const assignments = seatType === 'lecture' ? lectureSeatAssignments : laboratorySeatAssignments
 
+      // Check if we have any seat assignment data
+      if (!assignments || assignments.length === 0) {
+        brandedToast.error(
+          `No seat plan available for ${seatType}. Please set up the seat arrangement first.`,
+          { title: '⚠️ No Seat Plan' }
+        )
+        return
+      }
+
       // Convert array format to object format expected by generateSeatPlanPrintContent
       const seatAssignments: { [key: number]: number } = {}
+      let assignedCount = 0
       assignments.forEach((studentId, index) => {
         if (studentId && studentId !== 0) {
           seatAssignments[index] = Number(studentId)
+          assignedCount++
         }
       })
+
+      // Warn if no students assigned but still allow print (for blank seat plan)
+      if (assignedCount === 0) {
+        brandedToast.info(
+          `Printing blank ${seatType} seat plan. No students have been assigned yet.`,
+          { title: '📋 Blank Seat Plan' }
+        )
+      }
 
       // Map enrolled students to format expected by print function
       const studentsForPrint = enrolledStudents.map(s => ({
@@ -341,10 +360,16 @@ export default function SeatPlanModal({ schedule, onClose, onDataSaved }: SeatPl
       )
 
       printDocument(printContent, `SeatPlan_${schedule.SubjectCode}_${seatType}`)
-      brandedToast.success(`${seatType.charAt(0).toUpperCase() + seatType.slice(1)} seat plan sent to printer`)
+      brandedToast.success(
+        `${seatType.charAt(0).toUpperCase() + seatType.slice(1)} seat plan sent to printer`,
+        { title: '🖨️ Print Started' }
+      )
     } catch (error) {
       console.error('Error printing seat plan:', error)
-      brandedToast.error('Failed to print seat plan')
+      brandedToast.error(
+        `Failed to print seat plan. ${error instanceof Error ? error.message : 'Please try again.'}`,
+        { title: '❌ Print Error' }
+      )
     }
   }
 

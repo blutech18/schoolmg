@@ -1982,21 +1982,11 @@ export default function InstructorDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Excuse Letters by Subject</CardTitle>
+            <CardTitle className="text-sm font-medium">Attendance Recorded</CardTitle>
             <FileText className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-xs font-semibold text-blue-600">
-              {(() => {
-                const subjectCounts: { [key: string]: number } = {};
-                excuseLetters.forEach(el => {
-                  subjectCounts[el.SubjectCode] = (subjectCounts[el.SubjectCode] || 0) + 1;
-                });
-                const entries = Object.entries(subjectCounts);
-                if (entries.length === 0) return '0';
-                return entries.map(([code, count]) => `${code}: ${count}`).join(', ');
-              })()}
-            </div>
+            <div className="text-2xl font-bold text-blue-600">{stats.attendanceRecorded}</div>
           </CardContent>
         </Card>
 
