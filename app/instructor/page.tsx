@@ -2656,79 +2656,120 @@ export default function InstructorDashboard() {
         </TabsContent>
       </Tabs>
 
-      {/* Session-Based Bulk Attendance Modal */}
+      {/* Session-Based Bulk Attendance Modal - Enhanced Design */}
       {showBulkModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Mark All Present</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowBulkModal(false)}
-                disabled={bulkMarkingLoading}
-              >
-                ✕
-              </Button>
-            </div>
-
-            <p className="text-sm text-gray-600 mb-4">
-              Mark all {students.filter(student => !student.IsDisabled).length} eligible students as present for {currentSessionType} session {currentSessionNumber}?
-            </p>
-
-            <div className="space-y-4">
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-blue-600 rounded"></div>
-                  <span className="text-sm font-medium text-blue-800">
-                    {currentSessionType === 'lecture' ? '📚 Lecture Session' : '🧪 Laboratory Session'}
-                  </span>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Header with gradient */}
+            <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-6 py-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <Users className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">Mark All Present</h3>
+                    <p className="text-emerald-100 text-sm">Quick attendance action</p>
+                  </div>
                 </div>
-                <p className="text-xs text-blue-600 mt-1">
-                  This will mark all students as present for {currentSessionType} session {currentSessionNumber}.
-                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowBulkModal(false)}
+                  disabled={bulkMarkingLoading}
+                  className="text-white hover:bg-white/20 rounded-full w-8 h-8 p-0"
+                >
+                  ✕
+                </Button>
               </div>
             </div>
 
-            <div className="mt-6 flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setShowBulkModal(false)}
-                disabled={bulkMarkingLoading}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 bg-green-600 hover:bg-green-700"
-                onClick={() => {
-                  markAllPresentForSession();
-                  setShowBulkModal(false);
-                }}
-                disabled={bulkMarkingLoading}
-              >
-                {bulkMarkingLoading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Marking...</span>
+            {/* Body */}
+            <div className="p-6">
+              {/* Session Info Card */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${currentSessionType === 'lecture' ? 'bg-blue-500' : 'bg-purple-500'
+                    }`}>
+                    <span className="text-xl">
+                      {currentSessionType === 'lecture' ? '📚' : '🧪'}
+                    </span>
                   </div>
-                ) : (
-                  'Mark All Present'
-                )}
-              </Button>
+                  <div>
+                    <p className="font-semibold text-gray-800">
+                      {currentSessionType === 'lecture' ? 'Lecture Session' : 'Laboratory Session'}
+                    </p>
+                    <p className="text-sm text-gray-600">Week {currentSessionNumber} of 18</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between bg-white/60 rounded-lg px-4 py-2">
+                  <span className="text-sm text-gray-600">Eligible Students</span>
+                  <span className="text-2xl font-bold text-emerald-600">
+                    {students.filter(student => !student.IsDisabled).length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Confirmation Text */}
+              <div className="flex items-start gap-3 mb-5">
+                <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                </div>
+                <p className="text-sm text-gray-600">
+                  This action will mark <strong>all {students.filter(student => !student.IsDisabled).length} eligible students</strong> as
+                  <span className="inline-flex items-center gap-1 mx-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                    ✓ Present
+                  </span>
+                  for this session.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 h-12 border-2"
+                  onClick={() => setShowBulkModal(false)}
+                  disabled={bulkMarkingLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 h-12 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold shadow-lg shadow-emerald-200"
+                  onClick={() => {
+                    markAllPresentForSession();
+                    setShowBulkModal(false);
+                  }}
+                  disabled={bulkMarkingLoading}
+                >
+                  {bulkMarkingLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      <span>Marking...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5" />
+                      <span>Confirm</span>
+                    </div>
+                  )}
+                </Button>
+              </div>
             </div>
 
+            {/* Loading Overlay */}
             {bulkMarkingLoading && (
-              <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                  <span className="text-sm text-gray-600">Marking attendance...</span>
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-2xl">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-10 w-10 border-4 border-emerald-500 border-t-transparent mx-auto mb-3"></div>
+                  <p className="text-sm font-medium text-gray-600">Recording attendance...</p>
                 </div>
               </div>
             )}
           </div>
         </div>
       )}
+
 
       {/* Drop/Fail Marking Modal */}
       {showDropFailModal && (

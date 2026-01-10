@@ -192,7 +192,7 @@ export default function DeanAttendancePage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
@@ -328,7 +328,7 @@ export default function DeanAttendancePage() {
             Subjects
           </CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-scroll">
+        <CardContent>
           <p className="text-sm text-gray-500 mb-4">
             Tip: Hold Shift and use your mouse wheel to scroll horizontally across weeks.
           </p>
@@ -402,7 +402,7 @@ export default function DeanAttendancePage() {
 
                       return (
                         <div className="border-t bg-gray-50 p-4">
-                          <div className="overflow-x-scroll w-full pb-2">
+                          <div className="overflow-x-auto w-full pb-2">
                             <Table className={hasBoth ? "min-w-[2400px]" : "min-w-[1400px]"}>
                               <TableHeader>
                                 <TableRow className="bg-gray-100">

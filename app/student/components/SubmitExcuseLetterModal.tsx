@@ -259,83 +259,131 @@ export default function SubmitExcuseLetterModal({
         dateTo: formData.dateTo,
       });
 
-      // Submit excuse letter
-      const excuseLetterResponse = await fetch('/api/excuse-letters', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          studentId,
-          scheduleId: isMultiSubject ? null : formData.scheduleId,
-          scheduleIds: isMultiSubject ? selectedSubjects.map(s => s.ScheduleID) : [],
-          subject: formData.subject,
-          reason: formData.reason,
-          dateFrom: formData.dateFrom,
-          dateTo: formData.dateTo,
-          // Include subject code and title from selected subject(s)
-          subjectCode: isMultiSubject ? 'Multiple Subjects' : (selectedSubject?.SubjectCode || ''),
-          subjectTitle: isMultiSubject ? 'Multiple Subjects' : (selectedSubject?.SubjectTitle || ''),
-          instructorName: isMultiSubject ? 'Multiple Instructors' : (selectedSubject?.InstructorName || '')
-        }),
-      });
+      // Submit excuse letter(s)
+      let excuseLetterIDs: number[] = [];
 
-      // Check if response is OK before parsing JSON
-      if (!excuseLetterResponse.ok) {
-        const errorText = await excuseLetterResponse.text();
-        console.error("Excuse letter API error:", excuseLetterResponse.status, errorText);
-        brandedToast.error(`Server error (${excuseLetterResponse.status}): Failed to submit excuse letter. Please try again.`);
-        return;
+      if (isMultiSubject) {
+        // Submit individual excuse letters for each selected subject
+        for (const subject of selectedSubjects) {
+          const response = await fetch('/api/excuse-letters', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              studentId,
+              scheduleId: subject.ScheduleID,
+              scheduleIds: [],
+              subject: formData.subject,
+              reason: formData.reason,
+              dateFrom: formData.dateFrom,
+              dateTo: formData.dateTo,
+              subjectCode: subject.SubjectCode,
+              subjectTitle: subject.SubjectTitle,
+              instructorName: subject.InstructorName
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Excuse letter API error for ${subject.SubjectCode}:`, response.status, errorText);
+            brandedToast.error(`Failed to submit excuse letter for ${subject.SubjectCode}. Please try again.`);
+            return;
+          }
+
+          const data = await response.json();
+          if (!data.success) {
+            brandedToast.error(data.error || `Failed to submit excuse letter for ${subject.SubjectCode}`);
+            return;
+          }
+
+          excuseLetterIDs.push(data.excuseLetterID);
+        }
+      } else {
+        // Submit single excuse letter
+        const excuseLetterResponse = await fetch('/api/excuse-letters', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            studentId,
+            scheduleId: formData.scheduleId,
+            scheduleIds: [],
+            subject: formData.subject,
+            reason: formData.reason,
+            dateFrom: formData.dateFrom,
+            dateTo: formData.dateTo,
+            subjectCode: selectedSubject?.SubjectCode || '',
+            subjectTitle: selectedSubject?.SubjectTitle || '',
+            instructorName: selectedSubject?.InstructorName || ''
+          }),
+        });
+
+        // Check if response is OK before parsing JSON
+        if (!excuseLetterResponse.ok) {
+          const errorText = await excuseLetterResponse.text();
+          console.error("Excuse letter API error:", excuseLetterResponse.status, errorText);
+          brandedToast.error(`Server error (${excuseLetterResponse.status}): Failed to submit excuse letter. Please try again.`);
+          return;
+        }
+
+        const excuseLetterData = await excuseLetterResponse.json();
+        console.log("Excuse letter response:", excuseLetterData);
+
+        if (!excuseLetterData.success) {
+          brandedToast.error(excuseLetterData.error || "Failed to submit excuse letter");
+          return;
+        }
+
+        excuseLetterIDs.push(excuseLetterData.excuseLetterID);
       }
 
-      const excuseLetterData = await excuseLetterResponse.json();
-      console.log("Excuse letter response:", excuseLetterData);
 
-      if (!excuseLetterData.success) {
-        brandedToast.error(excuseLetterData.error || "Failed to submit excuse letter");
-        return;
-      }
-
-      // Upload files if any
-      if (selectedFiles.length > 0) {
+      // Upload files if any - attach to all created excuse letters
+      if (selectedFiles.length > 0 && excuseLetterIDs.length > 0) {
         console.log("Uploading files:", selectedFiles.map(f => ({ name: f.name, size: f.size, type: f.type })));
         setUploading(true);
 
-        const formDataFiles = new FormData();
-        formDataFiles.append('excuseLetterID', excuseLetterData.excuseLetterID.toString());
+        // Upload files for each excuse letter
+        for (const excuseLetterID of excuseLetterIDs) {
+          const formDataFiles = new FormData();
+          formDataFiles.append('excuseLetterID', excuseLetterID.toString());
 
-        selectedFiles.forEach((file) => {
-          formDataFiles.append('files', file);
-        });
-
-        try {
-          const uploadResponse = await fetch('/api/excuse-letters/upload', {
-            method: 'POST',
-            credentials: 'include',
-            body: formDataFiles,
+          selectedFiles.forEach((file) => {
+            formDataFiles.append('files', file);
           });
 
-          // Check if response is OK before parsing
-          if (!uploadResponse.ok) {
-            const uploadErrorText = await uploadResponse.text();
-            console.error("File upload API error:", uploadResponse.status, uploadErrorText);
-            // Don't return here - the excuse letter was already created
-            brandedToast.error(`Excuse letter submitted, but file upload failed (${uploadResponse.status}). You can try uploading files later.`);
-          } else {
-            const uploadData = await uploadResponse.json();
-            console.log("File upload response:", uploadData);
 
-            if (!uploadData.success) {
-              brandedToast.error(uploadData.error || "Excuse letter submitted, but file upload failed. You can try uploading files later.");
+          try {
+            const uploadResponse = await fetch('/api/excuse-letters/upload', {
+              method: 'POST',
+              credentials: 'include',
+              body: formDataFiles,
+            });
+
+            // Check if response is OK before parsing
+            if (!uploadResponse.ok) {
+              const uploadErrorText = await uploadResponse.text();
+              console.error("File upload API error:", uploadResponse.status, uploadErrorText);
+              // Don't return here - the excuse letter was already created
+              brandedToast.error(`Excuse letter submitted, but file upload failed (${uploadResponse.status}). You can try uploading files later.`);
             } else {
-              setUploadSuccess(true);
-              brandedToast.success(`${selectedFiles.length} file(s) uploaded successfully!`);
+              const uploadData = await uploadResponse.json();
+              console.log("File upload response:", uploadData);
+
+              if (!uploadData.success) {
+                brandedToast.error(uploadData.error || "Excuse letter submitted, but file upload failed. You can try uploading files later.");
+              } else {
+                setUploadSuccess(true);
+              }
             }
+          } catch (uploadError) {
+            console.error("File upload network error:", uploadError);
+            brandedToast.error("Excuse letter submitted, but file upload failed due to network error.");
           }
-        } catch (uploadError) {
-          console.error("File upload network error:", uploadError);
-          brandedToast.error("Excuse letter submitted, but file upload failed due to network error.");
         }
       }
 
@@ -354,8 +402,9 @@ export default function SubmitExcuseLetterModal({
       setIsMultiSubject(false);
       setUploadSuccess(false);
 
-      console.log("Excuse letter submitted successfully");
-      brandedToast.success("Excuse letter submitted successfully!");
+      console.log("Excuse letter(s) submitted successfully");
+      const letterCount = excuseLetterIDs.length;
+      brandedToast.success(`${letterCount} excuse letter${letterCount > 1 ? 's' : ''} submitted successfully!`);
       onSuccess();
 
     } catch (error) {

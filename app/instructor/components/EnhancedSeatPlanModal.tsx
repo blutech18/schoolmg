@@ -64,11 +64,11 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
   const hasLaboratory = (schedule.Laboratory || 0) > 0
   const hasBothComponents = hasLecture && hasLaboratory
   const classType = schedule.ClassType || 'LECTURE'
-  
+
   // Detect Cisco rooms and determine if it's a Cisco room
   // For MAJOR class type, treat as Cisco room (laboratory)
-  const isCiscoRoom = (schedule.Room && schedule.Room.toLowerCase().includes('cisco')) || 
-                      (schedule.ClassType === 'MAJOR')
+  const isCiscoRoom = (schedule.Room && schedule.Room.toLowerCase().includes('cisco')) ||
+    (schedule.ClassType === 'MAJOR')
   const isCiscoLab = isCiscoRoom && (schedule.Room.toLowerCase().includes('lab') || schedule.ClassType === 'MAJOR')
 
   // Fetch enrolled students when component mounts
@@ -103,7 +103,7 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
     console.log('🔍 ClassType:', schedule.ClassType)
     console.log('🔍 Room:', schedule.Room)
     console.log('🔍 Is Cisco Room:', isCiscoRoom)
-    
+
     const totalSeats = schedule.TotalSeats || 0
     console.log('🔍 Total seats:', totalSeats)
 
@@ -127,7 +127,7 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
       console.error("❌ Invalid lecture seat map:", schedule.LectureSeatMap, error)
       lectureMap = Array(totalSeats).fill(0)
     }
-    
+
     if (lectureMap.length !== totalSeats) {
       console.log('🔍 Lecture map length mismatch, adjusting:', lectureMap.length, 'vs', totalSeats)
       lectureMap = Array(totalSeats).fill(0)
@@ -155,7 +155,7 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
       console.error("❌ Invalid laboratory seat map:", schedule.LaboratorySeatMap, error)
       laboratoryMap = Array(totalSeats).fill(0)
     }
-    
+
     if (laboratoryMap.length !== totalSeats) {
       console.log('🔍 Laboratory map length mismatch, adjusting:', laboratoryMap.length, 'vs', totalSeats)
       laboratoryMap = Array(totalSeats).fill(0)
@@ -168,7 +168,7 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
     const currentAssignments = seatType === 'lecture' ? lectureSeatAssignments : laboratorySeatAssignments
     const setAssignments = seatType === 'lecture' ? setLectureSeatAssignments : setLaboratorySeatAssignments
     const currentAssignment = currentAssignments[seatIndex]
-    
+
     if (currentAssignment && currentAssignment !== 0) {
       // Seat is occupied, unassign student
       const newAssignments = [...currentAssignments]
@@ -180,10 +180,10 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
       const assignedStudentIds = currentAssignments
         .filter(id => id !== 0)
         .map(id => id!.toString())
-      const availableStudents = enrolledStudents.filter(student => 
+      const availableStudents = enrolledStudents.filter(student =>
         !assignedStudentIds.includes(student.StudentID.toString())
       )
-      
+
       if (availableStudents.length > 0) {
         // Assign the first available student
         const newAssignments = [...currentAssignments]
@@ -212,38 +212,40 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
       console.log('🔍 Starting saveSeatArrangement for:', seatType)
       console.log('🔍 Schedule ID:', schedule.ScheduleID)
       console.log('🔍 Is Cisco Room:', isCiscoRoom)
-      
+
       const assignments = seatType === 'lecture' ? lectureSeatAssignments : laboratorySeatAssignments
       console.log('🔍 Assignments to save:', assignments)
-      
-      // Calculate correct columns for Cisco rooms
+
+      // Calculate correct columns
       let cols: number
       if (isCiscoRoom) {
-        // Cisco room: 2 columns with 4 seats each (8 seats per row)
+        // Cisco room: 2 columns with 4 seats per row
         cols = 2
       } else {
         // Standard room layout
-        cols = seatType === 'lecture' ? (schedule.LectureSeatCols || schedule.SeatCols || 4) : (schedule.LaboratorySeatCols || schedule.SeatCols || 5)
+        cols = seatType === 'lecture'
+          ? (schedule.LectureSeatCols || schedule.SeatCols || 4)
+          : 2  // Laboratory always uses 2 columns (4 seats per row)
       }
-      
+
       console.log('🔍 Calculated columns:', cols)
       console.log('🔍 SeatMap JSON:', JSON.stringify(assignments))
-      
+
       const requestBody = {
         SeatMap: JSON.stringify(assignments),
         SeatCols: cols
       }
       console.log('🔍 Request body:', requestBody)
-      
+
       const res = await fetch(`/api/schedules/seat-map?id=${schedule.ScheduleID}&type=${seatType}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
       })
-      
+
       console.log('🔍 Response status:', res.status)
       console.log('🔍 Response ok:', res.ok)
-      
+
       if (res.ok) {
         const result = await res.json()
         console.log('🔍 Response data:', result)
@@ -279,16 +281,16 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
   const resetSeatArrangement = async (seatType: 'lecture' | 'laboratory' | 'both') => {
     const totalSeats = schedule.TotalSeats || 0
     const newAssignments = Array(totalSeats).fill(0)
-    
+
     if (seatType === 'lecture' || seatType === 'both') {
       setLectureSeatAssignments(newAssignments)
     }
     if (seatType === 'laboratory' || seatType === 'both') {
       setLaboratorySeatAssignments(newAssignments)
     }
-    
+
     setShowResetModal(false)
-    
+
     try {
       // Save the reset to database
       if (seatType === 'lecture' || seatType === 'both') {
@@ -297,7 +299,7 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
       if (seatType === 'laboratory' || seatType === 'both') {
         await saveSeatArrangement('laboratory')
       }
-      
+
       brandedToast.success('Seat arrangement reset and saved successfully!')
     } catch (error) {
       console.error('Error saving reset arrangement:', error)
@@ -309,22 +311,22 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
     const totalSeats = schedule.TotalSeats || 0
     const newAssignments = Array(totalSeats).fill(0)
     const setAssignments = seatType === 'lecture' ? setLectureSeatAssignments : setLaboratorySeatAssignments
-    
+
     // Sort students alphabetically by lastname
     const sortedStudents = [...enrolledStudents].sort((a, b) => {
       const lastNameA = a.LastName || a.StudentName.split(' ').pop() || ''
       const lastNameB = b.LastName || b.StudentName.split(' ').pop() || ''
       return lastNameA.localeCompare(lastNameB)
     })
-    
+
     sortedStudents.forEach((student, index) => {
       if (index < totalSeats) {
         newAssignments[index] = student.StudentID
       }
     })
-    
+
     setAssignments(newAssignments)
-    
+
     try {
       // Immediately save the auto-assigned arrangement to database
       await saveSeatArrangement(seatType)
@@ -338,18 +340,18 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
     const totalSeats = schedule.TotalSeats || 0
     const newAssignments = Array(totalSeats).fill(0)
     const setAssignments = seatType === 'lecture' ? setLectureSeatAssignments : setLaboratorySeatAssignments
-    
+
     // Create a shuffled copy of enrolled students
     const shuffledStudents = [...enrolledStudents].sort(() => Math.random() - 0.5)
-    
+
     shuffledStudents.forEach((student, index) => {
       if (index < totalSeats) {
         newAssignments[index] = student.StudentID
       }
     })
-    
+
     setAssignments(newAssignments)
-    
+
     try {
       // Immediately save the shuffled arrangement to database
       await saveSeatArrangement(seatType)
@@ -359,12 +361,12 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
     }
   }
 
-  const printSeatPlan = () => {
-    // For MAJOR class type, always treat as laboratory (Cisco room)
-    // For LECTURE+LABORATORY class type, treat as laboratory
-    // For other cases, use the class type as-is
+  const printSeatPlan = (printType?: 'lecture' | 'laboratory') => {
+    // Use provided seatType or determine based on class type
     let seatType: 'lecture' | 'laboratory'
-    if (classType === 'MAJOR') {
+    if (printType) {
+      seatType = printType
+    } else if (classType === 'MAJOR') {
       seatType = 'laboratory'
     } else if (classType === 'LECTURE+LABORATORY' || classType === 'LECTURE+LAB') {
       seatType = 'laboratory'
@@ -373,9 +375,18 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
     } else {
       seatType = classType.toLowerCase() as 'lecture' | 'laboratory'
     }
+
     const assignments = seatType === 'lecture' ? lectureSeatAssignments : laboratorySeatAssignments;
-    const seatAssignments: {[key: number]: number} = {};
-    
+    const seatAssignments: { [key: number]: number } = {};
+
+    // Check if there are any assignments for this seat type
+    const hasAssignments = assignments.some(id => id !== 0);
+
+    if (!hasAssignments) {
+      brandedToast.warning(`No seat assignments found for ${seatType}. Please assign students first.`);
+      return;
+    }
+
     assignments.forEach((studentId, index) => {
       if (studentId && studentId !== 0) {
         seatAssignments[index] = Number(studentId);
@@ -404,10 +415,8 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
     );
 
     const roomType = isCiscoRoom ? 'Cisco ' : '';
-    const displayClassType = classType === 'MAJOR' ? 'CISCO' : 
-                            (classType === 'LECTURE+LABORATORY' || classType === 'LECTURE+LAB') ? 'LECTURE+LABORATORY' : 
-                            classType;
-    printDocument(printContent, `${schedule.SubjectCode} - ${roomType}${displayClassType} Seat Plan`);
+    const displaySeatType = seatType.charAt(0).toUpperCase() + seatType.slice(1);
+    printDocument(printContent, `${schedule.SubjectCode} - ${roomType}${displaySeatType} Seat Plan`);
   };
 
   const showBothSeatTypes =
@@ -420,17 +429,17 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
   const renderSeatSection = (seatType: 'lecture' | 'laboratory') => {
     const assignments = seatType === 'lecture' ? lectureSeatAssignments : laboratorySeatAssignments
 
-    // Cisco room specific layout configuration
+    // Seat plan layout configuration
     let cols: number
     if (isCiscoRoom) {
-      // Cisco room: 2 columns with 4 seats each (8 seats per row)
+      // Cisco room: 2 columns with 4 seats per row (2 left, gap, 2 right)
       cols = 2
     } else {
       // Standard room layout
       cols =
         seatType === 'lecture'
           ? schedule.LectureSeatCols || schedule.SeatCols || 4
-          : schedule.LaboratorySeatCols || schedule.SeatCols || 5
+          : 2  // Laboratory always uses 2 columns (4 seats per row: 2 left, gap, 2 right)
     }
 
     const totalSeats = schedule.TotalSeats || 0
@@ -502,11 +511,11 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
             </Button>
             <Button
               variant="outline"
-              onClick={printSeatPlan}
+              onClick={() => printSeatPlan(seatType)}
               className="border-green-300 text-green-700 hover:bg-green-50 flex-1 sm:flex-none print-hide"
             >
               <Printer className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Print</span>
+              <span className="hidden sm:inline">Print {seatType === 'lecture' ? 'Lecture' : 'Lab'}</span>
               <span className="sm:hidden">Print</span>
             </Button>
           </div>
@@ -546,11 +555,10 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
                           {seat1Index < totalSeats && (
                             <div
                               onClick={() => handleSeatClick(seat1Index, seatType)}
-                              className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
-                                assignments[seat1Index] && assignments[seat1Index] !== 0
-                                  ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
-                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                              }`}
+                              className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${assignments[seat1Index] && assignments[seat1Index] !== 0
+                                ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                                }`}
                               title={
                                 assignments[seat1Index] && assignments[seat1Index] !== 0
                                   ? `${getStudentLabel(assignments[seat1Index])} - Click to unassign`
@@ -572,11 +580,10 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
                           {seat2Index < totalSeats && (
                             <div
                               onClick={() => handleSeatClick(seat2Index, seatType)}
-                              className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
-                                assignments[seat2Index] && assignments[seat2Index] !== 0
-                                  ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
-                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                              }`}
+                              className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${assignments[seat2Index] && assignments[seat2Index] !== 0
+                                ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                                }`}
                               title={
                                 assignments[seat2Index] && assignments[seat2Index] !== 0
                                   ? `${getStudentLabel(assignments[seat2Index])} - Click to unassign`
@@ -617,11 +624,10 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
                               <div
                                 key={seatIndex}
                                 onClick={() => handleSeatClick(actualSeatIndex, seatType)}
-                                className={`w-20 h-20 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
-                                  assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
-                                    ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                                }`}
+                                className={`w-20 h-20 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
+                                  ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                                  }`}
                                 title={
                                   assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
                                     ? `${getStudentLabel(assignments[actualSeatIndex])} - Click to unassign`
@@ -655,11 +661,10 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
                                 <div
                                   key={seatIndex}
                                   onClick={() => handleSeatClick(actualSeatIndex, seatType)}
-                                  className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
-                                    assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
-                                      ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
-                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                                  }`}
+                                  className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
+                                    ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                                    }`}
                                   title={
                                     assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
                                       ? `${getStudentLabel(assignments[actualSeatIndex])} - Click to unassign`
@@ -694,11 +699,10 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
                                 <div
                                   key={seatIndex}
                                   onClick={() => handleSeatClick(actualSeatIndex, seatType)}
-                                  className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
-                                    assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
-                                      ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
-                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                                  }`}
+                                  className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
+                                    ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                                    }`}
                                   title={
                                     assignments[actualSeatIndex] && assignments[actualSeatIndex] !== 0
                                       ? `${getStudentLabel(assignments[actualSeatIndex])} - Click to unassign`
@@ -732,11 +736,10 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
                               {seat1Index < totalSeats && (
                                 <div
                                   onClick={() => handleSeatClick(seat1Index, seatType)}
-                                  className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
-                                    assignments[seat1Index] && assignments[seat1Index] !== 0
-                                      ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
-                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                                  }`}
+                                  className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${assignments[seat1Index] && assignments[seat1Index] !== 0
+                                    ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                                    }`}
                                   title={
                                     assignments[seat1Index] && assignments[seat1Index] !== 0
                                       ? `${getStudentLabel(assignments[seat1Index])} - Click to unassign`
@@ -758,11 +761,10 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
                               {seat2Index < totalSeats && (
                                 <div
                                   onClick={() => handleSeatClick(seat2Index, seatType)}
-                                  className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
-                                    assignments[seat2Index] && assignments[seat2Index] !== 0
-                                      ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
-                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                                  }`}
+                                  className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${assignments[seat2Index] && assignments[seat2Index] !== 0
+                                    ? 'bg-green-600 text-white hover:bg-green-700 border-green-500'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
+                                    }`}
                                   title={
                                     assignments[seat2Index] && assignments[seat2Index] !== 0
                                       ? `${getStudentLabel(assignments[seat2Index])} - Click to unassign`

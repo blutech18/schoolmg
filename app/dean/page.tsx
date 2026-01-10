@@ -14,6 +14,8 @@ interface DashboardStats {
   absentRate: number;
   excusedRate: number;
   lateRate: number;
+  dismissedRate: number;
+  failedAttendanceRate: number;
 }
 
 export default function DeanDashboard() {
@@ -25,7 +27,9 @@ export default function DeanDashboard() {
     presentRate: 0,
     absentRate: 0,
     excusedRate: 0,
-    lateRate: 0
+    lateRate: 0,
+    dismissedRate: 0,
+    failedAttendanceRate: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -71,6 +75,8 @@ export default function DeanDashboard() {
       const absentRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.absentRecords / totalRecords) * 1000) / 10 : 0;
       const excusedRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.excusedRecords / totalRecords) * 1000) / 10 : 0;
       const lateRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.lateRecords / totalRecords) * 1000) / 10 : 0;
+      const dismissedRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.dismissedRecords / totalRecords) * 1000) / 10 : 0;
+      const failedAttendanceRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.failedAttendanceRecords / totalRecords) * 1000) / 10 : 0;
 
       setStats({
         totalStudents: Array.isArray(studentsData) ? studentsData.length : 0,
@@ -80,7 +86,9 @@ export default function DeanDashboard() {
         presentRate,
         absentRate,
         excusedRate,
-        lateRate
+        lateRate,
+        dismissedRate,
+        failedAttendanceRate
       });
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -114,7 +122,7 @@ export default function DeanDashboard() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Students</CardTitle>
@@ -144,40 +152,51 @@ export default function DeanDashboard() {
             <div className="text-2xl font-bold text-yellow-600">{stats.pendingApprovals}</div>
           </CardContent>
         </Card>
+      </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Attendance Breakdown</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-green-600 font-medium">Present</span>
-                <span className="font-semibold">{stats.presentRate || 0}%</span>
+      {/* Attendance Breakdown - Full Width Row */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Attendance Breakdown</CardTitle>
+          <TrendingUp className="h-4 w-4 text-green-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-green-50 px-4 py-2 rounded-lg border border-green-200">
+                <span className="text-green-600 font-medium text-sm">Present</span>
+                <span className="text-2xl font-bold text-green-700">{stats.presentRate || 0}%</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-red-600 font-medium">Absent</span>
-                <span className="font-semibold">{stats.absentRate || 0}%</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-red-50 px-4 py-2 rounded-lg border border-red-200">
+                <span className="text-red-600 font-medium text-sm">Absent</span>
+                <span className="text-2xl font-bold text-red-700">{stats.absentRate || 0}%</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-blue-600 font-medium">Excused</span>
-                <span className="font-semibold">{stats.excusedRate || 0}%</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
+                <span className="text-blue-600 font-medium text-sm">Excused</span>
+                <span className="text-2xl font-bold text-blue-700">{stats.excusedRate || 0}%</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-yellow-600 font-medium">Late</span>
-                <span className="font-semibold">{stats.lateRate || 0}%</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-yellow-50 px-4 py-2 rounded-lg border border-yellow-200">
+                <span className="text-yellow-600 font-medium text-sm">Late</span>
+                <span className="text-2xl font-bold text-yellow-700">{stats.lateRate || 0}%</span>
               </div>
-              <div className="flex justify-between text-sm border-t pt-2">
-                <span className="text-gray-500 font-medium">Unmarked</span>
-                <span className="font-semibold text-gray-500">
-                  {Math.max(0, Math.round((100 - (stats.presentRate || 0) - (stats.absentRate || 0) - (stats.excusedRate || 0) - (stats.lateRate || 0)) * 10) / 10)}%
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-lg border border-gray-200">
+                <span className="text-gray-600 font-medium text-sm">Unmarked</span>
+                <span className="text-2xl font-bold text-gray-700">
+                  {Math.max(0, Math.round((100 - (stats.presentRate || 0) - (stats.absentRate || 0) - (stats.excusedRate || 0) - (stats.lateRate || 0) - (stats.dismissedRate || 0) - (stats.failedAttendanceRate || 0)) * 10) / 10)}%
                 </span>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -654,7 +654,7 @@ export default function StudentDashboard() {
             <img
               src="/img/cca-logo.png"
               alt="School Logo"
-              className="h-16 w-16 rounded-full shadow-md"
+              className="h-20 w-auto object-contain shadow-md"
             />
             <div>
               <h1 className="text-2xl font-bold">Student Dashboard</h1>
@@ -695,7 +695,7 @@ export default function StudentDashboard() {
               const attEffectivePresent = attendance.filter(r => r.Status === 'P' || r.Status === 'E').length;
               const attendanceRate = attTotal > 0 ? Math.round((attEffectivePresent / attTotal) * 100) : 0;
               return (
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="text-center">
                     <p className="text-sm text-gray-600">Course</p>
                     <p className="font-semibold">{studentData.course}</p>
@@ -707,20 +707,6 @@ export default function StudentDashboard() {
                   <div className="text-center">
                     <p className="text-sm text-gray-600">Section</p>
                     <p className="font-semibold">{studentData.section}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600">Excuse Letters</p>
-                    <p className="font-semibold text-xs">
-                      {(() => {
-                        const subjectCounts: { [key: string]: number } = {};
-                        excuseLetters.forEach(el => {
-                          subjectCounts[el.SubjectCode] = (subjectCounts[el.SubjectCode] || 0) + 1;
-                        });
-                        const entries = Object.entries(subjectCounts);
-                        if (entries.length === 0) return '0';
-                        return entries.map(([code, count]) => `${code}: ${count}`).join(', ');
-                      })()}
-                    </p>
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-gray-600">Total Units</p>

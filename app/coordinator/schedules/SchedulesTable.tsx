@@ -55,15 +55,15 @@ export default function SchedulesTable() {
       try {
         console.log('Fetching schedules for SchedulesTable');
         const res = await fetch('/api/schedules');
-        
+
         if (!res.ok) {
           console.error(`Schedules API failed: ${res.status} ${res.statusText}`);
           throw new Error('Failed to fetch schedules');
         }
-        
+
         const result = await res.json();
         console.log('SchedulesTable API response:', result);
-        
+
         // Handle the API response format { success: true, data: [...] }
         if (result.success && Array.isArray(result.data)) {
           setSchedules(result.data);
@@ -85,24 +85,24 @@ export default function SchedulesTable() {
     if (session) fetchData();
   }, [session]);
 
-  
+
   // Ensure schedules is always an array before filtering
   const safeSchedules = Array.isArray(schedules) ? schedules : [];
-  
+
   const filteredSchedules = safeSchedules.filter(schedule => {
     // First filter by role
     let roleMatch = false;
-    if (session?.role === "admin" || session?.role === "dean") {
+    if (session?.role === "admin" || session?.role === "dean" || session?.role === "programcoor") {
       roleMatch = true;
     } else if (session?.role === "instructor") {
       roleMatch = schedule.InstructorID === session?.userId;
     }
-    
+
     if (!roleMatch) return false;
-    
+
     // Then filter by search term if provided
     if (!filter) return true;
-    
+
     return (
       schedule.Course?.toLowerCase().includes(filter.toLowerCase()) ||
       schedule.Section?.toLowerCase().includes(filter.toLowerCase()) ||
@@ -110,9 +110,9 @@ export default function SchedulesTable() {
       schedule.SubjectName?.toLowerCase().includes(filter.toLowerCase())
     );
   });
-  
+
   console.log('Filtered schedules:', filteredSchedules);
-  
+
   function handlePrint() {
     if (!tableRef.current) {
       alert('Table not ready for printing.');
@@ -155,7 +155,7 @@ export default function SchedulesTable() {
         <div className='flex gap-2 flex-shrink-0'>
           <Button onClick={handlePrint} variant="outline">Print Report</Button>
           <Button onClick={onDownload} variant="outline">Export to Excel</Button>
-          <AddScheduleDialog onAdd={reloadData}/>
+          <AddScheduleDialog onAdd={reloadData} />
         </div>
       </div>
 
@@ -198,7 +198,7 @@ export default function SchedulesTable() {
                 </TableCell>
                 <TableCell className='flex gap-2 items-center justify-center no-print'>
                   <EditScheduleDialog onUpdated={reloadData} schedule={sched} />
-                  <DeleteScheduleDialog onDeleted={reloadData} scheduleId={sched.ScheduleID}/>
+                  <DeleteScheduleDialog onDeleted={reloadData} scheduleId={sched.ScheduleID} />
                 </TableCell>
               </TableRow>
             ))}

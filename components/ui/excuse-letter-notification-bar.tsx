@@ -59,7 +59,15 @@ export function ExcuseLetterNotificationBar({
 }
 
 export function calculateExcuseLetterCountsBySubject(
-  excuseLetters: Array<{ SubjectCode: string; SubjectTitle?: string; Status?: string; InstructorStatus?: string; CoordinatorStatus?: string; DeanStatus?: string }>,
+  excuseLetters: Array<{
+    SubjectCode: string;
+    SubjectTitle?: string;
+    Status?: string;
+    InstructorStatus?: string;
+    CoordinatorStatus?: string;
+    DeanStatus?: string;
+    AllSubjectCodes?: string; // Comma-separated list for multi-subject letters
+  }>,
   statusField: 'Status' | 'InstructorStatus' | 'CoordinatorStatus' | 'DeanStatus' = 'Status'
 ): ExcuseLetterCount[] {
   const pendingLetters = excuseLetters.filter(letter => {
@@ -68,13 +76,28 @@ export function calculateExcuseLetterCountsBySubject(
   });
 
   const countMap: { [key: string]: { count: number; title?: string } } = {};
-  
+
   pendingLetters.forEach(letter => {
-    const code = letter.SubjectCode;
-    if (!countMap[code]) {
-      countMap[code] = { count: 0, title: letter.SubjectTitle };
+    // Check if this is a multi-subject excuse letter
+    if (letter.SubjectCode === 'Multiple Subjects' && letter.AllSubjectCodes) {
+      // Split the comma-separated subject codes and count each one
+      const subjectCodes = letter.AllSubjectCodes.split(',').map(code => code.trim());
+      subjectCodes.forEach(code => {
+        if (code) {
+          if (!countMap[code]) {
+            countMap[code] = { count: 0, title: undefined };
+          }
+          countMap[code].count++;
+        }
+      });
+    } else {
+      // Single subject excuse letter
+      const code = letter.SubjectCode;
+      if (!countMap[code]) {
+        countMap[code] = { count: 0, title: letter.SubjectTitle };
+      }
+      countMap[code].count++;
     }
-    countMap[code].count++;
   });
 
   return Object.entries(countMap).map(([subjectCode, data]) => ({

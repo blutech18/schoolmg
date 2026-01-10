@@ -13,9 +13,11 @@ export default async function RootLayout({
     <div className="min-h-screen w-full flex bg-white">
       <SidebarProvider>
         <DeanClientSidebar />
-        <div className="flex-1 overflow-hidden flex justify-center">
-          <main className="w-full h-screen overflow-y-auto max-w-[1400px]">
-            <div className="px-6 py-6 w-full mx-auto">{children}</div>
+        <div className="flex-1 ml-64 overflow-hidden">
+          <main className="w-full min-h-screen">
+            <div className="px-6 py-6 w-full mx-auto max-w-[1400px]">
+              {children}
+            </div>
           </main>
         </div>
       </SidebarProvider>
