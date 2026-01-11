@@ -17,6 +17,7 @@ import { Trash, Upload, Download } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { enhancedPrint, getCurrentAcademicYear, getCurrentSemester } from '@/app/lib/printUtils'
 import { brandedToast } from '@/components/ui/branded-toast'
+import { downloadStudentImportTemplate } from '@/app/lib/excelTemplateUtils'
 import EditStudentDialog from './modal/EditStudent'
 import DeleteStudentDialog from './modal/DeleteStudent'
 import AddStudentDialog from './modal/AddStudent'
@@ -77,11 +78,14 @@ export default function StudentsTable() {
     fileInputRef.current?.click()
   }
 
-  const downloadImportTemplate = () => {
-    // Use the new Excel template generator with professional formatting
-    const { downloadStudentImportTemplate } = require('@/app/lib/excelTemplateUtils');
-    downloadStudentImportTemplate();
-    brandedToast.success('Professional Excel template downloaded! Open in Excel, fill in student data, and import.');
+  const handleDownloadTemplate = () => {
+    try {
+      downloadStudentImportTemplate();
+      brandedToast.success('Excel template downloaded! Fill in student data and import.');
+    } catch (error) {
+      console.error('Download template error:', error);
+      brandedToast.error('Failed to download template');
+    }
   }
 
   const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,12 +116,22 @@ export default function StudentsTable() {
       })
 
       const result = await response.json()
+      console.log('Import response:', result)
 
       if (response.ok) {
-        brandedToast.success(`Successfully imported ${result.imported || 0} students`)
+        if (result.imported > 0) {
+          brandedToast.success(`Successfully imported ${result.imported} students${result.skipped > 0 ? `. ${result.skipped} rows skipped.` : ''}`)
+        } else if (result.skipped > 0) {
+          brandedToast.error(`No students imported. ${result.skipped} rows had errors.`)
+        }
         fetchData() // Refresh the table
       } else {
-        brandedToast.error(result.error || 'Failed to import students')
+        // Show detailed error message
+        let errorMsg = result.error || 'Failed to import students'
+        if (result.foundHeaders) {
+          console.log('Headers found in file:', result.foundHeaders)
+        }
+        brandedToast.error(errorMsg)
       }
     } catch (error) {
       console.error('Import error:', error)
@@ -140,7 +154,7 @@ export default function StudentsTable() {
         <div className='flex gap-2 flex-shrink-0'>
           <Button onClick={handlePrint} variant="outline">Print Report</Button>
           <Button
-            onClick={downloadImportTemplate}
+            onClick={handleDownloadTemplate}
             variant="outline"
             title="Download CSV template for importing students"
           >

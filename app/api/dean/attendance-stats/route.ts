@@ -11,6 +11,7 @@ interface AttendanceStats {
   dismissedRecords: number;
   failedAttendanceRecords: number;
   cancelledRecords: number;
+  unmarkedRecords: number;
 }
 
 export async function GET(request: NextRequest) {
@@ -26,24 +27,25 @@ export async function GET(request: NextRequest) {
         COUNT(CASE WHEN Status = 'L' THEN 1 END) as lateRecords,
         COUNT(CASE WHEN Status = 'D' THEN 1 END) as dismissedRecords,
         COUNT(CASE WHEN Status = 'FA' THEN 1 END) as failedAttendanceRecords,
-        COUNT(CASE WHEN Status = 'CC' THEN 1 END) as cancelledRecords
+        COUNT(CASE WHEN Status = 'CC' THEN 1 END) as cancelledRecords,
+        COUNT(CASE WHEN (Status IS NULL OR Status = '') AND Status != 'CC' THEN 1 END) as unmarkedRecords
       FROM attendance
     `);
 
     const stats = (statsResult as any[])[0];
-    
+
     // Calculate average attendance percentage
     // Present (P), Excused (E), Late (L), and Dismissed (D) are considered "attended"
     // CC (Cancelled) records are excluded from both numerator and denominator
     const attendedRecords = (stats.presentRecords || 0) + (stats.excusedRecords || 0) + (stats.lateRecords || 0) + (stats.dismissedRecords || 0);
     const cancelledRecords = stats.cancelledRecords || 0;
     const totalRecords = stats.totalRecords || 0; // Already excludes CC
-    
+
     // Calculate the actual average attendance based on data
     let averageAttendance = 0;
     if (totalRecords > 0) {
       averageAttendance = (attendedRecords / totalRecords) * 100;
-      
+
       // Cap at 100% - each record can only contribute once, so max is 100%
       if (averageAttendance > 100) {
         console.warn(`Attendance calculation exceeded 100%: ${averageAttendance}%. Capping at 100%.`);
@@ -64,11 +66,12 @@ export async function GET(request: NextRequest) {
       lateRecords: stats.lateRecords || 0,
       dismissedRecords: stats.dismissedRecords || 0,
       failedAttendanceRecords: stats.failedAttendanceRecords || 0,
-      cancelledRecords: cancelledRecords
+      cancelledRecords: cancelledRecords,
+      unmarkedRecords: stats.unmarkedRecords || 0
     };
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: attendanceStats,
       message: "Attendance statistics retrieved successfully"
     });
@@ -82,8 +85,8 @@ export async function GET(request: NextRequest) {
       sqlMessage: error?.sqlMessage
     });
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: "Failed to fetch attendance statistics",
         details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },

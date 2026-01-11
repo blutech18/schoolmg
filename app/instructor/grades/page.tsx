@@ -984,7 +984,9 @@ function InstructorGradesContent() {
                             </div>
                           </td>
                           <td className="border border-gray-300 p-3 text-center">
-                            <div className="text-lg font-semibold">{midtermGrade.toFixed(2)}</div>
+                            <div className={`text-lg font-semibold ${midtermGrade > 3.0 ? 'text-red-600' : ''}`}>
+                              {midtermGrade.toFixed(2)}
+                            </div>
                             {studentGrades?.midtermPercentage !== undefined && (
                               <div className="text-xs text-gray-600 mt-1">
                                 ({studentGrades.midtermPercentage.toFixed(1)}%)
@@ -998,7 +1000,9 @@ function InstructorGradesContent() {
                             </Badge>
                           </td>
                           <td className="border border-gray-300 p-3 text-center">
-                            <div className="text-lg font-semibold">{finalGrade.toFixed(2)}</div>
+                            <div className={`text-lg font-semibold ${finalGrade > 3.0 ? 'text-red-600' : ''}`}>
+                              {finalGrade.toFixed(2)}
+                            </div>
                             {studentGrades?.finalPercentage !== undefined && (
                               <div className="text-xs text-gray-600 mt-1">
                                 ({studentGrades.finalPercentage.toFixed(1)}%)
@@ -1012,7 +1016,7 @@ function InstructorGradesContent() {
                             </Badge>
                           </td>
                           <td className="border border-gray-300 p-3 text-center bg-blue-50">
-                            <div className="text-xl font-bold text-slate-900">
+                            <div className={`text-xl font-bold ${overallAverage !== null && overallAverage > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
                               {overallAverage !== null ? overallAverage.toFixed(2) : 'N/A'}
                             </div>
                           </td>

@@ -15,45 +15,20 @@ export function generateStudentImportTemplate(): Blob {
         'MiddleName',
         'LastName',
         'EmailAddress',
+        'Password',
         'ContactNumber',
         'Course',
         'YearLevel',
         'Section',
+        'Sex',
         'IsPWD',
         'Status'
     ];
 
-    // Sample data rows
-    const sampleData = [
-        [
-            '2024-00001',
-            'Juan',
-            'Dela',
-            'Cruz',
-            'juan.delacruz@example.com',
-            '09123456789',
-            'BSIT',
-            1,
-            'A',
-            'No',
-            'active'
-        ],
-        [
-            '2024-00002',
-            'Maria',
-            'Santos',
-            'Garcia',
-            'maria.garcia@example.com',
-            '09987654321',
-            'BSCS',
-            2,
-            'B',
-            'No',
-            'active'
-        ]
-    ];
+    // No sample data - users should add their own real data
+    const sampleData: any[] = [];
 
-    // Create worksheet data with headers and sample data
+    // Create worksheet data with headers only
     const wsData = [headers, ...sampleData];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
@@ -64,10 +39,12 @@ export function generateStudentImportTemplate(): Blob {
         { wch: 15 }, // MiddleName
         { wch: 15 }, // LastName
         { wch: 30 }, // EmailAddress
+        { wch: 12 }, // Password
         { wch: 15 }, // ContactNumber
         { wch: 10 }, // Course
         { wch: 12 }, // YearLevel
         { wch: 10 }, // Section
+        { wch: 8 },  // Sex
         { wch: 8 },  // IsPWD
         { wch: 10 }  // Status
     ];
@@ -92,26 +69,7 @@ export function generateStudentImportTemplate(): Blob {
         ws[cellAddress].s = headerStyle;
     }
 
-    // Style sample data rows with alternating colors and borders
-    for (let row = 1; row <= sampleData.length; row++) {
-        const isEvenRow = row % 2 === 0;
-        const rowStyle = {
-            fill: { fgColor: { rgb: isEvenRow ? 'F3F4F6' : 'FFFFFF' } },
-            border: {
-                top: { style: 'thin', color: { rgb: 'D1D5DB' } },
-                bottom: { style: 'thin', color: { rgb: 'D1D5DB' } },
-                left: { style: 'thin', color: { rgb: 'D1D5DB' } },
-                right: { style: 'thin', color: { rgb: 'D1D5DB' } }
-            },
-            alignment: { vertical: 'center' }
-        };
-
-        for (let col = 0; col < headers.length; col++) {
-            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-            if (!ws[cellAddress]) continue;
-            ws[cellAddress].s = rowStyle;
-        }
-    }
+    // No sample data to style
 
     // Add the main sheet to workbook
     XLSX.utils.book_append_sheet(workbook, ws, 'Student Data');
@@ -127,19 +85,22 @@ export function generateStudentImportTemplate(): Blob {
         ['FirstName', 'Student\'s first name', 'Yes', 'Text'],
         ['MiddleName', 'Student\'s middle name', 'No', 'Text (can be empty)'],
         ['LastName', 'Student\'s last name', 'Yes', 'Text'],
-        ['EmailAddress', 'Valid email address', 'Yes', 'email@example.com'],
+        ['EmailAddress', 'Valid email address', 'Yes', 'email@cca.edu.ph'],
+        ['Password', 'Initial password', 'No', 'Default: 12345'],
         ['ContactNumber', 'Phone number', 'No', 'e.g., 09123456789'],
         ['Course', 'Course code', 'Yes', 'BSIT, BSCS, BSIS, etc.'],
         ['YearLevel', 'Year level (1-4)', 'Yes', '1, 2, 3, or 4'],
         ['Section', 'Section letter', 'Yes', 'A, B, C, etc.'],
+        ['Sex', 'Student gender', 'No', 'Male or Female (default: Male)'],
         ['IsPWD', 'Person with Disability', 'No', 'Yes or No (default: No)'],
         ['Status', 'Student status', 'No', 'active or inactive (default: active)'],
         [''],
         ['Important Notes:'],
-        ['• Delete the sample data rows before importing your actual student data'],
+        ['• Add your student data starting from row 2 (below the header row)'],
         ['• Ensure all required fields are filled in'],
         ['• StudentNumber must be unique for each student'],
-        ['• EmailAddress must be in valid email format'],
+        ['\u2022 EmailAddress must be unique and in valid email format (preferably @cca.edu.ph)'],
+        ['\u2022 Duplicate emails or student numbers will be skipped during import'],
         ['• Do not modify the header row (first row)'],
         ['• Save the file after filling in your data'],
         ['• Use the "Import Students" button to upload this file'],

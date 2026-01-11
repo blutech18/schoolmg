@@ -16,6 +16,7 @@ interface DashboardStats {
   lateRate: number;
   dismissedRate: number;
   failedAttendanceRate: number;
+  unmarkedRate: number;
 }
 
 export default function DeanDashboard() {
@@ -29,7 +30,8 @@ export default function DeanDashboard() {
     excusedRate: 0,
     lateRate: 0,
     dismissedRate: 0,
-    failedAttendanceRate: 0
+    failedAttendanceRate: 0,
+    unmarkedRate: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -77,6 +79,7 @@ export default function DeanDashboard() {
       const lateRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.lateRecords / totalRecords) * 1000) / 10 : 0;
       const dismissedRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.dismissedRecords / totalRecords) * 1000) / 10 : 0;
       const failedAttendanceRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.failedAttendanceRecords / totalRecords) * 1000) / 10 : 0;
+      const unmarkedRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.unmarkedRecords / totalRecords) * 1000) / 10 : 0;
 
       setStats({
         totalStudents: Array.isArray(studentsData) ? studentsData.length : 0,
@@ -88,7 +91,8 @@ export default function DeanDashboard() {
         excusedRate,
         lateRate,
         dismissedRate,
-        failedAttendanceRate
+        failedAttendanceRate,
+        unmarkedRate
       });
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -189,9 +193,7 @@ export default function DeanDashboard() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-lg border border-gray-200">
                 <span className="text-gray-600 font-medium text-sm">Unmarked</span>
-                <span className="text-2xl font-bold text-gray-700">
-                  {Math.max(0, Math.round((100 - (stats.presentRate || 0) - (stats.absentRate || 0) - (stats.excusedRate || 0) - (stats.lateRate || 0) - (stats.dismissedRate || 0) - (stats.failedAttendanceRate || 0)) * 10) / 10)}%
-                </span>
+                <span className="text-2xl font-bold text-gray-700">{stats.unmarkedRate || 0}%</span>
               </div>
             </div>
           </div>
