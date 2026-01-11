@@ -437,7 +437,18 @@ export default function AddScheduleDialog({ onAdd }: { onAdd: () => void }) {
               <div className="bg-green-800 text-white px-3 py-2 font-semibold">Lecture</div>
               <div className="p-3 space-y-2 bg-white">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Day</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-gray-600">Day</label>
+                    {lectureDay && (
+                      <button
+                        type="button"
+                        onClick={() => setLectureDay('')}
+                        className="text-xs text-red-600 hover:text-red-800"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <Select value={lectureDay} onValueChange={setLectureDay}>
                     <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
                       <SelectValue placeholder="Select day" />
@@ -448,7 +459,18 @@ export default function AddScheduleDialog({ onAdd }: { onAdd: () => void }) {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Start Time</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-gray-600">Start Time</label>
+                    {lectureStartTime && (
+                      <button
+                        type="button"
+                        onClick={() => setLectureStartTime('')}
+                        className="text-xs text-red-600 hover:text-red-800"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <Select value={lectureStartTime} onValueChange={setLectureStartTime}>
                     <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
                       <SelectValue placeholder="Select start time" />
@@ -461,7 +483,18 @@ export default function AddScheduleDialog({ onAdd }: { onAdd: () => void }) {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">End Time</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-gray-600">End Time</label>
+                    {lectureEndTime && (
+                      <button
+                        type="button"
+                        onClick={() => setLectureEndTime('')}
+                        className="text-xs text-red-600 hover:text-red-800"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <Select value={lectureEndTime} onValueChange={setLectureEndTime}>
                     <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
                       <SelectValue placeholder="Select end time" />
@@ -474,7 +507,18 @@ export default function AddScheduleDialog({ onAdd }: { onAdd: () => void }) {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Room</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-gray-600">Room</label>
+                    {lectureRoom && (
+                      <button
+                        type="button"
+                        onClick={() => setLectureRoom('')}
+                        className="text-xs text-red-600 hover:text-red-800"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <Input value={lectureRoom} onChange={(e) => setLectureRoom(e.target.value)} placeholder="e.g., R201" className="w-full px-3 py-2 border border-gray-200 rounded-lg" />
                 </div>
               </div>
@@ -484,7 +528,18 @@ export default function AddScheduleDialog({ onAdd }: { onAdd: () => void }) {
               <div className="bg-green-800 text-white px-3 py-2 font-semibold">Laboratory</div>
               <div className="p-3 space-y-2 bg-white">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Day</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-gray-600">Day</label>
+                    {labDay && (
+                      <button
+                        type="button"
+                        onClick={() => setLabDay('')}
+                        className="text-xs text-red-600 hover:text-red-800"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <Select value={labDay} onValueChange={setLabDay}>
                     <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
                       <SelectValue placeholder="Select day" />
@@ -495,7 +550,18 @@ export default function AddScheduleDialog({ onAdd }: { onAdd: () => void }) {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Start Time</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-gray-600">Start Time</label>
+                    {labStartTime && (
+                      <button
+                        type="button"
+                        onClick={() => setLabStartTime('')}
+                        className="text-xs text-red-600 hover:text-red-800"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <Select value={labStartTime} onValueChange={setLabStartTime}>
                     <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
                       <SelectValue placeholder="Select start time" />
@@ -508,7 +574,18 @@ export default function AddScheduleDialog({ onAdd }: { onAdd: () => void }) {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">End Time</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-gray-600">End Time</label>
+                    {labEndTime && (
+                      <button
+                        type="button"
+                        onClick={() => setLabEndTime('')}
+                        className="text-xs text-red-600 hover:text-red-800"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <Select value={labEndTime} onValueChange={setLabEndTime}>
                     <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
                       <SelectValue placeholder="Select end time" />
@@ -521,7 +598,18 @@ export default function AddScheduleDialog({ onAdd }: { onAdd: () => void }) {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Room</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-gray-600">Room</label>
+                    {labRoom && (
+                      <button
+                        type="button"
+                        onClick={() => setLabRoom('')}
+                        className="text-xs text-red-600 hover:text-red-800"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                   <Input value={labRoom} onChange={(e) => setLabRoom(e.target.value)} placeholder="e.g., CLAB2" className="w-full px-3 py-2 border border-gray-200 rounded-lg" />
                 </div>
               </div>

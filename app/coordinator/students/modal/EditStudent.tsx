@@ -20,6 +20,7 @@ import { brandedToast } from '@/components/ui/branded-toast'
 export default function EditStudentDialog({ student, onUpdated }: { student: any, onUpdated: () => void }) {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [courses, setCourses] = useState<any[]>([])
   const [form, setForm] = useState<any>({
     ...student,
     IsPWD: Boolean(student.IsPWD) // Convert any truthy value to boolean
@@ -32,19 +33,35 @@ export default function EditStudentDialog({ student, onUpdated }: { student: any
     }) // Rehydrate form if student changes
   }, [student])
 
+  // Fetch courses from API
+  useEffect(() => {
+    async function fetchCourses() {
+      try {
+        const res = await fetch('/api/courses')
+        if (!res.ok) throw new Error('Failed to fetch courses')
+        const data = await res.json()
+        setCourses(Array.isArray(data) ? data : (data.data || []))
+      } catch (error) {
+        console.error('Error fetching courses:', error)
+        setCourses([])
+      }
+    }
+    fetchCourses()
+  }, [])
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setForm((prev: any) => ({
       ...prev,
       [name]: name === 'YearLevel' ? Number(value) :
-               name === 'IsPWD' ? (value === 'true') : value
+        name === 'IsPWD' ? (value === 'true') : value
     }))
   }
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault() // Prevent form default submission
     if (isSubmitting) return // Prevent double submission
-    
+
     try {
       setIsSubmitting(true)
       const res = await fetch(`/api/students?id=${student.StudentID}`, {
@@ -151,10 +168,11 @@ export default function EditStudentDialog({ student, onUpdated }: { student: any
               <Label>Course</Label>
               <select name="Course" value={form.Course || ''} onChange={handleChange} className="w-full border rounded px-3 py-2">
                 <option value="">Select Course</option>
-                <option value="BSCS">BS Computer Science</option>
-                <option value="BSIT">BS Information Technology</option>
-                <option value="BSIS">BS Information Systems</option>
-                <option value="BSEMC">BS Entertainment & Multimedia Computing</option>
+                {courses.map((course) => (
+                  <option key={course.CourseID} value={course.CourseCode}>
+                    {course.CourseName}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="space-y-2">
@@ -205,13 +223,13 @@ export default function EditStudentDialog({ student, onUpdated }: { student: any
         </form>
 
         <DialogFooter className="mt-6 flex justify-end space-x-2">
-           <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-          <Button 
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button
             type="submit"
             form="edit-student-form"
-            className="bg-green-900 text-white" 
+            className="bg-green-900 text-white"
             disabled={isSubmitting}
             onClick={handleSubmit}
           >

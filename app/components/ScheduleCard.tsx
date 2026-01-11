@@ -89,15 +89,15 @@ export default function ScheduleCard({
   const days = parseDays(schedule.Day ?? undefined)
 
   const lectureInfo = {
-    day: days.lecture || schedule.Day || 'N/A',
-    time: times.lecture || schedule.Time || 'N/A',
-    room: rooms.lecture || schedule.Room || 'N/A',
+    day: days.lecture || 'N/A',
+    time: times.lecture || 'N/A',
+    room: rooms.lecture || 'N/A',
   }
 
   const labInfo = {
-    day: days.laboratory || schedule.Day || 'N/A',
-    time: times.laboratory || schedule.Time || 'N/A',
-    room: rooms.laboratory || schedule.Room || 'N/A',
+    day: days.laboratory || 'N/A',
+    time: times.laboratory || 'N/A',
+    room: rooms.laboratory || 'N/A',
   }
 
   const secondaryLineParts = [

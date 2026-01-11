@@ -247,6 +247,17 @@ export function parseTimes(timeString?: string): { lecture?: string; laboratory?
     };
   }
 
+  // Check for slash-separated time ranges (compact format: "08:00AM-10:00AM/07:00AM-09:30AM")
+  if (time.includes('/')) {
+    const parts = time.split('/').map(p => p.trim());
+    if (parts.length >= 2) {
+      return {
+        lecture: parts[0],
+        laboratory: parts[1]
+      };
+    }
+  }
+
   // Check for pipe-separated time ranges (new compact format)
   if (time.includes('|')) {
     const parts = time.split('|').map(p => p.trim());
@@ -296,15 +307,35 @@ export function parseDays(dayString?: string): { lecture?: string; laboratory?: 
 
   const day = dayString.trim();
 
+  // Expand 3-letter day abbreviations
+  const expandDay = (abbr: string): string => {
+    const dayMap: { [key: string]: string } = {
+      'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday',
+      'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday', 'Sun': 'Sunday'
+    };
+    return dayMap[abbr] || abbr;
+  };
+
   // Check for explicit labels (including compact format L: and Lab:)
   const lectureMatch = day.match(/(?:lecture|lec|L)[\s:]*([A-Za-z]+)/i);
   const labMatch = day.match(/(?:laboratory|lab)[\s:]*([A-Za-z]+)/i);
 
   if (lectureMatch && labMatch) {
     return {
-      lecture: lectureMatch[1].trim(),
-      laboratory: labMatch[1].trim()
+      lecture: expandDay(lectureMatch[1].trim()),
+      laboratory: expandDay(labMatch[1].trim())
     };
+  }
+
+  // Check for slash-separated days (compact format: "Mon/Tue")
+  if (day.includes('/')) {
+    const parts = day.split('/').map(p => p.trim());
+    if (parts.length >= 2) {
+      return {
+        lecture: expandDay(parts[0]),
+        laboratory: expandDay(parts[1])
+      };
+    }
   }
 
   // Check for pipe-separated days (new compact format)
@@ -315,8 +346,8 @@ export function parseDays(dayString?: string): { lecture?: string; laboratory?: 
       const lecturePart = parts.find(p => /^L:/i.test(p));
       const labPart = parts.find(p => /^Lab:/i.test(p));
       return {
-        lecture: lecturePart ? lecturePart.replace(/^L:/i, '').trim() : parts[0],
-        laboratory: labPart ? labPart.replace(/^Lab:/i, '').trim() : parts[1]
+        lecture: expandDay(lecturePart ? lecturePart.replace(/^L:/i, '').trim() : parts[0]),
+        laboratory: expandDay(labPart ? labPart.replace(/^Lab:/i, '').trim() : parts[1])
       };
     }
   }
@@ -326,14 +357,14 @@ export function parseDays(dayString?: string): { lecture?: string; laboratory?: 
     const parts = day.split(',').map(p => p.trim());
     if (parts.length >= 2) {
       return {
-        lecture: parts[0],
-        laboratory: parts[1]
+        lecture: expandDay(parts[0]),
+        laboratory: expandDay(parts[1])
       };
     }
   }
 
   // If no separator found, return single day for both
-  return { lecture: day, laboratory: day };
+  return { lecture: expandDay(day), laboratory: expandDay(day) };
 }
 
 /**
