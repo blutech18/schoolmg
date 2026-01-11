@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
 
     // Start transaction for atomic operations
     await db.query('START TRANSACTION');
-    
+
     // Generate IDs via DB functions backed by sequences
     let nextStudentId: number;
     try {
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       const [uidRows]: any = await db.query('SELECT GREATEST(100000, NextVal(?)) AS uid', ['user_student']);
       nextStudentId = uidRows[0].uid;
     }
-    
+
     let nextPrefixedId: string;
     try {
       const [pidRows]: any = await db.query('SELECT GetNextPrefixedID(?) AS pid', ['student']);
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       await db.query('ROLLBACK');
       console.error('Failed to generate PrefixedID:', error);
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Failed to generate student ID',
         details: error instanceof Error ? error.message : 'Unknown error'
       }, { status: 500 });
@@ -59,20 +59,20 @@ export async function POST(req: NextRequest) {
       await db.query('ROLLBACK');
       if (error.code === 'ER_DUP_ENTRY') {
         if (error.message.includes('uq_users_prefixed')) {
-          return NextResponse.json({ 
+          return NextResponse.json({
             error: 'Duplicate PrefixedID detected. Please try again.',
             details: 'A student with this ID already exists'
           }, { status: 409 });
         }
         if (error.message.includes('EmailAddress')) {
-          return NextResponse.json({ 
+          return NextResponse.json({
             error: 'Email already exists',
             details: 'This email address is already in use'
           }, { status: 409 });
         }
       }
       console.error('Failed to insert user:', error);
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Failed to create student',
         details: error.message || 'Unknown error'
       }, { status: 500 });
@@ -86,41 +86,41 @@ export async function POST(req: NextRequest) {
     let studentNumber: string;
     let attempts = 0;
     const maxAttempts = 10; // Prevent infinite loops
-    
+
     try {
       do {
         const [numRows]: any = await db.query('SELECT GetNextStudentNumber(?) AS snum', [currentYear]);
         studentNumber = numRows[0].snum;
-        
+
         // Check if this student number already exists
         const [existingCheck]: any = await db.query(
           'SELECT COUNT(*) as count FROM students WHERE StudentNumber = ?',
           [studentNumber]
         );
-        
+
         if (existingCheck[0].count === 0) {
           // Student number is unique, break out of loop
           break;
         }
-        
+
         // If duplicate found, increment attempts and try again
         attempts++;
         if (attempts >= maxAttempts) {
           await db.query('ROLLBACK');
           console.error('Failed to generate unique StudentNumber after multiple attempts');
-          return NextResponse.json({ 
+          return NextResponse.json({
             error: 'Failed to generate unique student number',
             details: 'Unable to generate a unique student number after multiple attempts. Please try again.'
           }, { status: 500 });
         }
-        
+
         // Log the retry attempt
         console.warn(`Student number ${studentNumber} already exists, retrying... (attempt ${attempts})`);
       } while (attempts < maxAttempts);
     } catch (error) {
       await db.query('ROLLBACK');
       console.error('Failed to generate StudentNumber:', error);
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Failed to generate student number',
         details: error instanceof Error ? error.message : 'Unknown error'
       }, { status: 500 });
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    
+
     try {
       await db.query(studentQuery, [
         userId,
@@ -153,20 +153,20 @@ export async function POST(req: NextRequest) {
       await db.query('ROLLBACK');
       if (error.code === 'ER_DUP_ENTRY') {
         if (error.message.includes('uq_students_prefixed')) {
-          return NextResponse.json({ 
+          return NextResponse.json({
             error: 'Duplicate PrefixedStudentID detected. Please try again.',
             details: 'A student with this ID already exists'
           }, { status: 409 });
         }
         if (error.message.includes('uq_students_studentnumber')) {
-          return NextResponse.json({ 
+          return NextResponse.json({
             error: 'Duplicate StudentNumber detected. Please try again.',
             details: 'A student with this number already exists'
           }, { status: 409 });
         }
       }
       console.error('Failed to insert student:', error);
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Failed to create student',
         details: error.message || 'Unknown error'
       }, { status: 500 });
@@ -182,9 +182,9 @@ export async function POST(req: NextRequest) {
       StudentNumber: studentNumber
     });
   } catch (err: any) {
-    await db.query('ROLLBACK').catch(() => {});
+    await db.query('ROLLBACK').catch(() => { });
     console.error('POST student error:', err);
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Failed to create student',
       details: err.message || 'Unknown error'
     }, { status: 500 });
@@ -224,9 +224,9 @@ export async function GET(request: NextRequest) {
       JOIN students s ON u.UserID = s.StudentID
       WHERE u.Role = 'student'
     `;
-    
+
     let queryParams: any[] = [];
-    
+
     // If userId is provided, filter by specific user
     if (userId) {
       query += ` AND u.UserID = ?`;
@@ -246,8 +246,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(transformedStudents);
   } catch (err) {
     console.error('GET students error:', err);
-    return NextResponse.json({ 
-      error: 'Failed to fetch students' 
+    return NextResponse.json({
+      error: 'Failed to fetch students'
     }, { status: 500 });
   }
 }
@@ -276,6 +276,16 @@ export async function PUT(req: NextRequest) {
       student.UserID
     ]);
 
+    // Format DateOfEnrollment to YYYY-MM-DD for MySQL DATE column
+    let formattedDate = student.DateOfEnrollment;
+    if (formattedDate) {
+      // If it's an ISO string or Date object, extract just the date part
+      const dateObj = new Date(formattedDate);
+      if (!isNaN(dateObj.getTime())) {
+        formattedDate = dateObj.toISOString().split('T')[0]; // Get YYYY-MM-DD
+      }
+    }
+
     // Update students table with student-specific information
     // Note: StudentNumber is intentionally excluded to prevent modification
     const updateStudentQuery = `
@@ -289,7 +299,7 @@ export async function PUT(req: NextRequest) {
       student.Course,
       student.YearLevel,
       student.Section,
-      student.DateOfEnrollment,
+      formattedDate,
       student.ContactNumber || null,
       student.GuardianName || null,
       student.GuardianContact || null,
@@ -358,8 +368,8 @@ export async function DELETE(req: NextRequest) {
     }
   } catch (err) {
     console.error('DELETE student error:', err)
-    return NextResponse.json({ 
-      error: 'Failed to delete student', 
+    return NextResponse.json({
+      error: 'Failed to delete student',
       details: err instanceof Error ? err.message : 'Unknown error'
     }, { status: 500 })
   }
