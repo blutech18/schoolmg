@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { SearchBar } from "@/components/ui/searchbar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, Calendar, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
-import { toast } from "sonner";
+import { brandedToast } from "@/components/ui/branded-toast";
 import ViewExcuseLetterModal from "@/app/student/components/ViewExcuseLetterModal";
 import ApprovalModal from "@/app/student/components/ApprovalModal";
 import { ExcuseLetterNotificationBar, calculateExcuseLetterCountsBySubject } from "@/components/ui/excuse-letter-notification-bar";
@@ -70,14 +70,14 @@ export default function DeanExcuseLettersPage() {
       });
       const data = await response.json();
       if (data.success) {
-        toast.success(`Excuse letter ${action} successfully`);
+        brandedToast.success(`Excuse letter ${action} successfully`);
         fetchExcuseLetters();
       } else {
-        toast.error(data.error || "Failed to update excuse letter");
+        brandedToast.error(data.error || "Failed to update excuse letter");
       }
     } catch (error) {
       console.error("Error updating excuse letter:", error);
-      toast.error("Failed to update excuse letter");
+      brandedToast.error("Failed to update excuse letter");
     }
   };
 
@@ -88,26 +88,26 @@ export default function DeanExcuseLettersPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: 'include',
-        body: JSON.stringify({ 
-          excuseLetterID: approvalExcuseLetter.ExcuseLetterID, 
-          userRole: "dean", 
-          status: approvalAction, 
-          comment: comment || null 
+        body: JSON.stringify({
+          excuseLetterID: approvalExcuseLetter.ExcuseLetterID,
+          userRole: "dean",
+          status: approvalAction,
+          comment: comment || null
         }),
       });
       const data = await response.json();
       if (data.success) {
-        toast.success(`Excuse letter ${approvalAction} successfully`);
+        brandedToast.success(`Excuse letter ${approvalAction} successfully`);
         setShowApprovalModal(false);
         setApprovalExcuseLetter(null);
         setApprovalComment("");
         fetchExcuseLetters();
       } else {
-        toast.error(data.error || "Failed to update excuse letter");
+        brandedToast.error(data.error || "Failed to update excuse letter");
       }
     } catch (error) {
       console.error("Error updating excuse letter:", error);
-      toast.error("Failed to update excuse letter");
+      brandedToast.error("Failed to update excuse letter");
     }
   };
 
@@ -228,7 +228,7 @@ export default function DeanExcuseLettersPage() {
                       Submitted: {new Date(letter.SubmissionDate).toLocaleDateString()}
                     </span>
                   </div>
-                  
+
                   {/* Approval Status Section */}
                   <div className="pt-2 border-t border-gray-200">
                     <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -242,7 +242,7 @@ export default function DeanExcuseLettersPage() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center justify-between pt-2">
                     <Button variant="outline" size="sm" onClick={() => setSelectedExcuseLetter(letter)}>View Details</Button>
                     {letter.DeanStatus === 'pending' && (

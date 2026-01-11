@@ -28,10 +28,10 @@ export interface FormattedScheduleEntry {
  */
 export function formatTimeRange(timeString?: string): string {
   if (!timeString) return "N/A";
-  
+
   // Handle various time formats
   const time = timeString.trim();
-  
+
   // Format: "7:00AM - 9:00AM" or "7:00 AM - 9:00 AM"
   if (time.includes(' - ') && (time.includes('AM') || time.includes('PM'))) {
     const parts = time.split(' - ');
@@ -41,7 +41,7 @@ export function formatTimeRange(timeString?: string): string {
       return `${start}–${end}`;
     }
   }
-  
+
   // Format: "7:00-9:00" or "7:00AM-9:00AM"
   if (time.includes('-') && !time.includes(' ')) {
     const parts = time.split('-');
@@ -51,7 +51,7 @@ export function formatTimeRange(timeString?: string): string {
       return `${start}–${end}`;
     }
   }
-  
+
   // Format: "7:00PM - 7:00PM" (single time with range)
   if (time.includes(' - ') && !time.includes('AM') && !time.includes('PM')) {
     const parts = time.split(' - ');
@@ -61,7 +61,7 @@ export function formatTimeRange(timeString?: string): string {
       return `${start}–${end}`;
     }
   }
-  
+
   // Single time format - assume it's a start time
   return formatTime(time);
 }
@@ -71,25 +71,25 @@ export function formatTimeRange(timeString?: string): string {
  */
 function formatTime(timeStr: string): string {
   const time = timeStr.trim();
-  
+
   // Remove AM/PM and convert to 24-hour format
   let cleanTime = time.replace(/\s*(AM|PM)/i, '');
   const isPM = /PM/i.test(time) && !time.includes('12:');
   const isAM = /AM/i.test(time) && time.includes('12:');
-  
+
   if (cleanTime.includes(':')) {
     const [hours, minutes] = cleanTime.split(':');
     let hour24 = parseInt(hours, 10);
-    
+
     if (isPM && hour24 !== 12) {
       hour24 += 12;
     } else if (isAM && hour24 === 12) {
       hour24 = 0;
     }
-    
+
     return `${hour24.toString().padStart(2, '0')}:${minutes.padStart(2, '0')}`;
   }
-  
+
   return time;
 }
 
@@ -100,22 +100,22 @@ function getClassType(schedule: ScheduleDisplayData): string {
   const lecture = schedule.Lecture || 0;
   const laboratory = schedule.Laboratory || 0;
   const classType = schedule.ClassType;
-  
+
   // If both lecture and lab hours exist
   if (lecture > 0 && laboratory > 0) {
     return 'Lecture+Lab';
   }
-  
+
   // If only lab hours exist
   if (laboratory > 0 && lecture === 0) {
     return 'Laboratory';
   }
-  
+
   // If only lecture hours exist or no specific type
   if (lecture > 0 || !classType) {
     return 'Lecture';
   }
-  
+
   // Use the provided class type
   return classType;
 }
@@ -128,7 +128,7 @@ export function formatScheduleEntry(schedule: ScheduleDisplayData): string {
   const day = schedule.Day || 'N/A';
   const type = getClassType(schedule);
   const timeRange = formatTimeRange(schedule.Time);
-  
+
   return `${day} – ${type} – ${timeRange}`;
 }
 
@@ -142,7 +142,7 @@ export function formatScheduleDisplay(schedule: ScheduleDisplayData): {
 } {
   const room = schedule.Room || 'N/A';
   const entry = formatScheduleEntry(schedule);
-  
+
   return {
     room,
     entries: [entry]
@@ -160,10 +160,10 @@ export function formatMultipleSchedules(schedules: ScheduleDisplayData[]): {
   if (schedules.length === 0) {
     return { room: 'N/A', entries: [] };
   }
-  
+
   const room = schedules[0].Room || 'N/A';
   const entries = schedules.map(formatScheduleEntry);
-  
+
   return { room, entries };
 }
 
@@ -173,20 +173,34 @@ export function formatMultipleSchedules(schedules: ScheduleDisplayData[]): {
  */
 export function parseRooms(roomString?: string): { lecture?: string; laboratory?: string } {
   if (!roomString) return {};
-  
+
   const room = roomString.trim();
-  
-  // Check for explicit labels
-  const lectureMatch = room.match(/(?:lecture|lec)[\s:]*([A-Za-z0-9]+)/i);
+
+  // Check for explicit labels (including compact format L: and Lab:)
+  const lectureMatch = room.match(/(?:lecture|lec|L)[\s:]*([A-Za-z0-9]+)/i);
   const labMatch = room.match(/(?:laboratory|lab)[\s:]*([A-Za-z0-9]+)/i);
-  
+
   if (lectureMatch && labMatch) {
     return {
       lecture: lectureMatch[1].trim(),
       laboratory: labMatch[1].trim()
     };
   }
-  
+
+  // Check for pipe-separated values (new compact format)
+  if (room.includes('|')) {
+    const parts = room.split('|').map(p => p.trim());
+    if (parts.length >= 2) {
+      // Extract values after L: and Lab: prefixes
+      const lecturePart = parts.find(p => /^L:/i.test(p));
+      const labPart = parts.find(p => /^Lab:/i.test(p));
+      return {
+        lecture: lecturePart ? lecturePart.replace(/^L:/i, '').trim() : parts[0],
+        laboratory: labPart ? labPart.replace(/^Lab:/i, '').trim() : parts[1]
+      };
+    }
+  }
+
   // Check for comma-separated values (assume first is lecture, second is lab)
   if (room.includes(',')) {
     const parts = room.split(',').map(p => p.trim());
@@ -197,7 +211,7 @@ export function parseRooms(roomString?: string): { lecture?: string; laboratory?
       };
     }
   }
-  
+
   // Check for slash-separated values
   if (room.includes('/')) {
     const parts = room.split('/').map(p => p.trim());
@@ -208,18 +222,7 @@ export function parseRooms(roomString?: string): { lecture?: string; laboratory?
       };
     }
   }
-  
-  // Check for pipe-separated values
-  if (room.includes('|')) {
-    const parts = room.split('|').map(p => p.trim());
-    if (parts.length >= 2) {
-      return {
-        lecture: parts[0],
-        laboratory: parts[1]
-      };
-    }
-  }
-  
+
   // If no separator found, return single room for both
   return { lecture: room, laboratory: room };
 }
@@ -230,20 +233,34 @@ export function parseRooms(roomString?: string): { lecture?: string; laboratory?
  */
 export function parseTimes(timeString?: string): { lecture?: string; laboratory?: string } {
   if (!timeString) return {};
-  
+
   const time = timeString.trim();
-  
-  // Check for explicit labels
-  const lectureMatch = time.match(/(?:lecture|lec)[\s:]*([0-9:APM\s\-]+)/i);
+
+  // Check for explicit labels (including compact format L: and Lab:)
+  const lectureMatch = time.match(/(?:lecture|lec|L)[\s:]*([0-9:APM\s\-]+)/i);
   const labMatch = time.match(/(?:laboratory|lab)[\s:]*([0-9:APM\s\-]+)/i);
-  
+
   if (lectureMatch && labMatch) {
     return {
       lecture: lectureMatch[1].trim(),
       laboratory: labMatch[1].trim()
     };
   }
-  
+
+  // Check for pipe-separated time ranges (new compact format)
+  if (time.includes('|')) {
+    const parts = time.split('|').map(p => p.trim());
+    if (parts.length >= 2) {
+      // Extract values after L: and Lab: prefixes
+      const lecturePart = parts.find(p => /^L:/i.test(p));
+      const labPart = parts.find(p => /^Lab:/i.test(p));
+      return {
+        lecture: lecturePart ? lecturePart.replace(/^L:/i, '').trim() : parts[0],
+        laboratory: labPart ? labPart.replace(/^Lab:/i, '').trim() : parts[1]
+      };
+    }
+  }
+
   // Check for comma-separated time ranges
   if (time.includes(',')) {
     const parts = time.split(',').map(p => p.trim());
@@ -254,7 +271,7 @@ export function parseTimes(timeString?: string): { lecture?: string; laboratory?
       };
     }
   }
-  
+
   // Check for semicolon-separated time ranges
   if (time.includes(';')) {
     const parts = time.split(';').map(p => p.trim());
@@ -265,7 +282,7 @@ export function parseTimes(timeString?: string): { lecture?: string; laboratory?
       };
     }
   }
-  
+
   // If no separator found, return single time for both
   return { lecture: time, laboratory: time };
 }
@@ -276,20 +293,34 @@ export function parseTimes(timeString?: string): { lecture?: string; laboratory?
  */
 export function parseDays(dayString?: string): { lecture?: string; laboratory?: string } {
   if (!dayString) return {};
-  
+
   const day = dayString.trim();
-  
-  // Check for explicit labels
-  const lectureMatch = day.match(/(?:lecture|lec)[\s:]*([A-Za-z]+)/i);
+
+  // Check for explicit labels (including compact format L: and Lab:)
+  const lectureMatch = day.match(/(?:lecture|lec|L)[\s:]*([A-Za-z]+)/i);
   const labMatch = day.match(/(?:laboratory|lab)[\s:]*([A-Za-z]+)/i);
-  
+
   if (lectureMatch && labMatch) {
     return {
       lecture: lectureMatch[1].trim(),
       laboratory: labMatch[1].trim()
     };
   }
-  
+
+  // Check for pipe-separated days (new compact format)
+  if (day.includes('|')) {
+    const parts = day.split('|').map(p => p.trim());
+    if (parts.length >= 2) {
+      // Extract values after L: and Lab: prefixes
+      const lecturePart = parts.find(p => /^L:/i.test(p));
+      const labPart = parts.find(p => /^Lab:/i.test(p));
+      return {
+        lecture: lecturePart ? lecturePart.replace(/^L:/i, '').trim() : parts[0],
+        laboratory: labPart ? labPart.replace(/^Lab:/i, '').trim() : parts[1]
+      };
+    }
+  }
+
   // Check for comma-separated days
   if (day.includes(',')) {
     const parts = day.split(',').map(p => p.trim());
@@ -300,7 +331,7 @@ export function parseDays(dayString?: string): { lecture?: string; laboratory?: 
       };
     }
   }
-  
+
   // If no separator found, return single day for both
   return { lecture: day, laboratory: day };
 }

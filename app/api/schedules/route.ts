@@ -147,6 +147,28 @@ export async function POST(req: NextRequest) {
   try {
     const schedule: ISchedule = await req.json();
 
+    // Validate required fields
+    if (!schedule.Course || !schedule.Section || !schedule.YearLevel) {
+      console.error('Missing required fields:', { Course: schedule.Course, Section: schedule.Section, YearLevel: schedule.YearLevel });
+      return NextResponse.json({
+        error: 'Missing required fields: Course, Section, and YearLevel are required'
+      }, { status: 400 });
+    }
+
+    if (!schedule.InstructorID) {
+      console.error('Missing InstructorID');
+      return NextResponse.json({
+        error: 'InstructorID is required'
+      }, { status: 400 });
+    }
+
+    if (!schedule.Semester) {
+      console.error('Missing Semester');
+      return NextResponse.json({
+        error: 'Semester is required'
+      }, { status: 400 });
+    }
+
     // If SubjectID is provided but SubjectCode/SubjectName are missing, get them from subjects table
     let subjectCode = schedule.SubjectCode;
     let subjectName = schedule.SubjectName;
@@ -165,6 +187,11 @@ export async function POST(req: NextRequest) {
         subjectName = subjectName || subject.SubjectName;
         units = units || subject.Units;
         classType = subject.ClassType || 'LECTURE';
+      } else {
+        console.error('Subject not found:', schedule.SubjectID);
+        return NextResponse.json({
+          error: 'Invalid SubjectID: Subject not found'
+        }, { status: 400 });
       }
     }
 
@@ -198,7 +225,7 @@ export async function POST(req: NextRequest) {
       schedule.Room,
       schedule.TotalSeats,
       seatCols, // Use standardized seatCols instead of schedule.SeatCols
-      schedule.SeatMap,
+      schedule.SeatMap || JSON.stringify(Array(40).fill(0)), // Provide default empty seat map
       schedule.Lecture,
       schedule.Laboratory,
       units,
@@ -210,6 +237,18 @@ export async function POST(req: NextRequest) {
       lectureSeatCols, // Always 4 for lecture
       laboratorySeatCols, // Always 2 for laboratory
     ];
+
+    // Log the data being inserted for debugging
+    console.log('Creating schedule with params:', {
+      Course: schedule.Course,
+      InstructorID: schedule.InstructorID,
+      Section: schedule.Section,
+      YearLevel: schedule.YearLevel,
+      SubjectID: schedule.SubjectID,
+      Semester: schedule.Semester,
+      Lecture: schedule.Lecture,
+      Laboratory: schedule.Laboratory
+    });
 
     const [result]: any = await db.query(query, params);
     const scheduleId = result.insertId;

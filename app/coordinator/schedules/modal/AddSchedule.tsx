@@ -162,23 +162,32 @@ export default function AddScheduleDialog({ onAdd }: { onAdd: () => void }) {
       brandedToast.error('Please fill in all required fields (Course, Section, Year Level)', { title: 'Validation Error' });
       return;
     }
+    if (!form.Semester) {
+      brandedToast.error('Please select a semester', { title: 'Validation Error' });
+      return;
+    }
 
     try {
-      // Build combined day/time/room strings for lecture + lab
-      const combinedDay = [lectureDay ? `Lecture: ${lectureDay}` : null, labDay ? `Laboratory: ${labDay}` : null]
+      // Build combined day/time/room strings for lecture + lab using ultra-compact format
+      // Use slash separator and day abbreviations to save space (e.g., "Mon/Tue" instead of "L:Monday | Lab:Tuesday")
+      const combinedDay = [lectureDay ? lectureDay.substring(0, 3) : null, labDay ? labDay.substring(0, 3) : null]
         .filter(Boolean)
-        .join(', ');
+        .join('/');
 
-      // Build flexible time strings
-      const lectureTimeStr = (lectureStartTime && lectureEndTime) ? `${lectureStartTime} - ${lectureEndTime}` : '';
-      const labTimeStr = (labStartTime && labEndTime) ? `${labStartTime} - ${labEndTime}` : '';
+      // Build flexible time strings - keep 12-hour format but remove spaces
+      const lectureTimeStr = (lectureStartTime && lectureEndTime)
+        ? `${lectureStartTime.replace(/\s/g, '')}-${lectureEndTime.replace(/\s/g, '')}`
+        : '';
+      const labTimeStr = (labStartTime && labEndTime)
+        ? `${labStartTime.replace(/\s/g, '')}-${labEndTime.replace(/\s/g, '')}`
+        : '';
 
-      const combinedTime = [lectureTimeStr ? `Lecture: ${lectureTimeStr}` : null, labTimeStr ? `Laboratory: ${labTimeStr}` : null]
+      const combinedTime = [lectureTimeStr, labTimeStr]
         .filter(Boolean)
-        .join(', ');
-      const combinedRoom = [lectureRoom ? `Lecture: ${lectureRoom}` : null, labRoom ? `Laboratory: ${labRoom}` : null]
+        .join('/');
+      const combinedRoom = [lectureRoom, labRoom]
         .filter(Boolean)
-        .join(', ');
+        .join('/');
 
       // Get the selected subject details to extract units
       const selectedSubject = subjects.find(subject => subject.SubjectID === parseInt(form.SubjectID));
@@ -304,10 +313,10 @@ export default function AddScheduleDialog({ onAdd }: { onAdd: () => void }) {
                   <SelectItem key={subject.SubjectID} value={String(subject.SubjectID)}>
                     {subject.SubjectCode} - {subject.SubjectName} ({subject.Units} units)
                     {subject.ClassType && ` - ${subject.ClassType === 'LECTURE+LAB' ? 'Lecture and Laboratory' :
-                        subject.ClassType === 'MAJOR' ? 'Cisco' :
-                          subject.ClassType === 'NSTP' ? 'NSTP' :
-                            subject.ClassType === 'OJT' ? 'OJT' :
-                              'Lecture'}`}
+                      subject.ClassType === 'MAJOR' ? 'Cisco' :
+                        subject.ClassType === 'NSTP' ? 'NSTP' :
+                          subject.ClassType === 'OJT' ? 'OJT' :
+                            'Lecture'}`}
                   </SelectItem>
                 ))}
               </SelectContent>

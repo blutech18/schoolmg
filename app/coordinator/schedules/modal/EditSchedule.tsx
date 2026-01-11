@@ -1,22 +1,48 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 
-const TIME_OPTIONS = [
-  '07:00 AM - 08:00 AM',
-  '08:00 AM - 09:00 AM',
-  '09:00 AM - 10:00 AM',
-  '10:00 AM - 11:00 AM',
-  '11:00 AM - 12:00 PM',
-  '12:00 PM - 01:00 PM',
-  '01:00 PM - 02:00 PM',
-  '02:00 PM - 03:00 PM',
-  '03:00 PM - 04:00 PM',
-  '04:00 PM - 05:00 PM',
-  '05:00 PM - 06:00 PM',
-  '06:00 PM - 07:00 PM',
-  '07:00 PM - 08:00 PM',
-  '08:00 PM - 09:00 PM',
+// Flexible time options - user can select start and end times
+const START_TIME_OPTIONS = [
+  '06:00 AM', '06:30 AM',
+  '07:00 AM', '07:30 AM',
+  '08:00 AM', '08:30 AM',
+  '09:00 AM', '09:30 AM',
+  '10:00 AM', '10:30 AM',
+  '11:00 AM', '11:30 AM',
+  '12:00 PM', '12:30 PM',
+  '01:00 PM', '01:30 PM',
+  '02:00 PM', '02:30 PM',
+  '03:00 PM', '03:30 PM',
+  '04:00 PM', '04:30 PM',
+  '05:00 PM', '05:30 PM',
+  '06:00 PM', '06:30 PM',
+  '07:00 PM', '07:30 PM',
+  '08:00 PM', '08:30 PM',
+  '09:00 PM', '09:30 PM',
+  '10:00 PM',
 ];
+
+const END_TIME_OPTIONS = [
+  '07:00 AM', '07:30 AM',
+  '08:00 AM', '08:30 AM',
+  '09:00 AM', '09:30 AM',
+  '10:00 AM', '10:30 AM',
+  '11:00 AM', '11:30 AM',
+  '12:00 PM', '12:30 PM',
+  '01:00 PM', '01:30 PM',
+  '02:00 PM', '02:30 PM',
+  '03:00 PM', '03:30 PM',
+  '04:00 PM', '04:30 PM',
+  '05:00 PM', '05:30 PM',
+  '06:00 PM', '06:30 PM',
+  '07:00 PM', '07:30 PM',
+  '08:00 PM', '08:30 PM',
+  '09:00 PM', '09:30 PM',
+  '10:00 PM', '10:30 PM',
+  '11:00 PM',
+];
+
+const DAY_OPTIONS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 import {
   Dialog,
   DialogTrigger,
@@ -66,12 +92,91 @@ export default function EditScheduleDialog({
   const [courses, setCourses] = useState<ICourse[]>([])
   const [form, setForm] = useState<ISchedule>({ ...schedule })
 
+  // Separate fields for lecture and lab with flexible time
+  const [lectureDay, setLectureDay] = useState('')
+  const [lectureStartTime, setLectureStartTime] = useState('')
+  const [lectureEndTime, setLectureEndTime] = useState('')
+  const [lectureRoom, setLectureRoom] = useState('')
+  const [labDay, setLabDay] = useState('')
+  const [labStartTime, setLabStartTime] = useState('')
+  const [labEndTime, setLabEndTime] = useState('')
+  const [labRoom, setLabRoom] = useState('')
+
   useEffect(() => {
-    // Only reset form if schedule ID changes (new schedule being edited)
-    if (schedule.ScheduleID !== form.ScheduleID) {
-      setForm({ ...schedule })
+    // Parse existing schedule data to populate lecture/lab fields
+    setForm({ ...schedule })
+
+    // Parse Day field (e.g., "Mon/Tue" or "Monday/Tuesday")
+    if (schedule.Day) {
+      const dayParts = schedule.Day.split('/');
+      if (dayParts.length >= 2) {
+        // Expand 3-letter abbreviations
+        const expandDay = (abbr: string) => {
+          const dayMap: { [key: string]: string } = {
+            'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday',
+            'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday', 'Sun': 'Sunday'
+          };
+          return dayMap[abbr] || abbr;
+        };
+        setLectureDay(expandDay(dayParts[0].trim()));
+        setLabDay(expandDay(dayParts[1].trim()));
+      } else {
+        setLectureDay(schedule.Day);
+        setLabDay('');
+      }
     }
-  }, [schedule, form.ScheduleID])
+
+    // Parse Time field (e.g., "06:30AM-10:00AM/07:00AM-09:00AM")
+    if (schedule.Time) {
+      const timeParts = schedule.Time.split('/');
+      if (timeParts.length >= 2) {
+        // Parse lecture time
+        const lectureTimeParts = timeParts[0].split('-');
+        if (lectureTimeParts.length === 2) {
+          // Add space before AM/PM if missing
+          const formatTime = (t: string) => {
+            const cleaned = t.trim();
+            return cleaned.replace(/(\d)(AM|PM)/i, '$1 $2');
+          };
+          setLectureStartTime(formatTime(lectureTimeParts[0]));
+          setLectureEndTime(formatTime(lectureTimeParts[1]));
+        }
+        // Parse lab time
+        const labTimeParts = timeParts[1].split('-');
+        if (labTimeParts.length === 2) {
+          const formatTime = (t: string) => {
+            const cleaned = t.trim();
+            return cleaned.replace(/(\d)(AM|PM)/i, '$1 $2');
+          };
+          setLabStartTime(formatTime(labTimeParts[0]));
+          setLabEndTime(formatTime(labTimeParts[1]));
+        }
+      } else if (timeParts.length === 1) {
+        // Single time range
+        const singleTimeParts = schedule.Time.split('-');
+        if (singleTimeParts.length === 2) {
+          const formatTime = (t: string) => {
+            const cleaned = t.trim();
+            return cleaned.replace(/(\d)(AM|PM)/i, '$1 $2');
+          };
+          setLectureStartTime(formatTime(singleTimeParts[0]));
+          setLectureEndTime(formatTime(singleTimeParts[1]));
+        }
+      }
+    }
+
+    // Parse Room field (e.g., "R201/CLAB2")
+    if (schedule.Room) {
+      const roomParts = schedule.Room.split('/');
+      if (roomParts.length >= 2) {
+        setLectureRoom(roomParts[0].trim());
+        setLabRoom(roomParts[1].trim());
+      } else {
+        setLectureRoom(schedule.Room);
+        setLabRoom('');
+      }
+    }
+  }, [schedule])
 
   useEffect(() => {
     async function fetchData() {
@@ -81,7 +186,7 @@ export default function EditScheduleDialog({
         if (!instructorRes.ok) throw new Error('Failed to fetch instructors')
         const instructorData: IUser[] = await instructorRes.json()
         setInstructors(instructorData.filter(u => u.Role === 'instructor'))
-        
+
         // Fetch subjects
         const subjectRes = await fetch('/api/subjects')
         if (!subjectRes.ok) throw new Error('Failed to fetch subjects')
@@ -118,12 +223,53 @@ export default function EditScheduleDialog({
 
 
   const handleSubmit = async () => {
+    // Validate required fields
+    if (!form.Course || !form.Section || !form.YearLevel) {
+      brandedToast.error('Please fill in all required fields (Course, Section, Year Level)', { title: 'Validation Error' });
+      return;
+    }
+    if (!form.InstructorID) {
+      brandedToast.error('Please select an instructor', { title: 'Validation Error' });
+      return;
+    }
+    if (!form.SubjectID) {
+      brandedToast.error('Please select a subject', { title: 'Validation Error' });
+      return;
+    }
+    if (!form.Semester) {
+      brandedToast.error('Please select a semester', { title: 'Validation Error' });
+      return;
+    }
+
     try {
+      // Build combined day/time/room strings using ultra-compact format
+      const combinedDay = [lectureDay ? lectureDay.substring(0, 3) : null, labDay ? labDay.substring(0, 3) : null]
+        .filter(Boolean)
+        .join('/');
+
+      // Build flexible time strings - keep 12-hour format but remove spaces
+      const lectureTimeStr = (lectureStartTime && lectureEndTime)
+        ? `${lectureStartTime.replace(/\s/g, '')}-${lectureEndTime.replace(/\s/g, '')}`
+        : '';
+      const labTimeStr = (labStartTime && labEndTime)
+        ? `${labStartTime.replace(/\s/g, '')}-${labEndTime.replace(/\s/g, '')}`
+        : '';
+
+      const combinedTime = [lectureTimeStr, labTimeStr]
+        .filter(Boolean)
+        .join('/');
+      const combinedRoom = [lectureRoom, labRoom]
+        .filter(Boolean)
+        .join('/');
+
       // Get the selected subject details to extract units
       const selectedSubject = subjects.find(subject => subject.SubjectID === parseInt(form.SubjectID?.toString() || '0'));
 
       const updatedSchedule = {
         ...form,
+        Day: combinedDay || form.Day,
+        Time: combinedTime || form.Time,
+        Room: combinedRoom || form.Room,
         TotalSeats: 40, // Always set to 40
         SeatMap: form.SeatMap || JSON.stringify(Array(40).fill(0)),
         Lecture: Number(form.Lecture) || 0,
@@ -133,8 +279,6 @@ export default function EditScheduleDialog({
           Units: selectedSubject.Units || 3,
         })
       }
-
-
 
       const res = await fetch(`/api/schedules?id=${form.ScheduleID}`, {
         method: 'PUT',
@@ -210,10 +354,10 @@ export default function EditScheduleDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Section *</label>
-              <Input 
-                name="Section" 
-                value={form.Section ?? ''} 
-                onChange={handleChange} 
+              <Input
+                name="Section"
+                value={form.Section ?? ''}
+                onChange={handleChange}
                 placeholder="Section"
                 className="w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
               />
@@ -248,92 +392,144 @@ export default function EditScheduleDialog({
               {subjects.map(subject => (
                 <option key={subject.SubjectID} value={subject.SubjectID}>
                   {subject.SubjectCode} - {subject.SubjectName} ({subject.Units} units)
-                  {subject.ClassType && ` - ${
-                    subject.ClassType === 'LECTURE+LAB' ? 'Lecture and Laboratory' :
+                  {subject.ClassType && ` - ${subject.ClassType === 'LECTURE+LAB' ? 'Lecture and Laboratory' :
                     subject.ClassType === 'MAJOR' ? 'Cisco' :
-                    subject.ClassType === 'NSTP' ? 'NSTP' :
-                    subject.ClassType === 'OJT' ? 'OJT' :
-                    'Lecture'}`}
+                      subject.ClassType === 'NSTP' ? 'NSTP' :
+                        subject.ClassType === 'OJT' ? 'OJT' :
+                          'Lecture'}`}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Day *</label>
-              <select
-                name="Day"
-                value={form.Day ?? ''}
-                onChange={handleChange}
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 px-3 py-2"
-              >
-                <option value="">Select Day</option>
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
-                  <option key={day} value={day}>{day}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Time *</label>
-              <Select
-                value={form.Time ?? ''}
-                onValueChange={(value) => setForm(prev => ({ ...prev, Time: value }))}
-              >
-                <SelectTrigger className="w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-                  <SelectValue placeholder="Select schedule time" />
-                </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  {TIME_OPTIONS.map(option => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
+          {/* Hours */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Lecture Hours</label>
               <input
                 name="Lecture"
+                type="number"
                 value={form.Lecture?.toString() || ''}
                 onChange={(e) => setForm(prev => ({ ...prev, Lecture: Number(e.target.value) || 0 }))}
-                type="number"
-                placeholder="Lecture Hours"
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 px-3"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                placeholder="Enter lecture hours"
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Laboratory Hours</label>
               <input
                 name="Laboratory"
+                type="number"
                 value={form.Laboratory?.toString() || ''}
                 onChange={(e) => setForm(prev => ({ ...prev, Laboratory: Number(e.target.value) || 0 }))}
-                type="number"
-                placeholder="Laboratory Hours"
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 px-3"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                placeholder="Enter laboratory hours"
               />
+            </div>
+          </div>
+
+          {/* Lecture / Laboratory panels */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-green-800 text-white px-3 py-2 font-semibold">Lecture</div>
+              <div className="p-3 space-y-2 bg-white">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Day</label>
+                  <Select value={lectureDay} onValueChange={setLectureDay}>
+                    <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DAY_OPTIONS.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Start Time</label>
+                  <Select value={lectureStartTime} onValueChange={setLectureStartTime}>
+                    <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                      <SelectValue placeholder="Select start time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      {START_TIME_OPTIONS.map(option => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">End Time</label>
+                  <Select value={lectureEndTime} onValueChange={setLectureEndTime}>
+                    <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                      <SelectValue placeholder="Select end time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      {END_TIME_OPTIONS.map(option => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Room</label>
+                  <Input value={lectureRoom} onChange={(e) => setLectureRoom(e.target.value)} placeholder="e.g., R201" className="w-full px-3 py-2 border border-gray-200 rounded-lg" />
+                </div>
+              </div>
+            </div>
+
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-green-800 text-white px-3 py-2 font-semibold">Laboratory</div>
+              <div className="p-3 space-y-2 bg-white">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Day</label>
+                  <Select value={labDay} onValueChange={setLabDay}>
+                    <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DAY_OPTIONS.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Start Time</label>
+                  <Select value={labStartTime} onValueChange={setLabStartTime}>
+                    <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                      <SelectValue placeholder="Select start time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      {START_TIME_OPTIONS.map(option => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">End Time</label>
+                  <Select value={labEndTime} onValueChange={setLabEndTime}>
+                    <SelectTrigger className="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                      <SelectValue placeholder="Select end time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      {END_TIME_OPTIONS.map(option => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Room</label>
+                  <Input value={labRoom} onChange={(e) => setLabRoom(e.target.value)} placeholder="e.g., CLAB2" className="w-full px-3 py-2 border border-gray-200 rounded-lg" />
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Room</label>
-              <Input 
-                name="Room" 
-                value={form.Room ?? ''} 
-                onChange={handleChange} 
-                placeholder="Room"
-                className="w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Total Seats (Fixed)</label>
-              <Input 
-                value="40" 
+              <Input
+                value="40"
                 readOnly
                 className="w-full h-10 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
               />
@@ -358,10 +554,10 @@ export default function EditScheduleDialog({
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Academic Year</label>
-              <Input 
-                name="AcademicYear" 
-                value={form.AcademicYear ?? ''} 
-                onChange={handleChange} 
+              <Input
+                name="AcademicYear"
+                value={form.AcademicYear ?? ''}
+                onChange={handleChange}
                 placeholder="Academic Year (e.g., 2023-2024)"
                 className="w-full h-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
               />
@@ -375,8 +571,8 @@ export default function EditScheduleDialog({
               Cancel
             </Button>
           </DialogClose>
-          <Button 
-            onClick={handleSubmit} 
+          <Button
+            onClick={handleSubmit}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 transition-colors"
           >
             Save Changes
