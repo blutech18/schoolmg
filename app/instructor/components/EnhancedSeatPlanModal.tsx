@@ -59,17 +59,23 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
   const [resetType, setResetType] = useState<'lecture' | 'laboratory' | 'both'>('both')
   const hasInitializedRef = useRef(false)
 
-  // Determine if this schedule has both Lecture and Laboratory components
-  const hasLecture = (schedule.Lecture || 0) > 0
-  const hasLaboratory = (schedule.Laboratory || 0) > 0
-  const hasBothComponents = hasLecture && hasLaboratory
   const classType = schedule.ClassType || 'LECTURE'
+  
+  // For NSTP and OJT, they should only have lecture seat plans (no lab)
+  // For MAJOR (Cisco), they can have both lecture and lab
+  const isSpecialClassType = classType === 'NSTP' || classType === 'OJT'
+  
+  // Determine if this schedule has both Lecture and Laboratory components
+  // NSTP and OJT should only show lecture, even if Laboratory > 0 in database
+  const hasLecture = (schedule.Lecture || 0) > 0
+  const hasLaboratory = !isSpecialClassType && (schedule.Laboratory || 0) > 0
+  const hasBothComponents = hasLecture && hasLaboratory
 
   // Detect Cisco rooms and determine if it's a Cisco room
   // For MAJOR class type, treat as Cisco room (laboratory)
   const isCiscoRoom = (schedule.Room && schedule.Room.toLowerCase().includes('cisco')) ||
     (schedule.ClassType === 'MAJOR')
-  const isCiscoLab = isCiscoRoom && (schedule.Room.toLowerCase().includes('lab') || schedule.ClassType === 'MAJOR')
+  const isCiscoLab = isCiscoRoom && (schedule.Room && schedule.Room.toLowerCase().includes('lab') || schedule.ClassType === 'MAJOR')
 
   // Fetch enrolled students when component mounts
   useEffect(() => {
@@ -419,12 +425,17 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
     printDocument(printContent, `${schedule.SubjectCode} - ${roomType}${displaySeatType} Seat Plan`);
   };
 
+  // Show both seat types only for schedules that actually have both components
+  // Exclude NSTP and OJT (they should only show lecture)
+  // Include MAJOR (Cisco) only if it's a Cisco room
   const showBothSeatTypes =
-    hasBothComponents ||
-    classType === 'LECTURE+LAB' ||
-    classType === 'LECTURE+LABORATORY' ||
-    classType === 'MAJOR' ||
-    isCiscoRoom
+    !isSpecialClassType && (
+      hasBothComponents ||
+      classType === 'LECTURE+LAB' ||
+      classType === 'LECTURE+LABORATORY' ||
+      (classType === 'MAJOR' && isCiscoRoom) ||
+      isCiscoRoom
+    )
 
   const renderSeatSection = (seatType: 'lecture' | 'laboratory') => {
     const assignments = seatType === 'lecture' ? lectureSeatAssignments : laboratorySeatAssignments
@@ -856,8 +867,19 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
       )
     }
 
-    // Single-component schedules fall back to the class type
-    const seatType = (classType.toLowerCase() as 'lecture' | 'laboratory') || 'lecture'
+    // Single-component schedules fall back to lecture for NSTP/OJT
+    // For other types, check if they have lab only, otherwise default to lecture
+    let seatType: 'lecture' | 'laboratory' = 'lecture'
+    if (isSpecialClassType) {
+      // NSTP and OJT always use lecture
+      seatType = 'lecture'
+    } else if (!hasLecture && hasLaboratory) {
+      // Only lab component (shouldn't happen often but handle it)
+      seatType = 'laboratory'
+    } else {
+      // Default to lecture for all other cases
+      seatType = 'lecture'
+    }
     return renderSeatSection(seatType)
   }
 

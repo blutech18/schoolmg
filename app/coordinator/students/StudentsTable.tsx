@@ -78,83 +78,10 @@ export default function StudentsTable() {
   }
 
   const downloadImportTemplate = () => {
-    // Create CSV template content with Excel-compatible format
-    const headers = [
-      'StudentNumber',
-      'FirstName',
-      'MiddleName',
-      'LastName',
-      'EmailAddress',
-      'ContactNumber',
-      'Course',
-      'YearLevel',
-      'Section',
-      'IsPWD',
-      'Status'
-    ]
-
-    // Sample data rows for guidance
-    const sampleData1 = [
-      '2024-00001',
-      'Juan',
-      'Dela',
-      'Cruz',
-      'juan.delacruz@example.com',
-      '09123456789',
-      'BSIT',
-      '1',
-      'A',
-      'No',
-      'active'
-    ]
-
-    const sampleData2 = [
-      '2024-00002',
-      'Maria',
-      'Santos',
-      'Garcia',
-      'maria.garcia@example.com',
-      '09987654321',
-      'BSCS',
-      '2',
-      'B',
-      'No',
-      'active'
-    ]
-
-    const csvContent = [
-      headers.join(','),
-      sampleData1.join(','),
-      sampleData2.join(','),
-      '',
-      'INSTRUCTIONS (Delete these rows before importing):',
-      'StudentNumber - Unique student identifier (e.g. 2024-00001)',
-      'FirstName - Student first name (required)',
-      'MiddleName - Student middle name (optional)',
-      'LastName - Student last name (required)',
-      'EmailAddress - Valid email address (required)',
-      'ContactNumber - Phone number (optional)',
-      'Course - Course code such as BSIT or BSCS (required)',
-      'YearLevel - 1 or 2 or 3 or 4 (required)',
-      'Section - Section letter such as A or B or C (required)',
-      'IsPWD - Yes or No (optional - defaults to No)',
-      'Status - active or inactive (optional - defaults to active)'
-    ].join('\n')
-
-    // Add BOM for proper UTF-8 encoding in Excel
-    const BOM = '\uFEFF'
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', 'student_import_template.csv')
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-
-    brandedToast.success('Excel-compatible template downloaded! Open in Excel, fill in student data, and import.')
+    // Use the new Excel template generator with professional formatting
+    const { downloadStudentImportTemplate } = require('@/app/lib/excelTemplateUtils');
+    downloadStudentImportTemplate();
+    brandedToast.success('Professional Excel template downloaded! Open in Excel, fill in student data, and import.');
   }
 
   const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {

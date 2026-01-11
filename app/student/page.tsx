@@ -748,9 +748,8 @@ export default function StudentDashboard() {
                     const recentAttendance = [...attendance]
                       .sort((a, b) => new Date(b.Date).getTime() - new Date(a.Date).getTime())
                       .slice(0, 5);
-                    const gradedSubjects = grades.filter(g => g.summary !== null).slice(0, 5);
 
-                    const hasAny = recentAttendance.length > 0 || gradedSubjects.length > 0;
+                    const hasAny = recentAttendance.length > 0;
                     if (!hasAny) {
                       return (
                         <div className="p-4 text-sm text-gray-500">No notifications</div>
@@ -799,50 +798,19 @@ export default function StudentDashboard() {
                             </div>
                           );
                         })}
-
-                        {gradedSubjects.map((g, idx) => {
-                          const schedule = schedules.find(s => s.ScheduleID === g.ScheduleID);
-                          return (
-                            <div
-                              key={`notif-grade-${idx}`}
-                              className="p-4 flex items-start gap-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors"
-                              onClick={() => {
-                                if (schedule) {
-                                  openScheduleHub(schedule);
-                                }
-                              }}
-                            >
-                              <div className="p-2 bg-blue-100 rounded-md"><GraduationCap className="h-4 w-4 text-blue-700" /></div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="font-medium text-gray-900 truncate">
-                                    Grades • {g.SubjectCode}
-                                  </div>
-                                  <div className="text-xs text-gray-500 whitespace-nowrap">Updated</div>
-                                </div>
-                                <div className="mt-1 text-sm text-gray-700 flex items-center gap-3">
-                                  <span className="text-xs">Overall: {g.summary?.toFixed(2)}</span>
-                                  {g.midterm !== null && (<span className="text-xs">Midterm: {g.midterm.toFixed(2)}</span>)}
-                                  {g.final !== null && (<span className="text-xs">Final: {g.final.toFixed(2)}</span>)}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
                       </>
                     );
                   })()}
                 </div>
 
                 {/* No New Notifications */}
-                {grades.every(g => g.midterm === null && g.final === null && g.summary === null) &&
-                  attendance.filter(r => r.Status === 'A' || r.Status === 'FA').length === 0 && (
-                    <div className="text-center py-8">
-                      <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-600">No new notifications</p>
-                      <p className="text-sm text-gray-500 mt-2">You're all caught up!</p>
-                    </div>
-                  )}
+                {attendance.filter(r => r.Status === 'A' || r.Status === 'FA').length === 0 && (
+                  <div className="text-center py-8">
+                    <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-600">No new notifications</p>
+                    <p className="text-sm text-gray-500 mt-2">You're all caught up!</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -32,17 +32,26 @@ export default function Header({ isAdminPage = false }: HeaderProps) {
   // Check if we're on authentication pages
   const isAuthPage = pathname === '/' || pathname === '/sign-in';
   
-  // Determine if we're on admin or coordinator pages (only after mounting to avoid hydration issues)
-  const isAdminPageDetected = mounted ? pathname?.startsWith('/admin') : false;
-  const isCoordinatorPageDetected = mounted ? pathname?.startsWith('/coordinator') : false;
+  // Determine if we're on admin, coordinator, or dean pages
+  const isAdminPageDetected = pathname?.startsWith('/admin') || false;
+  const isCoordinatorPageDetected = pathname?.startsWith('/coordinator') || false;
+  const isDeanPageDetected = pathname?.startsWith('/dean') || false;
+  
+  // Determine if header should be sticky (not for coordinator or dean pages)
+  const shouldBeSticky = !isCoordinatorPageDetected && !isDeanPageDetected;
 
   useEffect(() => {
     fetchUserInfo();
-  }, [isAuthPage, isAdminPageDetected, isCoordinatorPageDetected]);
+  }, [isAuthPage, isAdminPageDetected, isCoordinatorPageDetected, isDeanPageDetected, pathname]);
 
   const fetchUserInfo = async () => {
-    // Don't fetch user info on authentication pages, admin pages, or coordinator pages (sidebar handles it)
-    if (isAuthPage || isAdminPageDetected || isCoordinatorPageDetected) {
+    // Don't fetch user info on authentication pages, admin pages, coordinator pages, or dean pages (sidebar handles it)
+    // Only check after mounting to avoid hydration issues
+    const currentIsAdminPage = mounted && pathname?.startsWith('/admin');
+    const currentIsCoordinatorPage = mounted && pathname?.startsWith('/coordinator');
+    const currentIsDeanPage = mounted && pathname?.startsWith('/dean');
+    
+    if (isAuthPage || currentIsAdminPage || currentIsCoordinatorPage || currentIsDeanPage) {
       return;
     }
     
@@ -130,8 +139,12 @@ export default function Header({ isAdminPage = false }: HeaderProps) {
 
   if (!isClient) {
     // Server-side render a simplified version
+    const headerClassName = shouldBeSticky 
+      ? 'bg-green-800 w-full text-white py-2 sticky top-0 z-50 h-[75px]'
+      : 'bg-green-800 w-full text-white py-2 h-[75px]';
+    
     return (
-      <header className='bg-green-800 w-full text-white py-2 sticky top-0 z-50 h-[75px]'>
+      <header className={headerClassName}>
         <div className='container flex items-center justify-center px-4 h-full'>
           <div className='flex items-center gap-3'>
             <img 
@@ -149,8 +162,12 @@ export default function Header({ isAdminPage = false }: HeaderProps) {
   }
 
   // Client-side render with full functionality
+  const headerClassName = shouldBeSticky
+    ? 'bg-green-800 w-full text-white py-2 sticky top-0 z-50 h-[75px]'
+    : 'bg-green-800 w-full text-white py-2 h-[75px]';
+  
   return (
-    <header className='bg-green-800 w-full text-white py-2 sticky top-0 z-50 h-[75px]'>
+    <header className={headerClassName}>
       <div className='w-full flex items-center justify-center px-4 h-full relative'>
         {/* Center title - always centered */}
         <div className='flex items-center gap-2 md:gap-3'>
@@ -166,9 +183,9 @@ export default function Header({ isAdminPage = false }: HeaderProps) {
           </h1>
         </div>
          
-        {/* Right side - actual user info and logout (hidden on auth, admin, and coordinator pages) */}
+        {/* Right side - actual user info and logout (hidden on auth, admin, coordinator, and dean pages) */}
         <div className='absolute right-4 top-1/2 transform -translate-y-1/2'>
-          {userInfo && !isAuthPage && !isAdminPageDetected && !isCoordinatorPageDetected && (
+          {userInfo && !isAuthPage && !isAdminPageDetected && !isCoordinatorPageDetected && !isDeanPageDetected && (
             <div className='flex items-center gap-2 md:gap-4'>
               <div className='hidden sm:flex items-center gap-2 text-sm'>
                 <User className='h-4 w-4' />

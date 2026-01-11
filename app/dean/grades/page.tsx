@@ -197,6 +197,36 @@ export default function DeanGradesPage() {
     return matchesSearch && matchesCourse && matchesYearLevel && matchesSection;
   });
 
+  // Group schedules by section
+  interface SectionGroup {
+    section: string;
+    course: string;
+    yearLevel: number;
+    schedules: ScheduleWithGrades[];
+  }
+
+  const groupedBySection: { [key: string]: SectionGroup } = {};
+  
+  filteredSchedules.forEach(schedule => {
+    const sectionKey = `${schedule.Course}-${schedule.YearLevel}-${schedule.Section}`;
+    if (!groupedBySection[sectionKey]) {
+      groupedBySection[sectionKey] = {
+        section: schedule.Section,
+        course: schedule.Course,
+        yearLevel: schedule.YearLevel,
+        schedules: []
+      };
+    }
+    groupedBySection[sectionKey].schedules.push(schedule);
+  });
+
+  const sectionGroups = Object.values(groupedBySection).sort((a, b) => {
+    // Sort by course, then year level, then section
+    if (a.course !== b.course) return a.course.localeCompare(b.course);
+    if (a.yearLevel !== b.yearLevel) return a.yearLevel - b.yearLevel;
+    return a.section.localeCompare(b.section);
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -215,7 +245,7 @@ export default function DeanGradesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Grading Sheets</h1>
-            <p className="text-gray-600 mt-1">View grades by subject schedule</p>
+            <p className="text-gray-600 mt-1">View grades organized by sections</p>
           </div>
           <Button onClick={fetchData} variant="outline" className="flex items-center gap-2">
             <Download className="h-4 w-4" />
@@ -297,15 +327,26 @@ export default function DeanGradesPage() {
       </div>
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Sections</p>
+                <p className="text-2xl font-bold text-blue-600">{sectionGroups.length}</p>
+              </div>
+              <Users className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Schedules</p>
-                <p className="text-2xl font-bold text-blue-600">{schedules.length}</p>
+                <p className="text-2xl font-bold text-purple-600">{filteredSchedules.length}</p>
               </div>
-              <BookOpen className="h-8 w-8 text-blue-600" />
+              <BookOpen className="h-8 w-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
@@ -315,7 +356,7 @@ export default function DeanGradesPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Students</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {schedules.reduce((sum, s) => sum + s.students.length, 0)}
+                  {filteredSchedules.reduce((sum, s) => sum + s.students.length, 0)}
                 </p>
               </div>
               <Users className="h-8 w-8 text-green-600" />
@@ -327,71 +368,92 @@ export default function DeanGradesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">With Grades</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {schedules.filter(s => s.students.some(st => st.grades.length > 0)).length}
+                <p className="text-2xl font-bold text-orange-600">
+                  {filteredSchedules.filter(s => s.students.some(st => st.grades.length > 0)).length}
                 </p>
               </div>
-              <Calculator className="h-8 w-8 text-purple-600" />
+              <Calculator className="h-8 w-8 text-orange-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Schedules List */}
+      {/* Schedules List - Grouped by Section */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
-            Subjects
+            <Users className="h-5 w-5" />
+            Grades by Sections
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {filteredSchedules.length === 0 ? (
+          <div className="space-y-6">
+            {sectionGroups.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                 <p>No schedules found</p>
               </div>
             ) : (
-              filteredSchedules.map((schedule) => {
-                const isExpanded = expandedSchedules.has(schedule.ScheduleID);
-
-                return (
-                  <div key={schedule.ScheduleID} className="border rounded-lg">
-                    {/* Schedule Header */}
-                    <div
-                      className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                      onClick={() => toggleScheduleExpansion(schedule.ScheduleID)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {isExpanded ? (
-                            <ChevronDown className="h-5 w-5 text-gray-500" />
-                          ) : (
-                            <ChevronRight className="h-5 w-5 text-gray-500" />
-                          )}
-                          <div>
-                            <h3 className="font-semibold text-lg">{schedule.SubjectName}</h3>
-                            <p className="text-sm text-gray-600">
-                              {schedule.SubjectCode} • {schedule.Course} • Year {schedule.YearLevel} • {schedule.Section}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-sm">
-                            {schedule.students.length} student{schedule.students.length !== 1 ? 's' : ''}
-                          </Badge>
-                          {schedule.gradingConfig && (
-                            <Badge variant="secondary" className="text-sm">
-                              {schedule.gradingConfig.components.length} components
-                            </Badge>
-                          )}
-                        </div>
+              sectionGroups.map((sectionGroup, sectionIndex) => (
+                <div key={`section-${sectionGroup.course}-${sectionGroup.yearLevel}-${sectionGroup.section}`} className="border rounded-lg overflow-hidden">
+                  {/* Section Header */}
+                  <div className="bg-blue-50 border-b p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-xl font-bold text-gray-900">
+                          {sectionGroup.course} - Year {sectionGroup.yearLevel} - Section {sectionGroup.section}
+                        </h2>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {sectionGroup.schedules.length} subject{sectionGroup.schedules.length !== 1 ? 's' : ''}
+                        </p>
                       </div>
+                      <Badge variant="outline" className="text-sm bg-white">
+                        {sectionGroup.schedules.reduce((sum, s) => sum + s.students.length, 0)} student{sectionGroup.schedules.reduce((sum, s) => sum + s.students.length, 0) !== 1 ? 's' : ''}
+                      </Badge>
                     </div>
+                  </div>
 
-                    {/* Expanded Grading Sheet */}
-                    {isExpanded && (
+                  {/* Subjects in this Section */}
+                  <div className="space-y-2 p-4">
+                    {sectionGroup.schedules.map((schedule) => {
+                      const isExpanded = expandedSchedules.has(schedule.ScheduleID);
+
+                      return (
+                        <div key={schedule.ScheduleID} className="border rounded-lg bg-white">
+                          {/* Schedule Header */}
+                          <div
+                            className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                            onClick={() => toggleScheduleExpansion(schedule.ScheduleID)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                {isExpanded ? (
+                                  <ChevronDown className="h-5 w-5 text-gray-500" />
+                                ) : (
+                                  <ChevronRight className="h-5 w-5 text-gray-500" />
+                                )}
+                                <div>
+                                  <h3 className="font-semibold text-lg">{schedule.SubjectName}</h3>
+                                  <p className="text-sm text-gray-600">
+                                    {schedule.SubjectCode}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-sm">
+                                  {schedule.students.length} student{schedule.students.length !== 1 ? 's' : ''}
+                                </Badge>
+                                {schedule.gradingConfig && (
+                                  <Badge variant="secondary" className="text-sm">
+                                    {schedule.gradingConfig.components.length} components
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Expanded Grading Sheet */}
+                          {isExpanded && (
                       <div className="border-t bg-gray-50 p-4">
                         <div className="overflow-x-auto">
                           <Table>
@@ -505,11 +567,14 @@ export default function DeanGradesPage() {
                             </TableBody>
                           </Table>
                         </div>
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                   </div>
-                );
-              })
+                </div>
+              ))
             )}
           </div>
         </CardContent>

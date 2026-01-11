@@ -17,6 +17,7 @@ import {
   XCircle,
   Users,
   BookOpen,
+  FlaskConical,
   FileText,
   TrendingUp,
   UserCheck,
@@ -153,8 +154,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
 
   // Check if current session is cancelled
   const isCurrentSessionCancelled = () => {
-    const sessionType = getSessionType()
-    const sessionKey = `${schedule.ScheduleID}-${sessionType}-${currentSessionNumber}`
+    const sessionKey = `${schedule.ScheduleID}-${currentSessionType}-${currentSessionNumber}`
     return cancelledSessions[sessionKey] !== undefined
   }
   
@@ -176,6 +176,18 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
   const hasLecture = (schedule.Lecture || 0) > 0
   const hasLaboratory = (schedule.Laboratory || 0) > 0
   const hasBothComponents = hasLecture && hasLaboratory
+
+  // Initialize session type when schedule changes
+  useEffect(() => {
+    if (hasLecture && hasLaboratory) {
+      // If both exist, default to lecture
+      setCurrentSessionType('lecture')
+    } else if (hasLecture) {
+      setCurrentSessionType('lecture')
+    } else if (hasLaboratory) {
+      setCurrentSessionType('lab')
+    }
+  }, [schedule.ScheduleID, hasLecture, hasLaboratory])
 
   // Fetch data when component mounts
   useEffect(() => {
@@ -463,7 +475,8 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
       })
 
       if (response.ok) {
-        brandedToast.success(`Marked ${getStudentName(studentId)} as ${status}`)
+        const result = await response.json()
+        brandedToast.success(result.message || `Marked ${getStudentName(studentId)} as ${status}`)
         // Update local state immediately for UI responsiveness
         const studentKey = `${studentId}`
         if (sessionType === 'lecture') {
@@ -486,11 +499,25 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
         // Refresh attendance data to ensure consistency
         fetchAttendance()
       } else {
-        brandedToast.error('Failed to mark attendance')
+        const errorData = await response.json().catch(() => ({ error: 'Failed to mark attendance' }))
+        console.error('Failed to mark attendance:', errorData)
+        brandedToast.error(
+          errorData.error || errorData.message || 'Failed to mark attendance',
+          { 
+            title: '❌ Error',
+            duration: 5000 
+          }
+        )
       }
     } catch (error) {
       console.error('Error marking attendance:', error)
-      brandedToast.error('Failed to mark attendance')
+      brandedToast.error(
+        error instanceof Error ? error.message : 'Failed to mark attendance. Please try again.',
+        { 
+          title: '❌ Error',
+          duration: 5000 
+        }
+      )
     }
   }
 
@@ -671,8 +698,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
   // Handle resuming a cancelled class
   const handleResumeClass = async () => {
     try {
-      const sessionType = getSessionType()
-      const sessionKey = `${schedule.ScheduleID}-${sessionType}-${currentSessionNumber}`
+      const sessionKey = `${schedule.ScheduleID}-${currentSessionType}-${currentSessionNumber}`
       
       // Remove CC records from database first
       try {
@@ -682,7 +708,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
           body: JSON.stringify({
             scheduleId: schedule.ScheduleID,
             week: currentSessionNumber,
-            sessionType: sessionType
+            sessionType: currentSessionType
           })
         })
         
@@ -718,7 +744,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
         return updated
       })
       
-      brandedToast.success(`${sessionType === 'lecture' ? 'Lecture' : 'Laboratory'} Week ${currentSessionNumber} has been resumed`)
+      brandedToast.success(`${currentSessionType === 'lecture' ? 'Lecture' : 'Laboratory'} Week ${currentSessionNumber} has been resumed`)
       
     } catch (error) {
       console.error('Error resuming class:', error)
@@ -750,7 +776,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
 
     // Show confirmation dialog
     const confirmed = window.confirm(
-      `Are you sure you want to mark all ${eligibleStudents.length} student(s) as PRESENT for ${getSessionType().toUpperCase()} - Week ${currentSessionNumber}?\n\nThis action will mark attendance for all eligible students.`
+      `Are you sure you want to mark all ${eligibleStudents.length} student(s) as PRESENT for ${currentSessionType.toUpperCase()} - Week ${currentSessionNumber}?\n\nThis action will mark attendance for all eligible students.`
     );
 
     if (!confirmed) {
@@ -790,8 +816,8 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
             week: currentSessionNumber,
             status: 'P',
             date: new Date().toISOString().split('T')[0],
-            sessionType: getSessionType(),
-            remarks: `Marked as Present by instructor (bulk action for ${getSessionType()} week ${currentSessionNumber})`,
+            sessionType: currentSessionType,
+            remarks: `Marked as Present by instructor (bulk action for ${currentSessionType} week ${currentSessionNumber})`,
             recordedBy: instructorId
           };
 
@@ -818,7 +844,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
       }
 
       // Update local state for immediate UI feedback
-      const sessionType = getSessionType()
+      const sessionType = currentSessionType
       if (sessionType === 'lecture') {
         setLectureAttendance(prev => {
           const newState = { ...prev };
@@ -1106,8 +1132,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
   }
 
   const printAttendance = () => {
-    const sessionType = getSessionType()
-    const attendanceData = sessionType === 'lecture' ? lectureAttendance : labAttendance
+    const attendanceData = currentSessionType === 'lecture' ? lectureAttendance : labAttendance
     const studentsData = students.map(student => ({
       StudentID: student.StudentID,
       FirstName: student.FirstName || '',
@@ -1119,11 +1144,11 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
       schedule,
       studentsData,
       attendanceData,
-      sessionType,
+      currentSessionType,
       currentSessionNumber
     )
 
-    printDocument(printContent, `${schedule.SubjectCode} - ${sessionType} Week ${currentSessionNumber} Attendance`)
+    printDocument(printContent, `${schedule.SubjectCode} - ${currentSessionType} Week ${currentSessionNumber} Attendance`)
   }
 
   return (
@@ -1240,22 +1265,52 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                     </CardHeader>
                     <CardContent className="pt-6">
                       {/* All Controls in One Row */}
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                                                {/* Week Number */}
+                      <div className={`grid grid-cols-1 gap-4 ${hasBothComponents ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
+                        {/* Session Type Selector - Only show if schedule has both lecture and lab */}
+                        {hasBothComponents && (
                           <div className="space-y-2">
-                            <Label className="text-sm font-semibold text-slate-700">Week Number</Label>
+                            <Label className="text-sm font-semibold text-slate-700">Session Type</Label>
                             <Select 
-                              value={currentSessionNumber.toString()} 
-                              onValueChange={(value) => setCurrentSessionNumber(parseInt(value))}
+                              value={currentSessionType} 
+                              onValueChange={(value) => setCurrentSessionType(value as 'lecture' | 'lab')}
                             >
                               <SelectTrigger className="h-10 w-full border-gray-300 focus:border-blue-500 focus:ring-blue-500">
-                                <SelectValue />
+                                <div className="flex items-center gap-2">
+                                  {currentSessionType === 'lecture' ? (
+                                    <BookOpen className="h-4 w-4 text-green-600" />
+                                  ) : (
+                                    <FlaskConical className="h-4 w-4 text-purple-600" />
+                                  )}
+                                  <SelectValue />
+                                </div>
                               </SelectTrigger>
                               <SelectContent>
-                                {Array.from({ length: 18 }, (_, i) => (
-                                                                    <SelectItem key={i + 1} value={(i + 1).toString()}>
-                                    Week {i + 1}
-                                  </SelectItem>
+                                <SelectItem value="lecture">
+                                  Lecture
+                                </SelectItem>
+                                <SelectItem value="lab">
+                                  Laboratory
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {/* Week Number */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-semibold text-slate-700">Week Number</Label>
+                          <Select 
+                            value={currentSessionNumber.toString()} 
+                            onValueChange={(value) => setCurrentSessionNumber(parseInt(value))}
+                          >
+                            <SelectTrigger className="h-10 w-full border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: 18 }, (_, i) => (
+                                <SelectItem key={i + 1} value={(i + 1).toString()}>
+                                  Week {i + 1}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -1314,7 +1369,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                               size="sm"
                               onClick={() => {
                                 setCCStudentId(null)
-                                setCCSessionType(getSessionType())
+                                setCCSessionType(currentSessionType)
                                 setCCReason('')
                                 setCCNotifyStudents(false)
                                 setShowCCModal(true)
@@ -1332,8 +1387,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                       
                       {/* Session Status Indicator */}
                       {isCurrentSessionCancelled() && (() => {
-                        const sessionType = getSessionType()
-                        const sessionKey = `${schedule.ScheduleID}-${sessionType}-${currentSessionNumber}`
+                        const sessionKey = `${schedule.ScheduleID}-${currentSessionType}-${currentSessionNumber}`
                         const cancellationDetails = cancelledSessions[sessionKey]
                         
                         return (
@@ -1378,7 +1432,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                           </div>
                           <div>
                             <CardTitle className="text-lg font-semibold text-slate-800">
-                              Students - {getSessionType() === 'lecture' ? 'Lecture' : 'Laboratory'} Session {currentSessionNumber}
+                              Students - {currentSessionType === 'lecture' ? 'Lecture' : 'Laboratory'} Session {currentSessionNumber}
                             </CardTitle>
                             {isCurrentSessionCancelled() && (
                               <div className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold mt-1">
@@ -1415,7 +1469,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                       ) : (
                         <div className="grid gap-4">
                           {students.map((student, index) => {
-                          const attendance = getStudentAttendance(student.StudentID, getSessionType())
+                          const attendance = getStudentAttendance(student.StudentID, currentSessionType)
                           const hasApprovedExcuseLetters = excuseLetters.some(letter => 
                             letter.StudentID === student.StudentID && 
                             letter.ScheduleID === schedule.ScheduleID &&
@@ -1473,7 +1527,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                                       key={status}
                                       size="sm"
                                       className={`w-9 h-9 p-0 relative font-semibold transition-all duration-200 ${buttonClass} ${isButtonDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                      onClick={() => !isButtonDisabled && markAttendanceForSession(student.StudentID, status, getSessionType())}
+                                      onClick={() => !isButtonDisabled && markAttendanceForSession(student.StudentID, status, currentSessionType)}
                                       disabled={isButtonDisabled}
                                       title={isCurrentSessionCancelled() ? 'Session cancelled - attendance cannot be modified' : 
                                               isStudentDisabled ? (student.IsDropped ? 'Student is dropped - attendance locked' : 'Student is failed - attendance locked') :
@@ -1483,7 +1537,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                                         status === 'L' ? 'Late' :
                                         status === 'E' ? 'Excused' :
                                         'Unknown'
-                                      } for ${getSessionType()} session`}
+                                      } for ${currentSessionType} session`}
                                     >
                                       {status}
                                       {hasApprovedExcuseLetters && (

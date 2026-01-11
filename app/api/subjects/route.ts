@@ -13,10 +13,16 @@ export async function GET(req: NextRequest) {
     let hasClassTypeColumn = false;
 
     try {
-      const [instructorColumns]: any = await db.query("SHOW COLUMNS FROM subjects LIKE 'InstructorID'");
+      const [instructorColumns]: any = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'subjects' AND COLUMN_NAME = 'InstructorID'
+      `);
       hasInstructorColumn = instructorColumns.length > 0;
 
-      const [classTypeColumns]: any = await db.query("SHOW COLUMNS FROM subjects LIKE 'ClassType'");
+      const [classTypeColumns]: any = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'subjects' AND COLUMN_NAME = 'ClassType'
+      `);
       hasClassTypeColumn = classTypeColumns.length > 0;
     } catch (err) {
       console.log('Could not check for columns:', err);
@@ -112,73 +118,133 @@ export async function POST(req: NextRequest) {
     // Check if InstructorID and ClassType columns exist in subjects table
     let hasInstructorColumn = false;
     let hasClassTypeColumn = false;
+    let subjectIdAutoIncrement = true;
 
     try {
-      const [instructorColumns]: any = await db.query("SHOW COLUMNS FROM subjects LIKE 'InstructorID'");
+      const [instructorColumns]: any = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'subjects' AND COLUMN_NAME = 'InstructorID'
+      `);
       hasInstructorColumn = instructorColumns.length > 0;
 
-      const [classTypeColumns]: any = await db.query("SHOW COLUMNS FROM subjects LIKE 'ClassType'");
+      const [classTypeColumns]: any = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'subjects' AND COLUMN_NAME = 'ClassType'
+      `);
       hasClassTypeColumn = classTypeColumns.length > 0;
+
+      // Check if SubjectID is AUTO_INCREMENT
+      const [subjectIdInfo]: any = await db.query(`
+        SELECT EXTRA FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'subjects' AND COLUMN_NAME = 'SubjectID'
+      `);
+      if (subjectIdInfo.length > 0) {
+        subjectIdAutoIncrement = subjectIdInfo[0].EXTRA?.toUpperCase().includes('AUTO_INCREMENT') || false;
+      }
     } catch (err) {
       console.log('Could not check for columns:', err);
+    }
+
+    // If SubjectID is not AUTO_INCREMENT, calculate the next ID
+    let nextSubjectId = null;
+    if (!subjectIdAutoIncrement) {
+      try {
+        const [maxResult]: any = await db.query('SELECT MAX(SubjectID) as maxId FROM subjects');
+        nextSubjectId = maxResult[0]?.maxId ? maxResult[0].maxId + 1 : 1;
+        console.log('SubjectID is not AUTO_INCREMENT. Calculated next SubjectID:', nextSubjectId);
+      } catch (err) {
+        console.error('Error calculating next SubjectID:', err);
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to determine next subject ID. Please contact administrator.',
+          details: process.env.NODE_ENV === 'development' ? (err instanceof Error ? err.message : String(err)) : undefined
+        }, { status: 500 });
+      }
     }
 
     let insertQuery;
     let queryParams;
 
-    if (hasInstructorColumn && hasClassTypeColumn) {
-      insertQuery = `
-        INSERT INTO subjects (SubjectCode, SubjectName, Units, Prerequisites, Description, InstructorID, ClassType)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `;
-      queryParams = [
-        subject.SubjectCode,
-        subject.SubjectName,
-        subject.Units || 3,
-        subject.Prerequisites || null,
-        subject.Description || null,
-        subject.InstructorID || null,
-        subject.ClassType || 'LECTURE'
-      ];
-    } else if (hasInstructorColumn) {
-      insertQuery = `
-        INSERT INTO subjects (SubjectCode, SubjectName, Units, Prerequisites, Description, InstructorID)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `;
-      queryParams = [
-        subject.SubjectCode,
-        subject.SubjectName,
-        subject.Units || 3,
-        subject.Prerequisites || null,
-        subject.Description || null,
-        subject.InstructorID || null
-      ];
+    // Handle all possible column combinations
+    // Convert empty strings to null for optional fields
+    const prerequisites = subject.Prerequisites && subject.Prerequisites.trim() !== '' ? subject.Prerequisites.trim() : null;
+    const description = subject.Description && subject.Description.trim() !== '' ? subject.Description.trim() : null;
+    const units = subject.Units ? Number(subject.Units) : 3;
+    const instructorId = subject.InstructorID ? Number(subject.InstructorID) : null;
+    const classType = subject.ClassType || 'LECTURE';
+
+    // Build INSERT query - include SubjectID if not AUTO_INCREMENT
+    if (!subjectIdAutoIncrement && nextSubjectId !== null) {
+      // SubjectID is not AUTO_INCREMENT, include it explicitly
+      if (hasInstructorColumn && hasClassTypeColumn) {
+        insertQuery = `
+          INSERT INTO subjects (SubjectID, SubjectCode, SubjectName, Units, Prerequisites, Description, InstructorID, ClassType)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        queryParams = [nextSubjectId, subject.SubjectCode.trim(), subject.SubjectName.trim(), units, prerequisites, description, instructorId, classType];
+      } else if (hasInstructorColumn && !hasClassTypeColumn) {
+        insertQuery = `
+          INSERT INTO subjects (SubjectID, SubjectCode, SubjectName, Units, Prerequisites, Description, InstructorID)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+        queryParams = [nextSubjectId, subject.SubjectCode.trim(), subject.SubjectName.trim(), units, prerequisites, description, instructorId];
+      } else if (!hasInstructorColumn && hasClassTypeColumn) {
+        insertQuery = `
+          INSERT INTO subjects (SubjectID, SubjectCode, SubjectName, Units, Prerequisites, Description, ClassType)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+        queryParams = [nextSubjectId, subject.SubjectCode.trim(), subject.SubjectName.trim(), units, prerequisites, description, classType];
+      } else {
+        insertQuery = `
+          INSERT INTO subjects (SubjectID, SubjectCode, SubjectName, Units, Prerequisites, Description)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `;
+        queryParams = [nextSubjectId, subject.SubjectCode.trim(), subject.SubjectName.trim(), units, prerequisites, description];
+      }
     } else {
-      insertQuery = `
-        INSERT INTO subjects (SubjectCode, SubjectName, Units, Prerequisites, Description)
-        VALUES (?, ?, ?, ?, ?)
-      `;
-      queryParams = [
-        subject.SubjectCode,
-        subject.SubjectName,
-        subject.Units || 3,
-        subject.Prerequisites || null,
-        subject.Description || null
-      ];
+      // SubjectID is AUTO_INCREMENT, don't include it
+      if (hasInstructorColumn && hasClassTypeColumn) {
+        insertQuery = `
+          INSERT INTO subjects (SubjectCode, SubjectName, Units, Prerequisites, Description, InstructorID, ClassType)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+        queryParams = [subject.SubjectCode.trim(), subject.SubjectName.trim(), units, prerequisites, description, instructorId, classType];
+      } else if (hasInstructorColumn && !hasClassTypeColumn) {
+        insertQuery = `
+          INSERT INTO subjects (SubjectCode, SubjectName, Units, Prerequisites, Description, InstructorID)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `;
+        queryParams = [subject.SubjectCode.trim(), subject.SubjectName.trim(), units, prerequisites, description, instructorId];
+      } else if (!hasInstructorColumn && hasClassTypeColumn) {
+        insertQuery = `
+          INSERT INTO subjects (SubjectCode, SubjectName, Units, Prerequisites, Description, ClassType)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `;
+        queryParams = [subject.SubjectCode.trim(), subject.SubjectName.trim(), units, prerequisites, description, classType];
+      } else {
+        insertQuery = `
+          INSERT INTO subjects (SubjectCode, SubjectName, Units, Prerequisites, Description)
+          VALUES (?, ?, ?, ?, ?)
+        `;
+        queryParams = [subject.SubjectCode.trim(), subject.SubjectName.trim(), units, prerequisites, description];
+      }
     }
 
     console.log('Executing query:', insertQuery);
     console.log('Query params:', queryParams);
+    console.log('Column checks - hasInstructorColumn:', hasInstructorColumn, 'hasClassTypeColumn:', hasClassTypeColumn, 'subjectIdAutoIncrement:', subjectIdAutoIncrement);
 
     const [result]: any = await db.query(insertQuery, queryParams);
 
     console.log('Insert result:', result);
 
+    const insertedSubjectId = subjectIdAutoIncrement ? result.insertId : nextSubjectId;
+
     return NextResponse.json({
       success: true,
       message: 'Subject created successfully',
       data: {
-        SubjectID: result.insertId,
+        SubjectID: insertedSubjectId,
         ...subject
       }
     });
@@ -236,10 +302,16 @@ export async function PUT(req: NextRequest) {
     let hasClassTypeColumn = false;
 
     try {
-      const [instructorColumns]: any = await db.query("SHOW COLUMNS FROM subjects LIKE 'InstructorID'");
+      const [instructorColumns]: any = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'subjects' AND COLUMN_NAME = 'InstructorID'
+      `);
       hasInstructorColumn = instructorColumns.length > 0;
 
-      const [classTypeColumns]: any = await db.query("SHOW COLUMNS FROM subjects LIKE 'ClassType'");
+      const [classTypeColumns]: any = await db.query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'subjects' AND COLUMN_NAME = 'ClassType'
+      `);
       hasClassTypeColumn = classTypeColumns.length > 0;
     } catch (err) {
       console.log('Could not check for columns:', err);
@@ -248,6 +320,7 @@ export async function PUT(req: NextRequest) {
     let updateQuery;
     let queryParams;
 
+    // Handle all possible column combinations for UPDATE
     if (hasInstructorColumn && hasClassTypeColumn) {
       updateQuery = `
         UPDATE subjects 
@@ -264,7 +337,7 @@ export async function PUT(req: NextRequest) {
         subject.ClassType || 'LECTURE',
         parseInt(id)
       ];
-    } else if (hasInstructorColumn) {
+    } else if (hasInstructorColumn && !hasClassTypeColumn) {
       updateQuery = `
         UPDATE subjects 
         SET SubjectCode = ?, SubjectName = ?, Units = ?, Prerequisites = ?, Description = ?, InstructorID = ?
@@ -277,6 +350,21 @@ export async function PUT(req: NextRequest) {
         subject.Prerequisites || null,
         subject.Description || null,
         subject.InstructorID || null,
+        parseInt(id)
+      ];
+    } else if (!hasInstructorColumn && hasClassTypeColumn) {
+      updateQuery = `
+        UPDATE subjects 
+        SET SubjectCode = ?, SubjectName = ?, Units = ?, Prerequisites = ?, Description = ?, ClassType = ?
+        WHERE SubjectID = ?
+      `;
+      queryParams = [
+        subject.SubjectCode,
+        subject.SubjectName,
+        subject.Units || 3,
+        subject.Prerequisites || null,
+        subject.Description || null,
+        subject.ClassType || 'LECTURE',
         parseInt(id)
       ];
     } else {

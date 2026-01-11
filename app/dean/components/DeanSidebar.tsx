@@ -5,7 +5,6 @@ import { BarChart3, FileText, Users, TrendingUp, LogOut, Calculator, UserCheck, 
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -73,8 +72,8 @@ export function DeanSidebar() {
   const currentPath = pathname;
 
   return (
-    <Sidebar className="w-64 min-h-screen bg-white border-r border-gray-200 shadow-sm z-40 fixed left-0 top-0">
-      <SidebarContent className="px-4 py-6 space-y-4 mt-[75px]">
+    <Sidebar className="w-64 min-h-screen bg-white border-r border-gray-200 shadow-sm z-40 flex flex-col">
+      <SidebarContent className="flex-1 overflow-y-auto min-h-0 px-4 py-6 space-y-4">
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs text-gray-500 uppercase tracking-wide mb-2">
             Menu
@@ -103,22 +102,22 @@ export function DeanSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarFooter className="px-4 py-4 border-t border-gray-200">
-        <div className="px-3 py-2 mb-2 bg-gray-50 rounded-md">
-          <p className="text-xs text-gray-500">Signed in as</p>
-          <p className="text-sm font-semibold text-gray-800 truncate">{user.name || 'Loading...'}</p>
-          <p className="text-xs text-gray-500 truncate">{user.email}</p>
+        
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <div className="px-3 py-2 mb-2 bg-gray-50 rounded-md">
+            <p className="text-xs text-gray-500">Signed in as</p>
+            <p className="text-sm font-semibold text-gray-800 truncate">{user.name || 'Loading...'}</p>
+            <p className="text-xs text-gray-500 truncate">{user.email}</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
+          </button>
         </div>
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          Logout
-        </button>
-      </SidebarFooter>
+      </SidebarContent>
 
       <LogoutConfirmationModal
         isOpen={showLogoutModal}

@@ -51,8 +51,11 @@ export default function EnhancedSeatPlan({
   const [loading, setLoading] = useState(false);
   
   const totalSeats = numberOfSeats
+  // For NSTP and OJT, they should only have lecture seat plans (no lab)
+  const isSpecialClassType = classType === 'NSTP' || classType === 'OJT'
   const hasLecture = lecture > 0
-  const hasLaboratory = laboratory > 0
+  // NSTP and OJT should not show lab seat plan even if laboratory > 0
+  const hasLaboratory = !isSpecialClassType && laboratory > 0
   const hasBothComponents = hasLecture && hasLaboratory
 
   // Fetch enrolled students when component mounts

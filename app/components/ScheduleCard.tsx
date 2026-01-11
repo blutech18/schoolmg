@@ -74,23 +74,15 @@ export default function ScheduleCard({
   }
 
   // Check if this is a Cisco schedule
-  const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' || 
-                          (schedule.Room && schedule.Room.toLowerCase().includes('cisco'))
-  
-  // Only Cisco schedules can show both Lecture and Laboratory sections
-  // Non-Cisco schedules should only show ONE section (prefer lecture if both have hours)
+  const isCiscoSchedule = (schedule.ClassType || '').toUpperCase() === 'MAJOR' ||
+    (schedule.Room && schedule.Room.toLowerCase().includes('cisco'))
+
+  // Show both Lecture and Laboratory sections when both have hours configured
   const hasLectureHours = (schedule.Lecture || 0) > 0
   const hasLabHours = (schedule.Laboratory || 0) > 0
-  
-  let hasLab = false
-  
-  if (isCiscoSchedule) {
-    // Cisco schedules: show lab section if lab hours are configured
-    hasLab = hasLabHours
-  } else {
-    // Non-Cisco schedules: only show lab if there's no lecture hours
-    hasLab = hasLabHours && !hasLectureHours
-  }
+
+  // Show lab section if lab hours are configured
+  const hasLab = hasLabHours
 
   const rooms = parseRooms(schedule.Room ?? undefined)
   const times = parseTimes(schedule.Time ?? undefined)
@@ -151,11 +143,11 @@ export default function ScheduleCard({
 
   const cardInteractionProps = onClick
     ? {
-        role: 'button' as const,
-        tabIndex: 0,
-        onClick: () => onClick(),
-        onKeyDown: handleKeyDown,
-      }
+      role: 'button' as const,
+      tabIndex: 0,
+      onClick: () => onClick(),
+      onKeyDown: handleKeyDown,
+    }
     : {}
 
   return (
