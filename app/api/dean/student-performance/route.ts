@@ -63,8 +63,10 @@ export async function GET(request: NextRequest) {
         let totalAttendance = 0;
         let presentCount = 0;
         let excusedCount = 0;
+        let lateCount = 0;
+        let dismissedCount = 0;
         let cancelledCount = 0;
-        
+
         (attendanceRows as any[]).forEach(row => {
           if (row.Status === 'CC') {
             cancelledCount += row.count;
@@ -74,13 +76,17 @@ export async function GET(request: NextRequest) {
               presentCount += row.count;
             } else if (row.Status === 'E') {
               excusedCount += row.count;
+            } else if (row.Status === 'L') {
+              lateCount += row.count;
+            } else if (row.Status === 'D') {
+              dismissedCount += row.count;
             }
           }
         });
 
         if (totalAttendance > 0) {
-          // Present + Excused count as "attended"
-          const attendedCount = presentCount + excusedCount;
+          // Present + Excused + Late + Dismissed count as "attended" (matching dean dashboard calculation)
+          const attendedCount = presentCount + excusedCount + lateCount + dismissedCount;
           performance.AttendanceRate = Math.round((attendedCount / totalAttendance) * 100);
         }
 
@@ -152,8 +158,8 @@ export async function GET(request: NextRequest) {
       }
     }));
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: studentPerformance,
       message: `Retrieved performance data for ${studentPerformance.length} students`
     });
@@ -167,8 +173,8 @@ export async function GET(request: NextRequest) {
       sqlMessage: error?.sqlMessage
     });
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: "Failed to fetch student performance data",
         details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },

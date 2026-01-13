@@ -79,8 +79,8 @@ export async function GET(request: NextRequest) {
       sqlMessage: error?.sqlMessage
     });
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: "Failed to fetch grades",
         details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
       `;
 
       result = await db.execute(updateQuery, [
-        maxScore, score, percentage, recordedBy, 
+        maxScore, score, percentage, recordedBy,
         studentId, scheduleId, term, component, itemNumber || 1
       ]);
     } else {
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       `;
 
       result = await db.execute(insertQuery, [
-        studentId, scheduleId, term, component, itemNumber || 1, 
+        studentId, scheduleId, term, component, itemNumber || 1,
         maxScore, score, percentage, recordedBy
       ]);
     }
@@ -172,8 +172,8 @@ export async function POST(request: NextRequest) {
       sqlMessage: error?.sqlMessage
     });
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: "Failed to save grade",
         details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },
@@ -304,6 +304,7 @@ function calculateTermGrade(termGrades: any[], classType: string) {
       'final': 'exam',
       'midterm exam': 'exam',
       'final exam': 'exam',
+      'major exam': 'major exam',  // Keep major exam as its own category
       // OJT-specific components
       'online course': 'online course',
       'recitation': 'recitation',
@@ -763,8 +764,8 @@ export async function PUT(request: NextRequest) {
       sqlMessage: error?.sqlMessage
     });
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: "Failed to bulk update grades",
         details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },
@@ -802,8 +803,8 @@ export async function DELETE(request: NextRequest) {
       sqlMessage: error?.sqlMessage
     });
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: "Failed to delete grade record",
         details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },

@@ -164,7 +164,7 @@ export default function SchedulesTable() {
           <TableCaption className="no-print">Class schedule listing</TableCaption>
           <TableHeader>
             <TableRow className='bg-gray-100'>
-              <TableHead>Schedule ID</TableHead>
+              <TableHead>Subject</TableHead>
               <TableHead>Course</TableHead>
               <TableHead>Instructor ID</TableHead>
               <TableHead>Section</TableHead>
@@ -176,7 +176,12 @@ export default function SchedulesTable() {
           <TableBody>
             {filteredSchedules.map((sched, idx) => (
               <TableRow key={idx} className='even:bg-gray-50'>
-                <TableCell>{sched.ScheduleID}</TableCell>
+                <TableCell>
+                  <div className="space-y-1">
+                    <div className="font-medium text-gray-900">{sched.SubjectCode}</div>
+                    <div className="text-sm text-gray-600">{sched.SubjectName}</div>
+                  </div>
+                </TableCell>
                 <TableCell>{sched.Course}</TableCell>
                 <TableCell>{sched.InstructorID}</TableCell>
                 <TableCell>{sched.Section}</TableCell>

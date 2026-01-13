@@ -919,7 +919,7 @@ function InstructorGradesContent() {
                           ))
                         )) || []}
                         <td className="border border-gray-300 p-3 text-center font-semibold bg-blue-50">
-                          <div className="text-lg font-bold">{termAverage.toFixed(2)}</div>
+                          <div className={`text-lg font-bold ${termAverage > 3.0 ? 'text-red-600' : 'text-gray-900'}`}>{termAverage.toFixed(2)}</div>
                         </td>
                       </tr>
                     );

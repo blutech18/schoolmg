@@ -25,8 +25,17 @@ export function generateStudentImportTemplate(): Blob {
         'Status'
     ];
 
-    // No sample data - users should add their own real data
-    const sampleData: any[] = [];
+    // Pre-populate 8 sample rows with automatic passwords 1-8
+    const sampleData: any[] = [
+        ['2024-00001', '', '', '', '', '1', '', '', '', '', '', '', ''],
+        ['2024-00002', '', '', '', '', '2', '', '', '', '', '', '', ''],
+        ['2024-00003', '', '', '', '', '3', '', '', '', '', '', '', ''],
+        ['2024-00004', '', '', '', '', '4', '', '', '', '', '', '', ''],
+        ['2024-00005', '', '', '', '', '5', '', '', '', '', '', '', ''],
+        ['2024-00006', '', '', '', '', '6', '', '', '', '', '', '', ''],
+        ['2024-00007', '', '', '', '', '7', '', '', '', '', '', '', ''],
+        ['2024-00008', '', '', '', '', '8', '', '', '', '', '', '', '']
+    ];
 
     // Create worksheet data with headers only
     const wsData = [headers, ...sampleData];
@@ -86,7 +95,7 @@ export function generateStudentImportTemplate(): Blob {
         ['MiddleName', 'Student\'s middle name', 'No', 'Text (can be empty)'],
         ['LastName', 'Student\'s last name', 'Yes', 'Text'],
         ['EmailAddress', 'Valid email address', 'Yes', 'email@cca.edu.ph'],
-        ['Password', 'Initial password', 'No', 'Default: 12345'],
+        ['Password', 'Initial password', 'No', 'Pre-filled: 1-8 (or leave empty for default: 12345)'],
         ['ContactNumber', 'Phone number', 'No', 'e.g., 09123456789'],
         ['Course', 'Course code', 'Yes', 'BSIT, BSCS, BSIS, etc.'],
         ['YearLevel', 'Year level (1-4)', 'Yes', '1, 2, 3, or 4'],
