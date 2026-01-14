@@ -165,36 +165,34 @@ export default function DeanDashboard() {
           <TrendingUp className="h-4 w-4 text-green-500" />
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-center gap-6">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-green-50 px-4 py-2 rounded-lg border border-green-200">
-                <span className="text-green-600 font-medium text-sm">Present</span>
-                <span className="text-2xl font-bold text-green-700">{stats.presentRate || 0}%</span>
-              </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg border border-green-200">
+              <span className="text-green-600 font-medium text-sm">Present</span>
+              <span className="text-xl font-bold text-green-700">{stats.presentRate || 0}%</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-red-50 px-4 py-2 rounded-lg border border-red-200">
-                <span className="text-red-600 font-medium text-sm">Absent</span>
-                <span className="text-2xl font-bold text-red-700">{stats.absentRate || 0}%</span>
-              </div>
+            <div className="flex items-center gap-2 bg-red-50 px-3 py-2 rounded-lg border border-red-200">
+              <span className="text-red-600 font-medium text-sm">Absent</span>
+              <span className="text-xl font-bold text-red-700">{stats.absentRate || 0}%</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
-                <span className="text-blue-600 font-medium text-sm">Excused</span>
-                <span className="text-2xl font-bold text-blue-700">{stats.excusedRate || 0}%</span>
-              </div>
+            <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
+              <span className="text-blue-600 font-medium text-sm">Excused</span>
+              <span className="text-xl font-bold text-blue-700">{stats.excusedRate || 0}%</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-yellow-50 px-4 py-2 rounded-lg border border-yellow-200">
-                <span className="text-yellow-600 font-medium text-sm">Late</span>
-                <span className="text-2xl font-bold text-yellow-700">{stats.lateRate || 0}%</span>
-              </div>
+            <div className="flex items-center gap-2 bg-yellow-50 px-3 py-2 rounded-lg border border-yellow-200">
+              <span className="text-yellow-600 font-medium text-sm">Late</span>
+              <span className="text-xl font-bold text-yellow-700">{stats.lateRate || 0}%</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-lg border border-gray-200">
-                <span className="text-gray-600 font-medium text-sm">Unmarked</span>
-                <span className="text-2xl font-bold text-gray-700">{stats.unmarkedRate || 0}%</span>
-              </div>
+            <div className="flex items-center gap-2 bg-purple-50 px-3 py-2 rounded-lg border border-purple-200">
+              <span className="text-purple-600 font-medium text-sm">Dismissed</span>
+              <span className="text-xl font-bold text-purple-700">{stats.dismissedRate || 0}%</span>
+            </div>
+            <div className="flex items-center gap-2 bg-orange-50 px-3 py-2 rounded-lg border border-orange-200">
+              <span className="text-orange-600 font-medium text-sm">Failed Att.</span>
+              <span className="text-xl font-bold text-orange-700">{stats.failedAttendanceRate || 0}%</span>
+            </div>
+            <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+              <span className="text-gray-600 font-medium text-sm">Unmarked</span>
+              <span className="text-xl font-bold text-gray-700">{stats.unmarkedRate || 0}%</span>
             </div>
           </div>
         </CardContent>

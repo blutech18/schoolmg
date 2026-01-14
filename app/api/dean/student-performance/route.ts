@@ -107,25 +107,28 @@ export async function GET(request: NextRequest) {
 
         performance.ExcuseLettersCount = (excuseLettersRows as any[])[0]?.count || 0;
 
-        // Fetch total subjects enrolled
+        // Fetch total subjects enrolled (count unique subjects, not schedules)
+        // A subject with both Lecture and Lab creates 2 schedules but should count as 1 subject
         const [subjectsRows] = await db.execute(`
-          SELECT COUNT(DISTINCT ScheduleID) as count 
+          SELECT COUNT(DISTINCT SubjectID) as count 
           FROM grades 
-          WHERE StudentID = ?
+          WHERE StudentID = ? AND SubjectID IS NOT NULL
         `, [student.StudentID]);
 
-        performance.TotalSubjects = (subjectsRows as any[])[0]?.count || 0;
+        const subjectCount = (subjectsRows as any[])[0]?.count || 0;
+        performance.TotalSubjects = subjectCount;
 
         // If no subjects from grades, try to get from schedules/enrollment
         if (performance.TotalSubjects === 0) {
           const [enrollmentRows] = await db.execute(`
-            SELECT COUNT(DISTINCT s.ScheduleID) as count
+            SELECT COUNT(DISTINCT s.SubjectID) as count
             FROM schedules s
             JOIN students st ON st.Course = s.Course AND st.YearLevel = s.YearLevel
-            WHERE st.StudentID = ?
+            WHERE st.StudentID = ? AND s.SubjectID IS NOT NULL
           `, [student.StudentID]);
 
-          performance.TotalSubjects = (enrollmentRows as any[])[0]?.count || 0;
+          const enrollmentCount = (enrollmentRows as any[])[0]?.count || 0;
+          performance.TotalSubjects = enrollmentCount;
         }
 
 
