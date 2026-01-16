@@ -8,10 +8,9 @@ interface AttendanceStats {
   absentRecords: number;
   excusedRecords: number;
   lateRecords: number;
-  dismissedRecords: number;
+  dropRecords: number;
   failedAttendanceRecords: number;
   cancelledRecords: number;
-  unmarkedRecords: number;
 }
 
 export async function GET(request: NextRequest) {
@@ -25,19 +24,18 @@ export async function GET(request: NextRequest) {
         COUNT(CASE WHEN Status = 'A' THEN 1 END) as absentRecords,
         COUNT(CASE WHEN Status = 'E' THEN 1 END) as excusedRecords,
         COUNT(CASE WHEN Status = 'L' THEN 1 END) as lateRecords,
-        COUNT(CASE WHEN Status = 'D' THEN 1 END) as dismissedRecords,
+        COUNT(CASE WHEN Status = 'D' THEN 1 END) as dropRecords,
         COUNT(CASE WHEN Status = 'FA' THEN 1 END) as failedAttendanceRecords,
-        COUNT(CASE WHEN Status = 'CC' THEN 1 END) as cancelledRecords,
-        COUNT(CASE WHEN (Status IS NULL OR Status = '') AND Status != 'CC' THEN 1 END) as unmarkedRecords
+        COUNT(CASE WHEN Status = 'CC' THEN 1 END) as cancelledRecords
       FROM attendance
     `);
 
     const stats = (statsResult as any[])[0];
 
     // Calculate average attendance percentage
-    // Present (P), Excused (E), Late (L), and Dismissed (D) are considered "attended"
-    // CC (Cancelled) records are excluded from both numerator and denominator
-    const attendedRecords = (stats.presentRecords || 0) + (stats.excusedRecords || 0) + (stats.lateRecords || 0) + (stats.dismissedRecords || 0);
+    // Present (P), Excused (E), and Late (L) are considered "attended"
+    // Drop (D), Failed Attendance (FA), and CC (Cancelled) are NOT considered attended
+    const attendedRecords = (stats.presentRecords || 0) + (stats.excusedRecords || 0) + (stats.lateRecords || 0);
     const cancelledRecords = stats.cancelledRecords || 0;
     const totalRecords = stats.totalRecords || 0; // Already excludes CC
 
@@ -64,10 +62,9 @@ export async function GET(request: NextRequest) {
       absentRecords: stats.absentRecords || 0,
       excusedRecords: stats.excusedRecords || 0,
       lateRecords: stats.lateRecords || 0,
-      dismissedRecords: stats.dismissedRecords || 0,
+      dropRecords: stats.dropRecords || 0,
       failedAttendanceRecords: stats.failedAttendanceRecords || 0,
-      cancelledRecords: cancelledRecords,
-      unmarkedRecords: stats.unmarkedRecords || 0
+      cancelledRecords: cancelledRecords
     };
 
     return NextResponse.json({

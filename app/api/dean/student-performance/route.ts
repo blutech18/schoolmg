@@ -109,27 +109,50 @@ export async function GET(request: NextRequest) {
 
         // Fetch total subjects enrolled (count unique subjects, not schedules)
         // A subject with both Lecture and Lab creates 2 schedules but should count as 1 subject
-        const [subjectsRows] = await db.execute(`
-          SELECT COUNT(DISTINCT SubjectID) as count 
-          FROM grades 
-          WHERE StudentID = ? AND SubjectID IS NOT NULL
+        // Priority 1: Check enrollments table (most accurate - links students to schedules via enrollments)
+        const [enrollmentSubjectsRows] = await db.execute(`
+          SELECT COUNT(DISTINCT s.SubjectID) as count
+          FROM enrollments e
+          JOIN schedules s ON e.ScheduleID = s.ScheduleID
+          WHERE e.StudentID = ? AND s.SubjectID IS NOT NULL AND e.Status = 'enrolled'
         `, [student.StudentID]);
 
-        const subjectCount = (subjectsRows as any[])[0]?.count || 0;
-        performance.TotalSubjects = subjectCount;
+        let subjectCount = (enrollmentSubjectsRows as any[])[0]?.count || 0;
 
-        // If no subjects from grades, try to get from schedules/enrollment
-        if (performance.TotalSubjects === 0) {
-          const [enrollmentRows] = await db.execute(`
+        // Priority 2: If no enrollments, try grades table (join with schedules to get SubjectID)
+        if (subjectCount === 0) {
+          const [gradesSubjectsRows] = await db.execute(`
+            SELECT COUNT(DISTINCT sch.SubjectID) as count 
+            FROM grades g
+            JOIN schedules sch ON g.ScheduleID = sch.ScheduleID
+            WHERE g.StudentID = ? AND sch.SubjectID IS NOT NULL
+          `, [student.StudentID]);
+          subjectCount = (gradesSubjectsRows as any[])[0]?.count || 0;
+        }
+
+        // Priority 3: If still no subjects, try matching schedules by Course, YearLevel, and Section
+        if (subjectCount === 0) {
+          const [scheduleMatchRows] = await db.execute(`
+            SELECT COUNT(DISTINCT s.SubjectID) as count
+            FROM schedules s
+            JOIN students st ON st.Course = s.Course AND st.YearLevel = s.YearLevel AND st.Section = s.Section
+            WHERE st.StudentID = ? AND s.SubjectID IS NOT NULL
+          `, [student.StudentID]);
+          subjectCount = (scheduleMatchRows as any[])[0]?.count || 0;
+        }
+
+        // Priority 4: Final fallback - match schedules by Course and YearLevel only (without Section)
+        if (subjectCount === 0) {
+          const [scheduleLooseRows] = await db.execute(`
             SELECT COUNT(DISTINCT s.SubjectID) as count
             FROM schedules s
             JOIN students st ON st.Course = s.Course AND st.YearLevel = s.YearLevel
             WHERE st.StudentID = ? AND s.SubjectID IS NOT NULL
           `, [student.StudentID]);
-
-          const enrollmentCount = (enrollmentRows as any[])[0]?.count || 0;
-          performance.TotalSubjects = enrollmentCount;
+          subjectCount = (scheduleLooseRows as any[])[0]?.count || 0;
         }
+
+        performance.TotalSubjects = subjectCount;
 
 
 
