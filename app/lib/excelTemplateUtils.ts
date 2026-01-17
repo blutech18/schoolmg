@@ -80,6 +80,9 @@ export function generateStudentImportTemplate(): Blob {
 
     // No sample data to style
 
+    // Explicitly disable worksheet protection (ensure no password)
+    ws['!protect'] = undefined;
+
     // Add the main sheet to workbook
     XLSX.utils.book_append_sheet(workbook, ws, 'Student Data');
 
@@ -203,11 +206,24 @@ export function generateStudentImportTemplate(): Blob {
         };
     }
 
+    // Explicitly disable worksheet protection for instructions sheet
+    wsInstructions['!protect'] = undefined;
+
     // Add instructions sheet to workbook
     XLSX.utils.book_append_sheet(workbook, wsInstructions, 'Instructions');
 
-    // Generate Excel file as binary
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    // Ensure workbook has no protection
+    if (workbook.Workbook) {
+        workbook.Workbook.WBProps = workbook.Workbook.WBProps || {};
+        delete workbook.Workbook.WBProps.CodeName;
+    }
+
+    // Generate Excel file as binary without any protection
+    const excelBuffer = XLSX.write(workbook, {
+        bookType: 'xlsx',
+        type: 'array',
+        compression: false  // Disable compression to avoid any protection issues
+    });
 
     // Create blob
     const blob = new Blob([excelBuffer], {
