@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
 } from "recharts";
-import { 
-  BarChart3, Users, GraduationCap, BookOpen, Calendar, ClipboardList, 
+import {
+  BarChart3, Users, GraduationCap, BookOpen, Calendar, ClipboardList,
   TrendingUp, TrendingDown, Activity, Target
 } from "lucide-react";
 import HorizontalBarChart, { DetailedView } from "../components/HorizontalBarChart";
@@ -88,14 +88,16 @@ export default function DeanAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showDetailedView, setShowDetailedView] = useState(false);
-  
-  // Filter states
-  const [schoolYear, setSchoolYear] = useState('2024-2025');
+
+  // Filter states - use dynamic current school year
+  const currentYear = new Date().getFullYear();
+  const defaultSchoolYear = `${currentYear}-${currentYear + 1}`;
+  const [schoolYear, setSchoolYear] = useState(defaultSchoolYear);
   const [semester, setSemester] = useState('1st');
   const [section, setSection] = useState('all');
   const [analyticsType, setAnalyticsType] = useState('overall');
-  
-  
+
+
   // Data states
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     totalStudents: 0,
@@ -170,7 +172,7 @@ export default function DeanAnalyticsPage() {
 
   // Reset filters
   const handleResetFilters = () => {
-    setSchoolYear('2024-2025');
+    setSchoolYear(defaultSchoolYear);
     setSemester('1st');
     setSection('all');
     setAnalyticsType('overall');
@@ -399,7 +401,7 @@ export default function DeanAnalyticsPage() {
   const getAdditionalMetrics = () => {
     // At-Risk Students (attendance < 75%)
     const atRiskStudents = sectionsAnalytics.reduce((sum, section) => sum + (section.atRiskStudents || 0), 0);
-    
+
     // Pass Rate (students with grade >= 75%)
     const totalStudentsWithGrades = sectionsAnalytics.reduce((sum, section) => {
       // Estimate based on average grade - if average grade >= 75, most students likely pass
@@ -407,30 +409,30 @@ export default function DeanAnalyticsPage() {
     }, 0);
     const totalStudents = sectionsAnalytics.reduce((sum, section) => sum + section.totalStudents, 0);
     const passRate = totalStudents > 0 ? Math.round((totalStudentsWithGrades / totalStudents) * 100) : 0;
-    
+
     // Excuse Letters (from dashboard stats)
     const excuseLetters = dashboardStats.totalExcuseLetters;
-    
+
     // Instructors (unique instructors from schedules)
     const uniqueInstructors = new Set(getInstructorAnalytics().map(inst => inst.name)).size;
-    
+
     // Subjects (total subjects)
     const subjectsTotal = subjectsAnalytics.length;
-    
+
     // Rooms (unique rooms from schedule analytics)
     const uniqueRooms = new Set(scheduleAnalytics.map(schedule => schedule.room)).size;
-    
+
     // Schedules (total schedules)
     const schedulesTotal = scheduleAnalytics.length;
-    
+
     // Grade Distribution (students with different grade ranges)
-    const excellentStudents = sectionsAnalytics.reduce((sum, section) => 
+    const excellentStudents = sectionsAnalytics.reduce((sum, section) =>
       sum + (section.averageGrade >= 90 ? Math.round(section.totalStudents * 0.3) : 0), 0);
-    const goodStudents = sectionsAnalytics.reduce((sum, section) => 
+    const goodStudents = sectionsAnalytics.reduce((sum, section) =>
       sum + (section.averageGrade >= 80 && section.averageGrade < 90 ? Math.round(section.totalStudents * 0.4) : 0), 0);
-    const satisfactoryStudents = sectionsAnalytics.reduce((sum, section) => 
+    const satisfactoryStudents = sectionsAnalytics.reduce((sum, section) =>
       sum + (section.averageGrade >= 75 && section.averageGrade < 80 ? Math.round(section.totalStudents * 0.3) : 0), 0);
-    
+
     return {
       atRiskStudents,
       passRate,
@@ -448,14 +450,14 @@ export default function DeanAnalyticsPage() {
   // Prepare horizontal bar chart data
   const getHorizontalBarData = () => {
     const attendanceTotal = sectionsAnalytics.reduce((sum, section) => sum + section.totalStudents, 0);
-    const performanceAverage = sectionsAnalytics.length > 0 
-      ? sectionsAnalytics.reduce((sum, section) => sum + section.averageGrade, 0) / sectionsAnalytics.length 
+    const performanceAverage = sectionsAnalytics.length > 0
+      ? sectionsAnalytics.reduce((sum, section) => sum + section.averageGrade, 0) / sectionsAnalytics.length
       : 0;
-    const enrollmentTotal = enrollmentData.length > 0 
-      ? enrollmentData[enrollmentData.length - 1].totalEnrolled 
+    const enrollmentTotal = enrollmentData.length > 0
+      ? enrollmentData[enrollmentData.length - 1].totalEnrolled
       : 0;
     const sectionsTotal = sectionsAnalytics.length;
-    
+
     const additionalMetrics = getAdditionalMetrics();
 
     return [
@@ -549,10 +551,10 @@ export default function DeanAnalyticsPage() {
   };
 
   // Check if data is empty
-  const hasData = dashboardStats.totalStudents > 0 || 
-                  coursesAnalytics.length > 0 || 
-                  subjectsAnalytics.length > 0 || 
-                  sectionsAnalytics.length > 0;
+  const hasData = dashboardStats.totalStudents > 0 ||
+    coursesAnalytics.length > 0 ||
+    subjectsAnalytics.length > 0 ||
+    sectionsAnalytics.length > 0;
 
   if (loading) {
     return (
@@ -704,7 +706,7 @@ export default function DeanAnalyticsPage() {
           xAxisKey="name"
           height={300}
         />
-        
+
         <ImprovedChart
           title="Grade Distribution"
           description="Average grades across different sections"
@@ -732,7 +734,7 @@ export default function DeanAnalyticsPage() {
         <div className="transition-all duration-500 ease-in-out">
           {showDetailedView && selectedCategory ? (
             <div className="animate-in slide-in-from-right-8 duration-700 ease-out">
-              <DetailedView 
+              <DetailedView
                 category={selectedCategory}
                 onBack={handleBackToOverview}
                 data={{
@@ -772,7 +774,7 @@ export default function DeanAnalyticsPage() {
                   }))
                 }}
               />
-          </div>
+            </div>
           ) : (
             <div className="animate-in slide-in-from-left-8 duration-700 ease-out">
               <HorizontalBarChart
@@ -780,10 +782,10 @@ export default function DeanAnalyticsPage() {
                 onCategoryClick={handleCategoryClick}
                 selectedCategory={selectedCategory || undefined}
               />
-          </div>
+            </div>
           )}
-                </div>
-          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -32,9 +32,9 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
   const [courses, setCourses] = useState<Course[]>([])
   const [showPassword, setShowPassword] = useState(false)
   const [isLoadingCourses, setIsLoadingCourses] = useState(false)
-  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({})
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({})
   const [emailManuallyEdited, setEmailManuallyEdited] = useState(false)
-  
+
   // Fetch courses when modal opens
   useEffect(() => {
     if (open) {
@@ -101,35 +101,35 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
     // Use firstname.lastname format, same as instructors
     return `${fi}.${ln}@cca.edu.ph`
   }
-  
+
   // Function to check if email exists and generate unique variant
   const generateUniqueEmail = async (baseEmail: string): Promise<string> => {
     try {
       const response = await fetch(`/api/users?email=${encodeURIComponent(baseEmail)}`)
       const data = await response.json()
-      
+
       if (!data.exists) {
         return baseEmail
       }
-      
+
       // Email exists, try with number suffix
       const [localPart, domain] = baseEmail.split('@')
       let counter = 1
       let newEmail = `${localPart}${counter}@${domain}`
-      
+
       // Try up to 100 variations
       while (counter < 100) {
         const checkResponse = await fetch(`/api/users?email=${encodeURIComponent(newEmail)}`)
         const checkData = await checkResponse.json()
-        
+
         if (!checkData.exists) {
           return newEmail
         }
-        
+
         counter++
         newEmail = `${localPart}${counter}@${domain}`
       }
-      
+
       // Fallback: use timestamp
       return `${localPart}${Date.now().toString().slice(-4)}@${domain}`
     } catch (error) {
@@ -158,8 +158,8 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
   }
 
   const validateForm = (): boolean => {
-    const errors: {[key: string]: string} = {}
-    
+    const errors: { [key: string]: string } = {}
+
     // Required field validations
     if (!form.FirstName.trim()) errors.FirstName = 'First name is required'
     if (!form.LastName.trim()) errors.LastName = 'Last name is required'
@@ -169,23 +169,23 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
     if (!form.Course) errors.Course = 'Course is required'
     if (!form.Section.trim()) errors.Section = 'Section is required'
     if (!form.ContactNumber?.trim()) errors.ContactNumber = 'Contact number is required'
-    
+
     // Email validation
     const emailError = validateEmail(form.EmailAddress)
     if (emailError) errors.EmailAddress = emailError
-    
+
     // Contact number validation
     if (form.ContactNumber) {
       const contactError = validateContactNumber(form.ContactNumber)
       if (contactError) errors.ContactNumber = contactError
     }
-    
+
     // Guardian contact validation
     if (form.GuardianContact) {
       const guardianContactError = validateGuardianContact(form.GuardianContact)
       if (guardianContactError) errors.GuardianContact = guardianContactError
     }
-    
+
     setValidationErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -203,8 +203,8 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
 
     const updatedForm = {
       ...form,
-      [name]: name === 'YearLevel' ? Number(value) : 
-               name === 'IsPWD' ? (value === 'true') : value,
+      [name]: name === 'YearLevel' ? Number(value) :
+        name === 'IsPWD' ? (value === 'true') : value,
     }
 
     setForm(updatedForm)
@@ -287,12 +287,12 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault() // Prevent form default submission
     if (isSubmitting) return // Prevent double submission
-    
+
     // Validate form before submission
     if (!validateForm()) {
       return
     }
-    
+
     try {
       setIsSubmitting(true)
       const res = await fetch('/api/students', {
@@ -312,7 +312,7 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
         `Student added successfully! Student ID: ${result.PrefixedID}, Student Number: ${result.StudentNumber}`,
         { title: 'Success' }
       )
-      
+
       // Reset form and close modal after successful submission
       resetForm()
       setEmailManuallyEdited(false)
@@ -331,17 +331,17 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
 
   // Check if form is valid for submit button state
   const isFormValid = () => {
-    return form.FirstName.trim() && 
-           form.LastName.trim() && 
-           form.EmailAddress.trim() && 
-           form.Password.trim() && 
-           form.Sex && 
-           form.Course && 
-           form.Section.trim() &&
-           form.ContactNumber?.trim() &&
-           !validateEmail(form.EmailAddress) &&
-           (form.ContactNumber ? !validateContactNumber(form.ContactNumber) : true) &&
-           (form.GuardianContact ? !validateGuardianContact(form.GuardianContact) : true)
+    return form.FirstName.trim() &&
+      form.LastName.trim() &&
+      form.EmailAddress.trim() &&
+      form.Password.trim() &&
+      form.Sex &&
+      form.Course &&
+      form.Section.trim() &&
+      form.ContactNumber?.trim() &&
+      !validateEmail(form.EmailAddress) &&
+      (form.ContactNumber ? !validateContactNumber(form.ContactNumber) : true) &&
+      (form.GuardianContact ? !validateGuardianContact(form.GuardianContact) : true)
   }
 
   return (
@@ -362,13 +362,13 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
           </div>
           <Input name="MiddleName" placeholder="Middle Name" value={form.MiddleName} onChange={handleChange} />
           <div>
-            <Input 
-              name="EmailAddress" 
-              placeholder="Email Address" 
-              type="email" 
-              value={form.EmailAddress} 
-              onChange={handleChange} 
-              required 
+            <Input
+              name="EmailAddress"
+              placeholder="Email Address"
+              type="email"
+              value={form.EmailAddress}
+              onChange={handleChange}
+              required
               className={validationErrors.EmailAddress ? 'border-red-500' : ''}
             />
             {validationErrors.EmailAddress && (
@@ -378,13 +378,13 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
           <div className="space-y-2">
             <div className="flex gap-2">
               <div className="flex-1 relative">
-                <Input 
-                  name="Password" 
-                  placeholder="Password" 
-                  type={showPassword ? "text" : "password"} 
-                  value={form.Password} 
-                  onChange={handleChange} 
-                  required 
+                <Input
+                  name="Password"
+                  placeholder="Password"
+                  type={showPassword ? "text" : "password"}
+                  value={form.Password}
+                  onChange={handleChange}
+                  required
                   className="pr-10"
                 />
                 <button
@@ -395,10 +395,10 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setForm(prev => ({ ...prev, Password: '12345' }))}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setForm(prev => ({ ...prev, Password: '12345678' }))}
                 className="whitespace-nowrap flex-shrink-0"
               >
                 Use Default
@@ -406,11 +406,11 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
             </div>
           </div>
           <div>
-            <Input 
-              name="ContactNumber" 
-              placeholder="Contact Number (09xxxxxxxxx)" 
-              value={form.ContactNumber || ''} 
-              onChange={handleChange} 
+            <Input
+              name="ContactNumber"
+              placeholder="Contact Number (09xxxxxxxxx)"
+              value={form.ContactNumber || ''}
+              onChange={handleChange}
               inputMode="numeric"
               maxLength={11}
               className={validationErrors.ContactNumber ? 'border-red-500' : ''}
@@ -434,11 +434,11 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
           </select>
 
           <div className="grid grid-cols-2 gap-4">
-            <select 
-              name="Course" 
-              value={form.Course} 
-              onChange={handleChange} 
-              className="w-full border rounded px-3 py-2" 
+            <select
+              name="Course"
+              value={form.Course}
+              onChange={handleChange}
+              className="w-full border rounded px-3 py-2"
               required
               disabled={isLoadingCourses}
             >
@@ -464,7 +464,7 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
               required
             />
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <Input name="Section" placeholder="Section" value={form.Section} onChange={handleChange} required />
             <Input
@@ -480,10 +480,10 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
           <div className="grid grid-cols-2 gap-4">
             <Input name="GuardianName" placeholder="Guardian Name" value={form.GuardianName || ''} onChange={handleChange} />
             <div>
-              <Input 
-                name="GuardianContact" 
-                placeholder="Guardian Contact" 
-                value={form.GuardianContact || ''} 
+              <Input
+                name="GuardianContact"
+                placeholder="Guardian Contact"
+                value={form.GuardianContact || ''}
                 onChange={handleChange}
                 className={validationErrors.GuardianContact ? 'border-red-500' : ''}
               />
@@ -498,10 +498,10 @@ export default function AddStudentDialog({ onAdded }: { onAdded: () => void }) {
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
           </DialogClose>
-          <Button 
+          <Button
             type="submit"
             form="add-student-form"
-            className="bg-green-900 text-white" 
+            className="bg-green-900 text-white"
             disabled={isSubmitting || !isFormValid()}
             onClick={handleSubmit}
           >

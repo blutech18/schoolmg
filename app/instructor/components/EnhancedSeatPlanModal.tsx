@@ -60,11 +60,11 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
   const hasInitializedRef = useRef(false)
 
   const classType = schedule.ClassType || 'LECTURE'
-  
+
   // For NSTP and OJT, they should only have lecture seat plans (no lab)
   // For MAJOR (Cisco), they can have both lecture and lab
   const isSpecialClassType = classType === 'NSTP' || classType === 'OJT'
-  
+
   // Determine if this schedule has both Lecture and Laboratory components
   // NSTP and OJT should only show lecture, even if Laboratory > 0 in database
   const hasLecture = (schedule.Lecture || 0) > 0
@@ -228,12 +228,12 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
         // Cisco room: 2 columns with 4 seats per row
         cols = 2
       } else {
-        // Standard room layout
-        cols = seatType === 'lecture'
-          ? (schedule.LectureSeatCols || schedule.SeatCols || 4)
-          : 2  // Laboratory always uses 2 columns (4 seats per row)
+        // Standard room layout - SWAPPED: lecture uses 2 cols, lab uses 4 cols
+        cols =
+          seatType === 'lecture'
+            ? 2  // Lecture uses 2 columns (4 seats per row)
+            : (schedule.LaboratorySeatCols || schedule.SeatCols || 4)  // Laboratory uses 4 columns
       }
-
       console.log('🔍 Calculated columns:', cols)
       console.log('🔍 SeatMap JSON:', JSON.stringify(assignments))
 
@@ -446,11 +446,11 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
       // Cisco room: 2 columns with 4 seats per row (2 left, gap, 2 right)
       cols = 2
     } else {
-      // Standard room layout
+      // Standard room layout - SWAPPED: lecture uses 2 cols, lab uses 4 cols
       cols =
         seatType === 'lecture'
-          ? schedule.LectureSeatCols || schedule.SeatCols || 4
-          : 2  // Laboratory always uses 2 columns (4 seats per row: 2 left, gap, 2 right)
+          ? 2  // Lecture uses 2 columns (4 seats per row)
+          : (schedule.LaboratorySeatCols || schedule.SeatCols || 4)  // Laboratory uses 4 columns: 2 left, gap, 2 right)
     }
 
     const totalSeats = schedule.TotalSeats || 0

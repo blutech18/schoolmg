@@ -683,7 +683,7 @@ function calculateTermGrade(termGrades: any[], classType: string) {
 }
 
 
-// PUT - Bulk update grades
+// PUT - Bulk update grades (OPTIMIZED with batch upsert)
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
@@ -696,8 +696,18 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    let updatedCount = 0;
-    let insertedCount = 0;
+    if (grades.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: "No grades to update",
+        summary: { inserted: 0, updated: 0, total: 0 }
+      });
+    }
+
+    // Prepare values for batch insert with ON DUPLICATE KEY UPDATE
+    // This requires a unique key on (StudentID, ScheduleID, Term, Component, ItemNumber)
+    const values: any[] = [];
+    const placeholders: string[] = [];
 
     for (const grade of grades) {
       const {
@@ -705,46 +715,45 @@ export async function PUT(request: NextRequest) {
         maxScore, score
       } = grade;
 
-      const percentage = maxScore && (score !== null && score !== undefined) ? (score / maxScore) * 100 : null;
+      const percentage = maxScore && (score !== null && score !== undefined)
+        ? (score / maxScore) * 100
+        : null;
 
-      // Check if record exists
-      const checkQuery = `
-        SELECT GradeID FROM grades 
-        WHERE StudentID = ? AND ScheduleID = ? AND Term = ? AND Component = ? AND ItemNumber = ?
-      `;
-
-      const [existingRows] = await db.execute(checkQuery, [
-        studentId, scheduleId, term, component, itemNumber || 1
-      ]);
-
-      if ((existingRows as any[]).length > 0) {
-        // Update existing record
-        const updateQuery = `
-          UPDATE grades 
-          SET MaxScore = ?, Score = ?, Percentage = ?, RecordedBy = ?, LastModified = NOW()
-          WHERE StudentID = ? AND ScheduleID = ? AND Term = ? AND Component = ? AND ItemNumber = ?
-        `;
-
-        await db.execute(updateQuery, [
-          maxScore, score, percentage, recordedBy,
-          studentId, scheduleId, term, component, itemNumber || 1
-        ]);
-        updatedCount++;
-      } else {
-        // Insert new record
-        const insertQuery = `
-          INSERT INTO grades 
-          (StudentID, ScheduleID, Term, Component, ItemNumber, MaxScore, Score, Percentage, RecordedBy)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        await db.execute(insertQuery, [
-          studentId, scheduleId, term, component, itemNumber || 1,
-          maxScore, score, percentage, recordedBy
-        ]);
-        insertedCount++;
-      }
+      placeholders.push('(?, ?, ?, ?, ?, ?, ?, ?, ?)');
+      values.push(
+        studentId,
+        scheduleId,
+        term,
+        component,
+        itemNumber || 1,
+        maxScore,
+        score,
+        percentage,
+        recordedBy
+      );
     }
+
+    // Use INSERT ... ON DUPLICATE KEY UPDATE for efficient batch upsert
+    // This assumes there's a unique index on (StudentID, ScheduleID, Term, Component, ItemNumber)
+    const batchQuery = `
+      INSERT INTO grades 
+        (StudentID, ScheduleID, Term, Component, ItemNumber, MaxScore, Score, Percentage, RecordedBy)
+      VALUES ${placeholders.join(', ')}
+      ON DUPLICATE KEY UPDATE 
+        MaxScore = VALUES(MaxScore),
+        Score = VALUES(Score),
+        Percentage = VALUES(Percentage),
+        RecordedBy = VALUES(RecordedBy),
+        LastModified = NOW()
+    `;
+
+    const [result] = await db.execute(batchQuery, values) as any;
+
+    // affectedRows includes both inserts and updates
+    // For ON DUPLICATE KEY UPDATE: insert = 1 row, update = 2 rows affected
+    const affectedRows = result.affectedRows || 0;
+    const insertedCount = Math.max(0, affectedRows - (result.changedRows || 0));
+    const updatedCount = result.changedRows || 0;
 
     return NextResponse.json({
       success: true,

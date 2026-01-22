@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
 
         // Hash password (use a default if not provided)
         const { hashPassword } = await import('@/app/lib/passwords');
-        const password = row.Password || '12345';
+        const password = row.Password || '12345678';
         const hashedPassword = await hashPassword(password);
 
         // Insert user with generated UserID

@@ -34,13 +34,17 @@ export default function AnalyticsFilters({
   onExport,
   loading = false
 }: AnalyticsFiltersProps) {
-  // Mock data - in real implementation, these would come from API
-  const schoolYears = [
-    { value: '2024-2025', label: '2024-2025' },
-    { value: '2023-2024', label: '2023-2024' },
-    { value: '2022-2023', label: '2022-2023' },
-    { value: '2021-2022', label: '2021-2022' }
-  ]
+  // Dynamically generate school years based on current year
+  const schoolYears = (() => {
+    const currentYear = new Date().getFullYear();
+    const years: { value: string; label: string }[] = [];
+    // Generate years from 2 years ahead to 3 years back
+    for (let y = currentYear + 1; y >= currentYear - 3; y--) {
+      const yearStr = `${y}-${y + 1}`;
+      years.push({ value: yearStr, label: yearStr });
+    }
+    return years;
+  })();
 
   const semesters = [
     { value: '1st', label: '1st Semester' },
@@ -64,9 +68,13 @@ export default function AnalyticsFilters({
     { value: 'by-instructor', label: 'By Instructor' }
   ]
 
+  // Get default school year dynamically
+  const currentYear = new Date().getFullYear();
+  const defaultSchoolYear = `${currentYear}-${currentYear + 1}`;
+
   const getActiveFiltersCount = () => {
     let count = 0
-    if (schoolYear !== '2024-2025') count++
+    if (schoolYear !== defaultSchoolYear) count++
     if (semester !== '1st') count++
     if (section !== 'all') count++
     if (analyticsType !== 'overall') count++
@@ -189,7 +197,7 @@ export default function AnalyticsFilters({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  onSchoolYearChange('2024-2025')
+                  onSchoolYearChange(defaultSchoolYear)
                   onSemesterChange('1st')
                   onSectionChange('all')
                   onAnalyticsTypeChange('overall')
@@ -207,7 +215,7 @@ export default function AnalyticsFilters({
           <div className="mt-4 pt-4 border-t">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-medium text-gray-700">Active Filters:</span>
-              {schoolYear !== '2024-2025' && (
+              {schoolYear !== defaultSchoolYear && (
                 <Badge variant="outline" className="bg-blue-50 text-blue-700">
                   School Year: {schoolYear}
                 </Badge>

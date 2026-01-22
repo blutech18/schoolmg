@@ -12,9 +12,35 @@ interface SectionAnalytics {
   atRiskStudents: number;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Get sections analytics data
+    // Get filter parameters from query string
+    const { searchParams } = new URL(request.url);
+    const schoolYear = searchParams.get('schoolYear');
+    const semester = searchParams.get('semester');
+    const sectionFilter = searchParams.get('section');
+
+    // Parse school year to get the year range (e.g., "2024-2025" -> 2024, 2025)
+    let startYear: number | null = null;
+    let endYear: number | null = null;
+    if (schoolYear) {
+      const [start, end] = schoolYear.split('-').map(Number);
+      if (!isNaN(start) && !isNaN(end)) {
+        startYear = start;
+        endYear = end;
+      }
+    }
+
+    // Build the section filter condition
+    let sectionCondition = '';
+    const params: any[] = [];
+
+    if (sectionFilter && sectionFilter !== 'all') {
+      sectionCondition = 'AND s.Section = ?';
+      params.push(sectionFilter);
+    }
+
+    // Get sections analytics data with optional filtering
     const [sectionsResult] = await db.execute(`
       SELECT 
         s.Course,
@@ -56,9 +82,10 @@ export async function GET() {
       WHERE s.Course IS NOT NULL AND s.Course != ''
         AND s.Section IS NOT NULL AND s.Section != ''
         AND s.YearLevel IS NOT NULL
+        ${sectionCondition}
       GROUP BY s.Course, s.Section, s.YearLevel
       ORDER BY s.Course, s.YearLevel, s.Section
-    `);
+    `, params);
 
     const analytics: SectionAnalytics[] = (sectionsResult as any[]).map(row => ({
       course: row.Course || '',
@@ -86,8 +113,8 @@ export async function GET() {
       sqlMessage: error?.sqlMessage
     });
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Failed to fetch sections analytics',
         data: [],
         details: process.env.NODE_ENV === 'development' ? error?.message : undefined

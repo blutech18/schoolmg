@@ -15,7 +15,6 @@ export function generateStudentImportTemplate(): Blob {
         'MiddleName',
         'LastName',
         'EmailAddress',
-        'Password',
         'ContactNumber',
         'Course',
         'YearLevel',
@@ -25,16 +24,16 @@ export function generateStudentImportTemplate(): Blob {
         'Status'
     ];
 
-    // Pre-populate 8 sample rows without passwords (password field left empty)
+    // Pre-populate 8 sample rows (password auto-defaults to 12345678)
     const sampleData: any[] = [
-        ['2024-00001', '', '', '', '', '', '', '', '', '', '', '', ''],
-        ['2024-00002', '', '', '', '', '', '', '', '', '', '', '', ''],
-        ['2024-00003', '', '', '', '', '', '', '', '', '', '', '', ''],
-        ['2024-00004', '', '', '', '', '', '', '', '', '', '', '', ''],
-        ['2024-00005', '', '', '', '', '', '', '', '', '', '', '', ''],
-        ['2024-00006', '', '', '', '', '', '', '', '', '', '', '', ''],
-        ['2024-00007', '', '', '', '', '', '', '', '', '', '', '', ''],
-        ['2024-00008', '', '', '', '', '', '', '', '', '', '', '', '']
+        ['2024-00001', '', '', '', '', '', '', '', '', '', '', ''],
+        ['2024-00002', '', '', '', '', '', '', '', '', '', '', ''],
+        ['2024-00003', '', '', '', '', '', '', '', '', '', '', ''],
+        ['2024-00004', '', '', '', '', '', '', '', '', '', '', ''],
+        ['2024-00005', '', '', '', '', '', '', '', '', '', '', ''],
+        ['2024-00006', '', '', '', '', '', '', '', '', '', '', ''],
+        ['2024-00007', '', '', '', '', '', '', '', '', '', '', ''],
+        ['2024-00008', '', '', '', '', '', '', '', '', '', '', '']
     ];
 
     // Create worksheet data with headers only
@@ -48,7 +47,6 @@ export function generateStudentImportTemplate(): Blob {
         { wch: 15 }, // MiddleName
         { wch: 15 }, // LastName
         { wch: 30 }, // EmailAddress
-        { wch: 12 }, // Password
         { wch: 15 }, // ContactNumber
         { wch: 10 }, // Course
         { wch: 12 }, // YearLevel
@@ -98,7 +96,6 @@ export function generateStudentImportTemplate(): Blob {
         ['MiddleName', 'Student\'s middle name', 'No', 'Text (can be empty)'],
         ['LastName', 'Student\'s last name', 'Yes', 'Text'],
         ['EmailAddress', 'Valid email address', 'Yes', 'email@cca.edu.ph'],
-        ['Password', 'Initial password', 'No', 'Leave empty for default: 12345'],
         ['ContactNumber', 'Phone number', 'No', 'e.g., 09123456789'],
         ['Course', 'Course code', 'Yes', 'BSIT, BSCS, BSIS, etc.'],
         ['YearLevel', 'Year level (1-4)', 'Yes', '1, 2, 3, or 4'],
@@ -106,6 +103,8 @@ export function generateStudentImportTemplate(): Blob {
         ['Sex', 'Student gender', 'No', 'Male or Female (default: Male)'],
         ['IsPWD', 'Person with Disability', 'No', 'Yes or No (default: No)'],
         ['Status', 'Student status', 'No', 'active or inactive (default: active)'],
+        ['', '', '', ''],
+        ['Note:', 'Password will auto-default to 12345678 for all imported students', '', ''],
         [''],
         ['Important Notes:'],
         ['• Add your student data starting from row 2 (below the header row)'],
