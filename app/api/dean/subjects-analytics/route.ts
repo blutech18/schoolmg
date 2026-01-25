@@ -14,13 +14,28 @@ interface SubjectAnalytics {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    const schoolYear = searchParams.get('schoolYear');
+    const semester = searchParams.get('semester');
     const courseFilter = searchParams.get('course');
     const yearLevelFilter = searchParams.get('yearLevel');
     const sectionFilter = searchParams.get('section');
 
+    console.log("Subjects analytics request:", { schoolYear, semester, courseFilter, yearLevelFilter, sectionFilter });
+
     // Build filter conditions
     const conditions: string[] = [];
     const params: any[] = [];
+
+    // Add school year and semester filters
+    if (schoolYear) {
+      conditions.push('sch.AcademicYear = ?');
+      params.push(schoolYear);
+    }
+
+    if (semester) {
+      conditions.push('sch.Semester = ?');
+      params.push(semester);
+    }
 
     if (courseFilter && courseFilter !== 'all') {
       conditions.push('sch.Course = ?');

@@ -987,7 +987,7 @@ function InstructorGradesContent() {
                             <div className={`text-lg font-semibold ${midtermGrade > 3.0 ? 'text-red-600' : ''}`}>
                               {midtermGrade.toFixed(2)}
                             </div>
-                            {studentGrades?.midtermPercentage !== undefined && (
+                            {studentGrades?.midtermPercentage != null && (
                               <div className="text-xs text-gray-600 mt-1">
                                 ({studentGrades.midtermPercentage.toFixed(1)}%)
                               </div>
@@ -1003,7 +1003,7 @@ function InstructorGradesContent() {
                             <div className={`text-lg font-semibold ${finalGrade > 3.0 ? 'text-red-600' : ''}`}>
                               {finalGrade.toFixed(2)}
                             </div>
-                            {studentGrades?.finalPercentage !== undefined && (
+                            {studentGrades?.finalPercentage != null && (
                               <div className="text-xs text-gray-600 mt-1">
                                 ({studentGrades.finalPercentage.toFixed(1)}%)
                               </div>

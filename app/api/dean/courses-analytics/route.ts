@@ -14,11 +14,13 @@ interface CourseAnalytics {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    const schoolYear = searchParams.get('schoolYear');
+    const semester = searchParams.get('semester');
     const courseFilter = searchParams.get('course');
     const yearLevelFilter = searchParams.get('yearLevel');
     const sectionFilter = searchParams.get('section');
 
-    console.log("Starting courses analytics API call...");
+    console.log("Starting courses analytics API call...", { schoolYear, semester, courseFilter, yearLevelFilter, sectionFilter });
 
     // Build filter conditions for students query
     const conditions: string[] = [];
@@ -41,6 +43,23 @@ export async function GET(request: NextRequest) {
 
     const filterCondition = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
+    // Build schedule filter for subqueries (school year and semester)
+    const scheduleFilters: string[] = [];
+    const scheduleParams: any[] = [];
+    
+    if (schoolYear) {
+      scheduleFilters.push('sch.AcademicYear = ?');
+      scheduleParams.push(schoolYear);
+    }
+    if (semester) {
+      scheduleFilters.push('sch.Semester = ?');
+      scheduleParams.push(semester);
+    }
+    
+    const scheduleFilterClause = scheduleFilters.length > 0 
+      ? 'AND ' + scheduleFilters.join(' AND ') 
+      : '';
+
     // Get courses with student counts based on filters
     const [coursesResult] = await db.execute(`
       SELECT 
@@ -60,22 +79,27 @@ export async function GET(request: NextRequest) {
           COALESCE(AVG(CASE WHEN grade.avg_grade >= 75 THEN 100 ELSE 0 END), 0) as passRate
         FROM students s
         LEFT JOIN schedules sch ON s.Course = sch.Course AND s.Section = sch.Section AND s.YearLevel = sch.YearLevel
+          ${scheduleFilterClause}
         LEFT JOIN (
-          SELECT StudentID, (SUM(CASE WHEN Status = 'P' THEN 1 ELSE 0 END) / COUNT(*)) * 100 as attendance_rate
-          FROM attendance
-          GROUP BY StudentID
+          SELECT a.StudentID, (SUM(CASE WHEN a.Status = 'P' THEN 1 ELSE 0 END) / COUNT(*)) * 100 as attendance_rate
+          FROM attendance a
+          JOIN schedules sch2 ON a.ScheduleID = sch2.ScheduleID
+          WHERE 1=1 ${scheduleFilterClause.replace(/sch\./g, 'sch2.')}
+          GROUP BY a.StudentID
         ) att ON s.StudentID = att.StudentID
         LEFT JOIN (
-          SELECT StudentID, AVG(CASE WHEN MaxScore > 0 THEN (Score / MaxScore) * 100 ELSE 0 END) as avg_grade
-          FROM grades
-          GROUP BY StudentID
+          SELECT g.StudentID, AVG(CASE WHEN g.MaxScore > 0 THEN (g.Score / g.MaxScore) * 100 ELSE 0 END) as avg_grade
+          FROM grades g
+          JOIN schedules sch3 ON g.ScheduleID = sch3.ScheduleID
+          WHERE 1=1 ${scheduleFilterClause.replace(/sch\./g, 'sch3.')}
+          GROUP BY g.StudentID
         ) grade ON s.StudentID = grade.StudentID
         ${filterCondition}
         GROUP BY s.Course
       ) student_data ON c.CourseCode = student_data.Course
       WHERE c.Status = 'active'
       ORDER BY c.CourseName
-    `, params);
+    `, [...scheduleParams, ...scheduleParams, ...scheduleParams, ...params]);
 
     console.log(`Found ${(coursesResult as any[]).length} courses`);
 

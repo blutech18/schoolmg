@@ -284,6 +284,9 @@ function calculateTermGrade(termGrades: any[], classType: string) {
     return null;
   }
 
+  // Normalize classType to handle variations (spaces, casing)
+  const normalizedClassType = (classType || 'LECTURE').replace(/\s+/g, '').toUpperCase();
+
   // Normalize component names to handle case variations
   const normalizeComponentName = (name: string): string => {
     if (!name) return '';
@@ -348,7 +351,7 @@ function calculateTermGrade(termGrades: any[], classType: string) {
 
   console.log('Original grades by component:', originalGradesByComponent);
   console.log('Normalized grades by component:', gradesByComponent);
-  console.log('Class Type:', classType);
+  console.log('Class Type:', classType, '-> Normalized:', normalizedClassType);
   console.log('Available normalized components:', Object.keys(gradesByComponent));
   console.log('Looking for: quiz, laboratory, olo, exam');
   console.log('Term grades count:', termGrades.length);
@@ -358,7 +361,7 @@ function calculateTermGrade(termGrades: any[], classType: string) {
   let examGrade = 0;
   let hasValidGrades = false;
 
-  switch (classType) {
+  switch (normalizedClassType) {
     case 'LECTURE':
       // LECTURE: Class Standing 60% (Quizzes 60%), Exam 40%
       let lectureQuizGrade = 0;
