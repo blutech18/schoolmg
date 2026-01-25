@@ -94,8 +94,17 @@ export default function DeanAnalyticsPage() {
   const defaultSchoolYear = `${currentYear}-${currentYear + 1}`;
   const [schoolYear, setSchoolYear] = useState(defaultSchoolYear);
   const [semester, setSemester] = useState('1st');
+  const [course, setCourse] = useState('all');
+  const [yearLevel, setYearLevel] = useState('all');
   const [section, setSection] = useState('all');
   const [analyticsType, setAnalyticsType] = useState('overall');
+
+  // Filter options from database
+  const [filterOptions, setFilterOptions] = useState<{
+    sections: string[];
+    courses: string[];
+    yearLevels: number[];
+  }>({ sections: [], courses: [], yearLevels: [] });
 
 
   // Data states
@@ -114,8 +123,12 @@ export default function DeanAnalyticsPage() {
 
 
   useEffect(() => {
+    fetchFilterOptions();
+  }, []);
+
+  useEffect(() => {
     fetchAllAnalytics();
-  }, [schoolYear, semester, section, analyticsType]);
+  }, [schoolYear, semester, course, yearLevel, section, analyticsType]);
 
   // Load saved filters from localStorage
   useEffect(() => {
@@ -123,8 +136,10 @@ export default function DeanAnalyticsPage() {
     if (savedFilters) {
       try {
         const filters = JSON.parse(savedFilters);
-        setSchoolYear(filters.schoolYear || '2024-2025');
+        setSchoolYear(filters.schoolYear || defaultSchoolYear);
         setSemester(filters.semester || '1st');
+        setCourse(filters.course || 'all');
+        setYearLevel(filters.yearLevel || 'all');
         setSection(filters.section || 'all');
         setAnalyticsType(filters.analyticsType || 'overall');
       } catch (error) {
@@ -138,11 +153,25 @@ export default function DeanAnalyticsPage() {
     const filters = {
       schoolYear,
       semester,
+      course,
+      yearLevel,
       section,
       analyticsType
     };
     localStorage.setItem('dean-analytics-filters', JSON.stringify(filters));
-  }, [schoolYear, semester, section, analyticsType]);
+  }, [schoolYear, semester, course, yearLevel, section, analyticsType]);
+
+  const fetchFilterOptions = async () => {
+    try {
+      const response = await fetch('/api/dean/filter-options');
+      const data = await response.json();
+      if (data.success) {
+        setFilterOptions(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
+  };
 
 
   const fetchAllAnalytics = async () => {
@@ -174,6 +203,8 @@ export default function DeanAnalyticsPage() {
   const handleResetFilters = () => {
     setSchoolYear(defaultSchoolYear);
     setSemester('1st');
+    setCourse('all');
+    setYearLevel('all');
     setSection('all');
     setAnalyticsType('overall');
   };
@@ -223,7 +254,11 @@ export default function DeanAnalyticsPage() {
 
   const fetchCoursesAnalytics = async () => {
     try {
-      const response = await fetch(`/api/dean/courses-analytics?schoolYear=${encodeURIComponent(schoolYear)}&semester=${encodeURIComponent(semester)}`);
+      let url = `/api/dean/courses-analytics?schoolYear=${encodeURIComponent(schoolYear)}&semester=${encodeURIComponent(semester)}`;
+      if (course !== 'all') url += `&course=${encodeURIComponent(course)}`;
+      if (yearLevel !== 'all') url += `&yearLevel=${encodeURIComponent(yearLevel)}`;
+      if (section !== 'all') url += `&section=${encodeURIComponent(section)}`;
+      const response = await fetch(url);
       const data = await response.json();
       if (data.success) {
         setCoursesAnalytics(data.data);
@@ -235,7 +270,11 @@ export default function DeanAnalyticsPage() {
 
   const fetchSubjectsAnalytics = async () => {
     try {
-      const response = await fetch(`/api/dean/subjects-analytics?schoolYear=${encodeURIComponent(schoolYear)}&semester=${encodeURIComponent(semester)}`);
+      let url = `/api/dean/subjects-analytics?schoolYear=${encodeURIComponent(schoolYear)}&semester=${encodeURIComponent(semester)}`;
+      if (course !== 'all') url += `&course=${encodeURIComponent(course)}`;
+      if (yearLevel !== 'all') url += `&yearLevel=${encodeURIComponent(yearLevel)}`;
+      if (section !== 'all') url += `&section=${encodeURIComponent(section)}`;
+      const response = await fetch(url);
       const data = await response.json();
       if (data.success) {
         setSubjectsAnalytics(data.data);
@@ -247,7 +286,11 @@ export default function DeanAnalyticsPage() {
 
   const fetchSectionsAnalytics = async () => {
     try {
-      const response = await fetch(`/api/dean/sections-analytics?schoolYear=${encodeURIComponent(schoolYear)}&semester=${encodeURIComponent(semester)}${section !== 'all' ? `&section=${encodeURIComponent(section)}` : ''}`);
+      let url = `/api/dean/sections-analytics?schoolYear=${encodeURIComponent(schoolYear)}&semester=${encodeURIComponent(semester)}`;
+      if (course !== 'all') url += `&course=${encodeURIComponent(course)}`;
+      if (yearLevel !== 'all') url += `&yearLevel=${encodeURIComponent(yearLevel)}`;
+      if (section !== 'all') url += `&section=${encodeURIComponent(section)}`;
+      const response = await fetch(url);
       const data = await response.json();
       if (data.success) {
         setSectionsAnalytics(data.data);
@@ -259,7 +302,11 @@ export default function DeanAnalyticsPage() {
 
   const fetchScheduleAnalytics = async () => {
     try {
-      const response = await fetch(`/api/dean/schedule-analytics?schoolYear=${encodeURIComponent(schoolYear)}&semester=${encodeURIComponent(semester)}`);
+      let url = `/api/dean/schedule-analytics?schoolYear=${encodeURIComponent(schoolYear)}&semester=${encodeURIComponent(semester)}`;
+      if (course !== 'all') url += `&course=${encodeURIComponent(course)}`;
+      if (yearLevel !== 'all') url += `&yearLevel=${encodeURIComponent(yearLevel)}`;
+      if (section !== 'all') url += `&section=${encodeURIComponent(section)}`;
+      const response = await fetch(url);
       const data = await response.json();
       if (data.success) {
         setScheduleAnalytics(data.data);
@@ -582,15 +629,20 @@ export default function DeanAnalyticsPage() {
         <AnalyticsFilters
           schoolYear={schoolYear}
           semester={semester}
+          course={course}
+          yearLevel={yearLevel}
           section={section}
           analyticsType={analyticsType}
           onSchoolYearChange={setSchoolYear}
           onSemesterChange={setSemester}
+          onCourseChange={setCourse}
+          onYearLevelChange={setYearLevel}
           onSectionChange={setSection}
           onAnalyticsTypeChange={setAnalyticsType}
           onRefresh={fetchAllAnalytics}
           onExport={handleExport}
           loading={loading}
+          filterOptions={filterOptions}
         />
         <AnalyticsEmptyState
           type="no-data"
@@ -624,15 +676,20 @@ export default function DeanAnalyticsPage() {
       <AnalyticsFilters
         schoolYear={schoolYear}
         semester={semester}
+        course={course}
+        yearLevel={yearLevel}
         section={section}
         analyticsType={analyticsType}
         onSchoolYearChange={setSchoolYear}
         onSemesterChange={setSemester}
+        onCourseChange={setCourse}
+        onYearLevelChange={setYearLevel}
         onSectionChange={setSection}
         onAnalyticsTypeChange={setAnalyticsType}
         onRefresh={fetchAllAnalytics}
         onExport={handleExport}
         loading={loading}
+        filterOptions={filterOptions}
       />
 
 

@@ -23,8 +23,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const schoolYear = searchParams.get('schoolYear');
     const semester = searchParams.get('semester');
+    const courseFilter = searchParams.get('course');
+    const yearLevelFilter = searchParams.get('yearLevel');
+    const sectionFilter = searchParams.get('section');
     
-    console.log('Schedule analytics request:', { schoolYear, semester });
+    console.log('Schedule analytics request:', { schoolYear, semester, courseFilter, yearLevelFilter, sectionFilter });
 
     // Get schedule analytics data
     let query = `
@@ -82,6 +85,21 @@ export async function GET(request: NextRequest) {
     if (semester) {
       query += ` AND sch.Semester = ?`;
       params.push(semester);
+    }
+
+    if (courseFilter && courseFilter !== 'all') {
+      query += ` AND sch.Course = ?`;
+      params.push(courseFilter);
+    }
+
+    if (yearLevelFilter && yearLevelFilter !== 'all') {
+      query += ` AND sch.YearLevel = ?`;
+      params.push(parseInt(yearLevelFilter));
+    }
+
+    if (sectionFilter && sectionFilter !== 'all') {
+      query += ` AND sch.Section = ?`;
+      params.push(sectionFilter);
     }
     
     query += `

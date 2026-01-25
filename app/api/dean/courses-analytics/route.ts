@@ -11,31 +11,82 @@ interface CourseAnalytics {
   department: string;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    console.log("Starting courses analytics API call...");
-    console.log("Database connection established");
+    const { searchParams } = new URL(request.url);
+    const courseFilter = searchParams.get('course');
+    const yearLevelFilter = searchParams.get('yearLevel');
+    const sectionFilter = searchParams.get('section');
 
-    // Get basic courses data
+    console.log("Starting courses analytics API call...");
+
+    // Build filter conditions for students query
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (courseFilter && courseFilter !== 'all') {
+      conditions.push('s.Course = ?');
+      params.push(courseFilter);
+    }
+
+    if (yearLevelFilter && yearLevelFilter !== 'all') {
+      conditions.push('s.YearLevel = ?');
+      params.push(parseInt(yearLevelFilter));
+    }
+
+    if (sectionFilter && sectionFilter !== 'all') {
+      conditions.push('s.Section = ?');
+      params.push(sectionFilter);
+    }
+
+    const filterCondition = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    // Get courses with student counts based on filters
     const [coursesResult] = await db.execute(`
       SELECT 
-        CourseCode,
-        CourseName
-      FROM courses 
-      WHERE Status = 'active'
-      ORDER BY CourseName
-    `);
+        c.CourseCode,
+        c.CourseName,
+        COALESCE(student_data.totalStudents, 0) as totalStudents,
+        COALESCE(student_data.totalSubjects, 0) as totalSubjects,
+        COALESCE(student_data.averageAttendance, 0) as averageAttendance,
+        COALESCE(student_data.passRate, 0) as passRate
+      FROM courses c
+      LEFT JOIN (
+        SELECT 
+          s.Course,
+          COUNT(DISTINCT s.StudentID) as totalStudents,
+          COUNT(DISTINCT sch.SubjectID) as totalSubjects,
+          COALESCE(AVG(att.attendance_rate), 0) as averageAttendance,
+          COALESCE(AVG(CASE WHEN grade.avg_grade >= 75 THEN 100 ELSE 0 END), 0) as passRate
+        FROM students s
+        LEFT JOIN schedules sch ON s.Course = sch.Course AND s.Section = sch.Section AND s.YearLevel = sch.YearLevel
+        LEFT JOIN (
+          SELECT StudentID, (SUM(CASE WHEN Status = 'P' THEN 1 ELSE 0 END) / COUNT(*)) * 100 as attendance_rate
+          FROM attendance
+          GROUP BY StudentID
+        ) att ON s.StudentID = att.StudentID
+        LEFT JOIN (
+          SELECT StudentID, AVG(CASE WHEN MaxScore > 0 THEN (Score / MaxScore) * 100 ELSE 0 END) as avg_grade
+          FROM grades
+          GROUP BY StudentID
+        ) grade ON s.StudentID = grade.StudentID
+        ${filterCondition}
+        GROUP BY s.Course
+      ) student_data ON c.CourseCode = student_data.Course
+      WHERE c.Status = 'active'
+      ORDER BY c.CourseName
+    `, params);
 
     console.log(`Found ${(coursesResult as any[]).length} courses`);
 
     const analytics: CourseAnalytics[] = (coursesResult as any[]).map(row => ({
       courseCode: row.CourseCode || '',
       courseName: row.CourseName || '',
-      totalStudents: 0, // Will be calculated separately if needed
-      totalSubjects: 0, // Will be calculated separately if needed
-      averageAttendance: 0, // Will be calculated separately if needed
-      passRate: 0, // Will be calculated separately if needed
-      department: 'General' // Default department since it's not in the courses table
+      totalStudents: row.totalStudents || 0,
+      totalSubjects: row.totalSubjects || 0,
+      averageAttendance: Math.round(row.averageAttendance || 0),
+      passRate: Math.round(row.passRate || 0),
+      department: 'General'
     }));
 
     return NextResponse.json({

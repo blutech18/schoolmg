@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from "next/navigation";
 import { getSession } from "@/helpers/session";
 import { 
@@ -12,13 +10,8 @@ import {
   Calendar, 
   BookOpen, 
   GraduationCap, 
-  FileText, 
-  BarChart3,
-  Settings,
   UserCheck,
-  Clock,
-  TrendingUp,
-  Award
+  TrendingUp
 } from "lucide-react";
 
 interface DashboardStats {
@@ -38,15 +31,6 @@ interface RecentActivity {
   color: string;
 }
 
-interface SystemAlert {
-  id: string;
-  type: 'warning' | 'info' | 'error';
-  title: string;
-  description: string;
-  count?: number;
-  actionRequired: boolean;
-}
-
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
     totalStudents: 0,
@@ -56,7 +40,6 @@ export default function AdminDashboard() {
     activeEnrollments: 0
   });
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
-  const [systemAlerts, setSystemAlerts] = useState<SystemAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>('');
   const router = useRouter();
@@ -79,8 +62,7 @@ export default function AdminDashboard() {
     try {
       await Promise.all([
         loadDashboardStats(),
-        loadRecentActivity(),
-        loadSystemAlerts()
+        loadRecentActivity()
       ]);
     } catch (error) {
       console.error("Error loading dashboard data:", error);
@@ -157,25 +139,6 @@ export default function AdminDashboard() {
       setRecentActivity(activities.slice(0, 5));
     } catch (error) {
       console.error("Error loading recent activity:", error);
-    }
-  };
-
-  const loadSystemAlerts = async () => {
-    try {
-      const alerts: SystemAlert[] = [];
-
-      // Add system info alert
-      alerts.push({
-        id: 'system-update',
-        type: 'info',
-        title: 'System Update',
-        description: 'Dashboard now shows real-time data',
-        actionRequired: false
-      });
-
-      setSystemAlerts(alerts);
-    } catch (error) {
-      console.error("Error loading system alerts:", error);
     }
   };
 
@@ -330,135 +293,31 @@ export default function AdminDashboard() {
       </Card>
 
       {/* Recent Activity */}
-      <Tabs defaultValue="recent" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="recent">Recent Activity</TabsTrigger>
-          <TabsTrigger value="alerts">System Alerts</TabsTrigger>
-          <TabsTrigger value="reports">Quick Reports</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="recent" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest system activities and updates</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentActivity.length > 0 ? (
-                  recentActivity.map((activity) => (
-                    <div key={activity.id} className="flex items-center space-x-4">
-                      <div className={`w-2 h-2 ${activity.color} rounded-full`}></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{activity.title}</p>
-                        <p className="text-xs text-gray-500">{activity.description}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-gray-500">No recent activity</p>
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>Latest system activities and updates</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {recentActivity.length > 0 ? (
+              recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-center space-x-4">
+                  <div className={`w-2 h-2 ${activity.color} rounded-full`}></div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{activity.title}</p>
+                    <p className="text-xs text-gray-500">{activity.description}</p>
                   </div>
-                )}
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-sm text-gray-500">No recent activity</p>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="alerts" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>System Alerts</CardTitle>
-              <CardDescription>Important notifications and warnings</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {systemAlerts.length > 0 ? (
-                  systemAlerts.map((alert) => {
-                    const bgColor = alert.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
-                                   alert.type === 'error' ? 'bg-red-50 border-red-200' :
-                                   'bg-blue-50 border-blue-200';
-                    const dotColor = alert.type === 'warning' ? 'bg-yellow-500' :
-                                    alert.type === 'error' ? 'bg-red-500' :
-                                    'bg-blue-500';
-                    const textColor = alert.type === 'warning' ? 'text-yellow-800' :
-                                     alert.type === 'error' ? 'text-red-800' :
-                                     'text-blue-800';
-                    const descColor = alert.type === 'warning' ? 'text-yellow-600' :
-                                     alert.type === 'error' ? 'text-red-600' :
-                                     'text-blue-600';
-                    const badgeColor = alert.type === 'warning' ? 'text-yellow-700 border-yellow-300' :
-                                      alert.type === 'error' ? 'text-red-700 border-red-300' :
-                                      'text-blue-700 border-blue-300';
-
-                    return (
-                      <div key={alert.id} className={`flex items-center space-x-4 p-3 ${bgColor} border rounded-lg`}>
-                        <div className={`w-2 h-2 ${dotColor} rounded-full`}></div>
-                        <div className="flex-1">
-                          <p className={`text-sm font-medium ${textColor}`}>{alert.title}</p>
-                          <p className={`text-xs ${descColor}`}>{alert.description}</p>
-                        </div>
-                        <Badge variant="outline" className={badgeColor}>
-                          {alert.actionRequired ? 'Action Required' : 'Info'}
-                        </Badge>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-gray-500">No system alerts</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Reports</CardTitle>
-              <CardDescription>Generate common reports and analytics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button
-                  variant="outline"
-                  className="h-16 flex flex-col"
-                  onClick={() => router.push('/coordinator/students')}
-                >
-                  <BarChart3 className="h-5 w-5 mb-1" />
-                  <span className="text-sm">Enrollment Report</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-16 flex flex-col"
-                  onClick={() => router.push('/coordinator/students')}
-                >
-                  <FileText className="h-5 w-5 mb-1" />
-                  <span className="text-sm">Grade Summary</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-16 flex flex-col"
-                  onClick={() => router.push('/coordinator/students')}
-                >
-                  <Users className="h-5 w-5 mb-1" />
-                  <span className="text-sm">Student Analytics</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-16 flex flex-col"
-                  onClick={() => router.push('/coordinator/students')}
-                >
-                  <Calendar className="h-5 w-5 mb-1" />
-                  <span className="text-sm">Schedule Report</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

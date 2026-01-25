@@ -11,8 +11,34 @@ interface SubjectAnalytics {
   instructorName: string;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const courseFilter = searchParams.get('course');
+    const yearLevelFilter = searchParams.get('yearLevel');
+    const sectionFilter = searchParams.get('section');
+
+    // Build filter conditions
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (courseFilter && courseFilter !== 'all') {
+      conditions.push('sch.Course = ?');
+      params.push(courseFilter);
+    }
+
+    if (yearLevelFilter && yearLevelFilter !== 'all') {
+      conditions.push('sch.YearLevel = ?');
+      params.push(parseInt(yearLevelFilter));
+    }
+
+    if (sectionFilter && sectionFilter !== 'all') {
+      conditions.push('sch.Section = ?');
+      params.push(sectionFilter);
+    }
+
+    const filterCondition = conditions.length > 0 ? 'AND ' + conditions.join(' AND ') : '';
+
     // Get subjects analytics data
     const [subjectsResult] = await db.execute(`
       SELECT 
@@ -50,10 +76,11 @@ export async function GET() {
       ) grade_data ON sch.ScheduleID = grade_data.ScheduleID
       WHERE UPPER(COALESCE(subj.SubjectCode, sch.SubjectCode, '')) NOT LIKE '%NSTP%'
         AND UPPER(COALESCE(subj.SubjectName, sch.SubjectName, sch.SubjectTitle, '')) NOT LIKE '%NSTP%'
+        ${filterCondition}
       GROUP BY subj.SubjectID, SubjectCode, SubjectName
       HAVING totalSchedules > 0
       ORDER BY SubjectName
-    `);
+    `, params);
 
     const analytics: SubjectAnalytics[] = (subjectsResult as any[]).map(row => ({
       subjectCode: row.SubjectCode || '',

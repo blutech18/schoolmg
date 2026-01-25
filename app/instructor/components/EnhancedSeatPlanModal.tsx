@@ -232,7 +232,7 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
         cols =
           seatType === 'lecture'
             ? 2  // Lecture uses 2 columns (4 seats per row)
-            : (schedule.LaboratorySeatCols || schedule.SeatCols || 4)  // Laboratory uses 4 columns
+            : 4  // Laboratory uses 4 columns (2 seats per column)
       }
       console.log('🔍 Calculated columns:', cols)
       console.log('🔍 SeatMap JSON:', JSON.stringify(assignments))
@@ -450,7 +450,7 @@ export default function EnhancedSeatPlanModal({ schedule, onClose, onDataSaved }
       cols =
         seatType === 'lecture'
           ? 2  // Lecture uses 2 columns (4 seats per row)
-          : (schedule.LaboratorySeatCols || schedule.SeatCols || 4)  // Laboratory uses 4 columns: 2 left, gap, 2 right)
+          : 4  // Laboratory uses 4 columns (2 seats per column)
     }
 
     const totalSeats = schedule.TotalSeats || 0

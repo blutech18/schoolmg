@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
     const schoolYear = searchParams.get('schoolYear');
     const semester = searchParams.get('semester');
     const sectionFilter = searchParams.get('section');
+    const courseFilter = searchParams.get('course');
+    const yearLevelFilter = searchParams.get('yearLevel');
 
     // Parse school year to get the year range (e.g., "2024-2025" -> 2024, 2025)
     let startYear: number | null = null;
@@ -31,14 +33,26 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Build the section filter condition
-    let sectionCondition = '';
+    // Build filter conditions dynamically
+    const conditions: string[] = [];
     const params: any[] = [];
 
     if (sectionFilter && sectionFilter !== 'all') {
-      sectionCondition = 'AND s.Section = ?';
+      conditions.push('s.Section = ?');
       params.push(sectionFilter);
     }
+
+    if (courseFilter && courseFilter !== 'all') {
+      conditions.push('s.Course = ?');
+      params.push(courseFilter);
+    }
+
+    if (yearLevelFilter && yearLevelFilter !== 'all') {
+      conditions.push('s.YearLevel = ?');
+      params.push(parseInt(yearLevelFilter));
+    }
+
+    const filterCondition = conditions.length > 0 ? 'AND ' + conditions.join(' AND ') : '';
 
     // Get sections analytics data with optional filtering
     const [sectionsResult] = await db.execute(`
@@ -82,7 +96,7 @@ export async function GET(request: NextRequest) {
       WHERE s.Course IS NOT NULL AND s.Course != ''
         AND s.Section IS NOT NULL AND s.Section != ''
         AND s.YearLevel IS NOT NULL
-        ${sectionCondition}
+        ${filterCondition}
       GROUP BY s.Course, s.Section, s.YearLevel
       ORDER BY s.Course, s.YearLevel, s.Section
     `, params);

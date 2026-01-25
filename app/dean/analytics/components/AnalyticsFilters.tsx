@@ -7,32 +7,48 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Filter, RefreshCw, Download } from "lucide-react"
 
+interface FilterOptions {
+  sections: string[]
+  courses: string[]
+  yearLevels: number[]
+}
+
 interface AnalyticsFiltersProps {
   schoolYear: string
   semester: string
   section: string
+  course: string
+  yearLevel: string
   analyticsType: string
   onSchoolYearChange: (value: string) => void
   onSemesterChange: (value: string) => void
   onSectionChange: (value: string) => void
+  onCourseChange: (value: string) => void
+  onYearLevelChange: (value: string) => void
   onAnalyticsTypeChange: (value: string) => void
   onRefresh: () => void
   onExport: () => void
   loading?: boolean
+  filterOptions?: FilterOptions
 }
 
 export default function AnalyticsFilters({
   schoolYear,
   semester,
   section,
+  course,
+  yearLevel,
   analyticsType,
   onSchoolYearChange,
   onSemesterChange,
   onSectionChange,
+  onCourseChange,
+  onYearLevelChange,
   onAnalyticsTypeChange,
   onRefresh,
   onExport,
-  loading = false
+  loading = false,
+  filterOptions
 }: AnalyticsFiltersProps) {
   // Dynamically generate school years based on current year
   const schoolYears = (() => {
@@ -54,10 +70,17 @@ export default function AnalyticsFilters({
 
   const sections = [
     { value: 'all', label: 'All Sections' },
-    { value: 'A', label: 'Section A' },
-    { value: 'B', label: 'Section B' },
-    { value: 'C', label: 'Section C' },
-    { value: 'D', label: 'Section D' }
+    ...(filterOptions?.sections || []).map(sec => ({ value: sec, label: `Section ${sec}` }))
+  ]
+
+  const courses = [
+    { value: 'all', label: 'All Courses' },
+    ...(filterOptions?.courses || []).map(c => ({ value: c, label: c }))
+  ]
+
+  const yearLevels = [
+    { value: 'all', label: 'All Year Levels' },
+    ...(filterOptions?.yearLevels || []).map(y => ({ value: String(y), label: `Year ${y}` }))
   ]
 
   const analyticsTypes = [
@@ -77,6 +100,8 @@ export default function AnalyticsFilters({
     if (schoolYear !== defaultSchoolYear) count++
     if (semester !== '1st') count++
     if (section !== 'all') count++
+    if (course !== 'all') count++
+    if (yearLevel !== 'all') count++
     if (analyticsType !== 'overall') count++
     return count
   }
@@ -120,7 +145,7 @@ export default function AnalyticsFilters({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* School Year Filter */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">School Year</label>
@@ -149,6 +174,40 @@ export default function AnalyticsFilters({
                 {semesters.map((sem) => (
                   <SelectItem key={sem.value} value={sem.value}>
                     {sem.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Course Filter */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Course</label>
+            <Select value={course} onValueChange={onCourseChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select Course" />
+              </SelectTrigger>
+              <SelectContent>
+                {courses.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Year Level Filter */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Year Level</label>
+            <Select value={yearLevel} onValueChange={onYearLevelChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select Year Level" />
+              </SelectTrigger>
+              <SelectContent>
+                {yearLevels.map((y) => (
+                  <SelectItem key={y.value} value={y.value}>
+                    {y.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -190,7 +249,7 @@ export default function AnalyticsFilters({
           </div>
 
           {/* Quick Actions */}
-          <div className="space-y-2">
+          <div className="space-y-2 lg:col-span-2">
             <label className="text-sm font-medium text-gray-700">Quick Actions</label>
             <div className="flex gap-2">
               <Button
@@ -199,12 +258,14 @@ export default function AnalyticsFilters({
                 onClick={() => {
                   onSchoolYearChange(defaultSchoolYear)
                   onSemesterChange('1st')
+                  onCourseChange('all')
+                  onYearLevelChange('all')
                   onSectionChange('all')
                   onAnalyticsTypeChange('overall')
                 }}
                 className="flex-1"
               >
-                Reset
+                Reset All Filters
               </Button>
             </div>
           </div>
@@ -223,6 +284,16 @@ export default function AnalyticsFilters({
               {semester !== '1st' && (
                 <Badge variant="outline" className="bg-green-50 text-green-700">
                   Semester: {semester}
+                </Badge>
+              )}
+              {course !== 'all' && (
+                <Badge variant="outline" className="bg-cyan-50 text-cyan-700">
+                  Course: {course}
+                </Badge>
+              )}
+              {yearLevel !== 'all' && (
+                <Badge variant="outline" className="bg-indigo-50 text-indigo-700">
+                  Year Level: {yearLevel}
                 </Badge>
               )}
               {section !== 'all' && (
