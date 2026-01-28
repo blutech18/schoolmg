@@ -432,6 +432,12 @@ function calculateTermGrade(termGrades: any[], classType: string) {
             lecLabLabGrade = labPercentage * 0.3; // 30% weight
             hasValidGrades = true;
             console.log(`LECTURE+LAB Lab Debug - TotalScore: ${totalLabScore}, TotalMax: ${totalLabMaxScore}, Percentage: ${labPercentage}, Weighted: ${lecLabLabGrade}`);
+          } else if (totalLabMaxScore === 0) {
+            // If total max score is 0, consider it as 100% (perfect)
+            const labPercentage = 100;
+            lecLabLabGrade = labPercentage * 0.3; // 30% weight
+            hasValidGrades = true;
+            console.log(`LECTURE+LAB Lab Debug - TotalScore: ${totalLabScore}, TotalMax: 0, Percentage: 100 (Auto-perfect), Weighted: ${lecLabLabGrade}`);
           }
         }
       } else {
@@ -509,6 +515,12 @@ function calculateTermGrade(termGrades: any[], classType: string) {
             majorLabGrade = labPercentage * 0.4; // 40% weight
             hasValidGrades = true;
             console.log(`MAJOR Lab calculation: ${totalLabScore}/${totalLabMaxScore} = ${labPercentage}% × 0.4 = ${majorLabGrade}`);
+          } else if (totalLabMaxScore === 0) {
+            // If total max score is 0, consider it as 100% (perfect)
+            const labPercentage = 100;
+            majorLabGrade = labPercentage * 0.4; // 40% weight
+            hasValidGrades = true;
+            console.log(`MAJOR Lab calculation: ${totalLabScore}/0 = 100% (Auto-perfect) × 0.4 = ${majorLabGrade}`);
           }
         }
       }

@@ -11,6 +11,7 @@ interface FilterOptions {
   sections: string[]
   courses: string[]
   yearLevels: number[]
+  schoolYears?: string[]
 }
 
 interface AnalyticsFiltersProps {
@@ -51,16 +52,21 @@ export default function AnalyticsFilters({
   filterOptions
 }: AnalyticsFiltersProps) {
   // Dynamically generate school years based on current year
-  const schoolYears = (() => {
-    const currentYear = new Date().getFullYear();
-    const years: { value: string; label: string }[] = [];
-    // Generate years from 2 years ahead to 3 years back
-    for (let y = currentYear + 1; y >= currentYear - 3; y--) {
-      const yearStr = `${y}-${y + 1}`;
-      years.push({ value: yearStr, label: yearStr });
-    }
-    return years;
-  })();
+  const schoolYears = [
+    { value: 'all', label: 'All School Years' },
+    ...(filterOptions?.schoolYears?.map(year => ({ value: year, label: year })) || 
+      (() => {
+        const currentYear = new Date().getFullYear();
+        const years: { value: string; label: string }[] = [];
+        // Generate years from 2 years ahead to 3 years back
+        for (let y = currentYear + 1; y >= currentYear - 3; y--) {
+          const yearStr = `${y}-${y + 1}`;
+          years.push({ value: yearStr, label: yearStr });
+        }
+        return years;
+      })()
+    )
+  ];
 
   const semesters = [
     { value: '1st', label: '1st Semester' },
@@ -97,12 +103,11 @@ export default function AnalyticsFilters({
 
   const getActiveFiltersCount = () => {
     let count = 0
-    if (schoolYear !== defaultSchoolYear) count++
+    if (schoolYear !== defaultSchoolYear && schoolYear !== 'all') count++
     if (semester !== '1st') count++
     if (section !== 'all') count++
     if (course !== 'all') count++
     if (yearLevel !== 'all') count++
-    if (analyticsType !== 'overall') count++
     return count
   }
 
@@ -231,23 +236,6 @@ export default function AnalyticsFilters({
             </Select>
           </div>
 
-          {/* Analytics Type Filter */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Analytics Type</label>
-            <Select value={analyticsType} onValueChange={onAnalyticsTypeChange}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select Analytics Type" />
-              </SelectTrigger>
-              <SelectContent>
-                {analyticsTypes.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Quick Actions */}
           <div className="space-y-2 lg:col-span-2">
             <label className="text-sm font-medium text-gray-700">Quick Actions</label>
@@ -299,11 +287,6 @@ export default function AnalyticsFilters({
               {section !== 'all' && (
                 <Badge variant="outline" className="bg-purple-50 text-purple-700">
                   Section: {section}
-                </Badge>
-              )}
-              {analyticsType !== 'overall' && (
-                <Badge variant="outline" className="bg-orange-50 text-orange-700">
-                  Type: {analyticsType}
                 </Badge>
               )}
             </div>

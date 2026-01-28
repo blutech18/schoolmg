@@ -104,7 +104,8 @@ export default function DeanAnalyticsPage() {
     sections: string[];
     courses: string[];
     yearLevels: number[];
-  }>({ sections: [], courses: [], yearLevels: [] });
+    schoolYears: string[];
+  }>({ sections: [], courses: [], yearLevels: [], schoolYears: [] });
 
 
   // Data states
@@ -254,7 +255,8 @@ export default function DeanAnalyticsPage() {
 
   const fetchCoursesAnalytics = async () => {
     try {
-      let url = `/api/dean/courses-analytics?schoolYear=${encodeURIComponent(schoolYear)}&semester=${encodeURIComponent(semester)}`;
+      const schoolYearParam = schoolYear === 'all' ? '' : schoolYear;
+      let url = `/api/dean/courses-analytics?schoolYear=${encodeURIComponent(schoolYearParam)}&semester=${encodeURIComponent(semester)}`;
       if (course !== 'all') url += `&course=${encodeURIComponent(course)}`;
       if (yearLevel !== 'all') url += `&yearLevel=${encodeURIComponent(yearLevel)}`;
       if (section !== 'all') url += `&section=${encodeURIComponent(section)}`;
@@ -270,7 +272,8 @@ export default function DeanAnalyticsPage() {
 
   const fetchSubjectsAnalytics = async () => {
     try {
-      let url = `/api/dean/subjects-analytics?schoolYear=${encodeURIComponent(schoolYear)}&semester=${encodeURIComponent(semester)}`;
+      const schoolYearParam = schoolYear === 'all' ? '' : schoolYear;
+      let url = `/api/dean/subjects-analytics?schoolYear=${encodeURIComponent(schoolYearParam)}&semester=${encodeURIComponent(semester)}`;
       if (course !== 'all') url += `&course=${encodeURIComponent(course)}`;
       if (yearLevel !== 'all') url += `&yearLevel=${encodeURIComponent(yearLevel)}`;
       if (section !== 'all') url += `&section=${encodeURIComponent(section)}`;
@@ -286,7 +289,8 @@ export default function DeanAnalyticsPage() {
 
   const fetchSectionsAnalytics = async () => {
     try {
-      let url = `/api/dean/sections-analytics?schoolYear=${encodeURIComponent(schoolYear)}&semester=${encodeURIComponent(semester)}`;
+      const schoolYearParam = schoolYear === 'all' ? '' : schoolYear;
+      let url = `/api/dean/sections-analytics?schoolYear=${encodeURIComponent(schoolYearParam)}&semester=${encodeURIComponent(semester)}`;
       if (course !== 'all') url += `&course=${encodeURIComponent(course)}`;
       if (yearLevel !== 'all') url += `&yearLevel=${encodeURIComponent(yearLevel)}`;
       if (section !== 'all') url += `&section=${encodeURIComponent(section)}`;
@@ -302,7 +306,8 @@ export default function DeanAnalyticsPage() {
 
   const fetchScheduleAnalytics = async () => {
     try {
-      let url = `/api/dean/schedule-analytics?schoolYear=${encodeURIComponent(schoolYear)}&semester=${encodeURIComponent(semester)}`;
+      const schoolYearParam = schoolYear === 'all' ? '' : schoolYear;
+      let url = `/api/dean/schedule-analytics?schoolYear=${encodeURIComponent(schoolYearParam)}&semester=${encodeURIComponent(semester)}`;
       if (course !== 'all') url += `&course=${encodeURIComponent(course)}`;
       if (yearLevel !== 'all') url += `&yearLevel=${encodeURIComponent(yearLevel)}`;
       if (section !== 'all') url += `&section=${encodeURIComponent(section)}`;
@@ -318,7 +323,8 @@ export default function DeanAnalyticsPage() {
 
   const fetchEnrollmentData = async () => {
     try {
-      const response = await fetch(`/api/dean/enrollment-analytics?schoolYear=${encodeURIComponent(schoolYear)}&semester=${encodeURIComponent(semester)}`);
+      const schoolYearParam = schoolYear === 'all' ? '' : schoolYear;
+      const response = await fetch(`/api/dean/enrollment-analytics?schoolYear=${encodeURIComponent(schoolYearParam)}&semester=${encodeURIComponent(semester)}`);
       const data = await response.json();
       if (data.success) {
         // Transform the API data to match our interface

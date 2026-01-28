@@ -24,16 +24,25 @@ export async function GET(request: NextRequest) {
       ORDER BY YearLevel
     `);
 
+    const [schoolYearsResult] = await db.execute(`
+      SELECT DISTINCT AcademicYear 
+      FROM schedules 
+      WHERE AcademicYear IS NOT NULL AND AcademicYear != ''
+      ORDER BY AcademicYear DESC
+    `);
+
     const sections = (sectionsResult as any[]).map(row => row.Section);
     const courses = (coursesResult as any[]).map(row => row.Course);
     const yearLevels = (yearLevelsResult as any[]).map(row => row.YearLevel);
+    const schoolYears = (schoolYearsResult as any[]).map(row => row.AcademicYear);
 
     return NextResponse.json({
       success: true,
       data: {
         sections,
         courses,
-        yearLevels
+        yearLevels,
+        schoolYears
       }
     });
 
