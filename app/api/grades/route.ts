@@ -69,6 +69,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: grades, summary: summaryGrades });
     }
 
+    // Calculate summary grades for instructor view as well
+    if (userRole === "instructor") {
+      const grades = rows as any[];
+      const summaryGrades = calculateStudentGrades(grades);
+      return NextResponse.json({ success: true, data: grades, summary: summaryGrades });
+    }
+
     return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {
     console.error("Error fetching grades:", error);

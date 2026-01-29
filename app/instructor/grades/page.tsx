@@ -633,28 +633,142 @@ function InstructorGradesContent() {
   const fetchCalculatedGrades = async () => {
     if (!scheduleId || students.length === 0) return;
 
+    // First, get all grades for this schedule as instructor
+    try {
+      const response = await fetch(`/api/grades?scheduleId=${scheduleId}&role=instructor`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        console.error(`HTTP error! status: ${response.status} for schedule ${scheduleId}`);
+        return;
+      }
+      
+      const data = await response.json();
+      console.log(`Grade data for schedule ${scheduleId}:`, data);
+
+      if (data.success && data.summary) {
+        console.log(`Found calculated grades for schedule ${scheduleId}:`, data.summary);
+        console.log(`Summary keys:`, Object.keys(data.summary));
+        console.log(`Schedule ${scheduleId} in summary:`, data.summary[scheduleId]);
+        
+        // Check if we have summary data for this schedule
+        const scheduleSummary = data.summary[scheduleId];
+        if (scheduleSummary) {
+          console.log(`Using API summary data for schedule ${scheduleId}:`, scheduleSummary);
+          
+          // The API returns one summary per schedule, but we need to apply it to all students
+          // Since this is the same subject/class for all students, we'll use the same grades
+          const gradesMap: { [key: string]: any } = {};
+          
+          students.forEach((student: any) => {
+            const studentId = student.StudentID;
+            gradesMap[studentId] = {
+              midterm: scheduleSummary.midterm,
+              final: scheduleSummary.final,
+              summary: scheduleSummary.summary,
+              midtermPercentage: scheduleSummary.midtermPercentage,
+              finalPercentage: scheduleSummary.finalPercentage,
+              summaryPercentage: scheduleSummary.summaryPercentage
+            };
+          });
+          
+          console.log('Final calculated grades map from API:', gradesMap);
+          setCalculatedGrades(gradesMap);
+        } else {
+          console.log(`No summary data found for schedule ${scheduleId}, calculating locally...`);
+          
+          // Fallback to local calculation if API summary is not available
+          const gradesMap: { [key: string]: any } = {};
+          
+          // The API returns summary grouped by scheduleId, but we need it by studentId
+          // We need to extract individual student grades from the raw data
+          const studentGradesMap: { [key: string]: { midterm: any[], final: any[] } } = {};
+          
+          // Group grades by student first
+          data.data.forEach((grade: any) => {
+            const studentId = grade.StudentID;
+            if (!studentGradesMap[studentId]) {
+              studentGradesMap[studentId] = { midterm: [], final: [] };
+            }
+            
+            const termKey = (grade.Term || '').toLowerCase();
+            if (termKey === 'midterm') {
+              studentGradesMap[studentId].midterm.push(grade);
+            } else if (termKey === 'final') {
+              studentGradesMap[studentId].final.push(grade);
+            }
+          });
+          
+          // Now calculate grades for each student
+          students.forEach((student: any) => {
+            const studentId = student.StudentID;
+            const studentGrades = studentGradesMap[studentId];
+            
+            if (studentGrades) {
+              const midtermResult = calculateTermGradeLocal(studentGrades.midterm, schedule?.ClassType);
+              const finalResult = calculateTermGradeLocal(studentGrades.final, schedule?.ClassType);
+              
+              gradesMap[studentId] = {
+                midterm: midtermResult?.grade || null,
+                final: finalResult?.grade || null,
+                summary: (midtermResult?.grade !== null && midtermResult?.grade !== undefined && finalResult?.grade !== null && finalResult?.grade !== undefined) 
+                  ? (midtermResult.grade + finalResult.grade) / 2 
+                  : null
+              };
+            } else {
+              gradesMap[studentId] = { midterm: null, final: null, summary: null };
+            }
+          });
+          
+          console.log('Final calculated grades map (local calculation):', gradesMap);
+          setCalculatedGrades(gradesMap);
+        }
+      } else {
+        console.log(`No calculated grades found for schedule ${scheduleId}`);
+        // Fallback: fetch individual student grades
+        fetchIndividualStudentGrades();
+      }
+    } catch (error) {
+      console.error(`Error fetching grades for schedule ${scheduleId}:`, error);
+      // Fallback: fetch individual student grades
+      fetchIndividualStudentGrades();
+    }
+  };
+
+  const fetchIndividualStudentGrades = async () => {
     const gradePromises = students.map(async (student) => {
       try {
         const response = await fetch(`/api/grades?role=student&userId=${student.StudentID}`, {
           credentials: 'include'
         });
+        
+        if (!response.ok) {
+          console.error(`HTTP error! status: ${response.status} for student ${student.StudentID}`);
+          return {
+            studentId: student.StudentID,
+            grades: { midterm: null, final: null, summary: null }
+          };
+        }
+        
         const data = await response.json();
 
-        if (data.success && data.summary && data.summary[scheduleId]) {
+        if (data.success && data.summary && scheduleId && data.summary[scheduleId]) {
           return {
             studentId: student.StudentID,
             grades: data.summary[scheduleId]
           };
         }
+        
         return {
           studentId: student.StudentID,
-          grades: { midterm: 5.0, final: 5.0, summary: 5.0 }
+          grades: { midterm: null, final: null, summary: null }
         };
       } catch (error) {
         console.error(`Error fetching grades for student ${student.StudentID}:`, error);
         return {
           studentId: student.StudentID,
-          grades: { midterm: 5.0, final: 5.0, summary: 5.0 }
+          grades: { midterm: null, final: null, summary: null }
         };
       }
     });
@@ -676,16 +790,175 @@ function InstructorGradesContent() {
   }, [students, scheduleId]);
 
   // Use API-calculated grades instead of local calculation
-  const calculateStudentGrade = (studentId: number, term: string): number => {
+  // Helper function to calculate term grade based on class type (local version)
+  const calculateTermGradeLocal = (termGrades: any[], classType?: string) => {
+    if (!termGrades || !termGrades.length) {
+      return null;
+    }
+
+    // Normalize classType to handle variations (spaces, casing)
+    const normalizedClassType = (classType || 'LECTURE').replace(/\s+/g, '').toUpperCase();
+
+    // Normalize component names to handle case variations
+    const normalizeComponentName = (name: string): string => {
+      if (!name) return '';
+      const lower = name.toLowerCase().trim();
+
+      // Map common variations to standard names
+      const componentMap: { [key: string]: string } = {
+        'quiz': 'quiz',
+        'quizzes': 'quiz',
+        'laboratory': 'laboratory',
+        'lab': 'laboratory',
+        'recitation': 'recitation',
+        'seatwork': 'seatwork',
+        'assignment': 'assignment',
+        'homework': 'assignment',
+        'project': 'project',
+        'major exam': 'major exam',
+        'major': 'major exam',
+        'exam': 'major exam',
+        'periodical exam': 'major exam',
+        'periodical': 'major exam',
+        'olo': 'olo',
+        'online learning activity': 'olo',
+        'online course': 'online course',
+        'attendance': 'attendance',
+        'class participation': 'attendance',
+        'participation': 'attendance'
+      };
+
+      return componentMap[lower] || lower;
+    };
+
+    // Get component weights based on class type
+    const getComponentWeights = (classType: string) => {
+      const weights: { [key: string]: { [key: string]: number } } = {
+        'LECTURE': {
+          'quiz': 30,
+          'assignment': 10,
+          'recitation': 10,
+          'seatwork': 10,
+          'major exam': 40
+        },
+        'LECTURE+LAB': {
+          'quiz': 15,
+          'laboratory': 40,
+          'assignment': 10,
+          'recitation': 10,
+          'major exam': 25
+        },
+        'MAJOR': {
+          'quiz': 15,
+          'laboratory': 40,
+          'olo': 15,
+          'major exam': 30
+        },
+        'NSTP': {
+          'quiz': 60,
+          'major exam': 40
+        },
+        'OJT': {
+          'online course': 50,
+          'recitation': 20,
+          'seatwork': 30
+        }
+      };
+
+      return weights[classType] || weights['LECTURE'];
+    };
+
+    const componentWeights = getComponentWeights(normalizedClassType);
+    let totalWeightedScore = 0;
+    let totalWeight = 0;
+
+    // Group grades by component
+    const componentGroups: { [key: string]: any[] } = {};
+    termGrades.forEach(grade => {
+      const normalizedComponent = normalizeComponentName(grade.Component);
+      if (!componentGroups[normalizedComponent]) {
+        componentGroups[normalizedComponent] = [];
+      }
+      componentGroups[normalizedComponent].push(grade);
+    });
+
+    // Calculate weighted average for each component
+    Object.keys(componentGroups).forEach(component => {
+      const grades = componentGroups[component];
+      const weight = componentWeights[component] || 0;
+
+      if (weight === 0 || grades.length === 0) return;
+
+      // Calculate total score and total max score for this component
+      let currentTotalScore = 0;
+      let currentTotalMaxScore = 0;
+
+      grades.forEach((grade: any) => {
+        const score = parseFloat(grade.Score) || 0;
+        const max = parseFloat(grade.MaxScore) || 0;
+        currentTotalScore += score;
+        currentTotalMaxScore += max;
+      });
+
+      // Calculate percentage for this component
+      let componentPercentage = 0;
+      if (currentTotalMaxScore > 0) {
+        componentPercentage = (currentTotalScore / currentTotalMaxScore) * 100;
+      }
+
+      totalWeightedScore += componentPercentage * (weight / 100);
+      totalWeight += weight;
+    });
+
+    if (totalWeight === 0) {
+      return null;
+    }
+
+    // Normalize the final percentage based on the total weight of recorded components
+    // This ensures that if only some components are graded, the grade reflects performance on those components
+    const finalPercentage = (totalWeightedScore / totalWeight) * 100;
+
+    // Convert percentage to Filipino grade (1.0-5.0 scale)
+    const filipinoGrade = convertToFilipinoGrade(finalPercentage);
+
+    return {
+      grade: filipinoGrade,
+      percentage: finalPercentage,
+      details: {
+        componentWeights,
+        componentGroups,
+        totalWeightedScore,
+        totalWeight,
+        finalPercentage
+      }
+    };
+  };
+
+  // Helper function to convert percentage to Filipino grade (1.0-5.0 scale)
+  const convertToFilipinoGrade = (percentage: number): number => {
+    if (percentage >= 98) return 1.0;
+    if (percentage >= 95) return 1.25;
+    if (percentage >= 92) return 1.5;
+    if (percentage >= 89) return 1.75;
+    if (percentage >= 86) return 2.0;
+    if (percentage >= 83) return 2.25;
+    if (percentage >= 80) return 2.5;
+    if (percentage >= 77) return 2.75;
+    if (percentage >= 75) return 3.0;
+    if (percentage >= 70) return 4.0;
+    return 5.0;
+  };
+
+  const calculateStudentGrade = (studentId: number, term: string): number | null => {
     const studentGrades = calculatedGrades[studentId];
-    if (!studentGrades) return 5.0;
+    if (!studentGrades) return null;
 
     if (term === 'midterm') {
-      return studentGrades.midterm || 5.0;
+      return studentGrades.midterm !== undefined && studentGrades.midterm !== null ? studentGrades.midterm : null;
     } else if (term === 'final') {
-      return studentGrades.final || 5.0;
+      return studentGrades.final !== undefined && studentGrades.final !== null ? studentGrades.final : null;
     }
-    return 5.0;
+    return null;
   };
 
   const getGradeValue = (studentId: number, component: string, itemNumber: number): string => {
@@ -919,7 +1192,9 @@ function InstructorGradesContent() {
                           ))
                         )) || []}
                         <td className="border border-gray-300 p-3 text-center font-semibold bg-blue-50">
-                          <div className={`text-lg font-bold ${termAverage > 3.0 ? 'text-red-600' : 'text-gray-900'}`}>{termAverage.toFixed(2)}</div>
+                          <div className={`text-lg font-bold ${termAverage !== null && termAverage > 3.0 ? 'text-red-600' : 'text-gray-900'}`}>
+                            {termAverage !== null ? termAverage.toFixed(2) : 'N/A'}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -966,7 +1241,7 @@ function InstructorGradesContent() {
                       const finalGrade = calculateStudentGrade(student.StudentID, 'final');
 
                       // Only calculate overall average and status if both grades are actually available
-                      const overallAverage = (hasMidterm && hasFinal) ? (midtermGrade + finalGrade) / 2 : null;
+                      const overallAverage = (hasMidterm && hasFinal && midtermGrade !== null && finalGrade !== null) ? (midtermGrade + finalGrade) / 2 : null;
                       const finalStatus = overallAverage !== null
                         ? (overallAverage <= 3.0 ? 'Passed' : 'Failed')
                         : 'Incomplete';
@@ -984,36 +1259,40 @@ function InstructorGradesContent() {
                             </div>
                           </td>
                           <td className="border border-gray-300 p-3 text-center">
-                            <div className={`text-lg font-semibold ${midtermGrade > 3.0 ? 'text-red-600' : ''}`}>
-                              {midtermGrade.toFixed(2)}
+                            <div className={`text-lg font-semibold ${midtermGrade !== null && midtermGrade > 3.0 ? 'text-red-600' : ''}`}>
+                              {midtermGrade !== null ? midtermGrade.toFixed(2) : 'N/A'}
                             </div>
                             {studentGrades?.midtermPercentage != null && (
                               <div className="text-xs text-gray-600 mt-1">
                                 ({studentGrades.midtermPercentage.toFixed(1)}%)
                               </div>
                             )}
-                            <Badge
-                              variant={midtermGrade <= 3.0 ? 'default' : 'destructive'}
-                              className={`text-xs mt-1 ${midtermGrade <= 3.0 ? 'bg-green-600' : ''}`}
-                            >
-                              {midtermGrade <= 3.0 ? 'Pass' : 'Fail'}
-                            </Badge>
+                            {midtermGrade !== null && (
+                              <Badge
+                                variant={midtermGrade <= 3.0 ? 'default' : 'destructive'}
+                                className={`text-xs mt-1 ${midtermGrade <= 3.0 ? 'bg-green-600' : ''}`}
+                              >
+                                {midtermGrade <= 3.0 ? 'Pass' : 'Fail'}
+                              </Badge>
+                            )}
                           </td>
                           <td className="border border-gray-300 p-3 text-center">
-                            <div className={`text-lg font-semibold ${finalGrade > 3.0 ? 'text-red-600' : ''}`}>
-                              {finalGrade.toFixed(2)}
+                            <div className={`text-lg font-semibold ${finalGrade !== null && finalGrade > 3.0 ? 'text-red-600' : ''}`}>
+                              {finalGrade !== null ? finalGrade.toFixed(2) : 'N/A'}
                             </div>
                             {studentGrades?.finalPercentage != null && (
                               <div className="text-xs text-gray-600 mt-1">
                                 ({studentGrades.finalPercentage.toFixed(1)}%)
                               </div>
                             )}
-                            <Badge
-                              variant={finalGrade <= 3.0 ? 'default' : 'destructive'}
-                              className={`text-xs mt-1 ${finalGrade <= 3.0 ? 'bg-green-600' : ''}`}
-                            >
-                              {finalGrade <= 3.0 ? 'Pass' : 'Fail'}
-                            </Badge>
+                            {finalGrade !== null && (
+                              <Badge
+                                variant={finalGrade <= 3.0 ? 'default' : 'destructive'}
+                                className={`text-xs mt-1 ${finalGrade <= 3.0 ? 'bg-green-600' : ''}`}
+                              >
+                                {finalGrade <= 3.0 ? 'Pass' : 'Fail'}
+                              </Badge>
+                            )}
                           </td>
                           <td className="border border-gray-300 p-3 text-center bg-blue-50">
                             <div className={`text-xl font-bold ${overallAverage !== null && overallAverage > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
@@ -1058,10 +1337,10 @@ function InstructorGradesContent() {
                       if (studentsWithCompleteGrades.length === 0) return 'N/A';
 
                       const average = studentsWithCompleteGrades.reduce((sum, student) => {
-                        const midterm = calculateStudentGrade(student.StudentID, 'midterm');
-                        const final = calculateStudentGrade(student.StudentID, 'final');
-                        return sum + ((midterm + final) / 2);
-                      }, 0) / studentsWithCompleteGrades.length;
+                      const midterm = calculateStudentGrade(student.StudentID, 'midterm');
+                      const final = calculateStudentGrade(student.StudentID, 'final');
+                      return midterm !== null && final !== null ? sum + ((midterm + final) / 2) : sum;
+                    }, 0) / studentsWithCompleteGrades.length;
 
                       return average.toFixed(2);
                     })()}
@@ -1079,7 +1358,7 @@ function InstructorGradesContent() {
                       }
                       const midterm = calculateStudentGrade(student.StudentID, 'midterm');
                       const final = calculateStudentGrade(student.StudentID, 'final');
-                      return ((midterm + final) / 2) <= 3.0;
+                      return midterm !== null && final !== null ? ((midterm + final) / 2) <= 3.0 : false;
                     }).length} / {students.length}
                   </div>
                 </div>
@@ -1095,7 +1374,7 @@ function InstructorGradesContent() {
                       }
                       const midterm = calculateStudentGrade(student.StudentID, 'midterm');
                       const final = calculateStudentGrade(student.StudentID, 'final');
-                      return ((midterm + final) / 2) > 3.0;
+                      return midterm !== null && final !== null ? ((midterm + final) / 2) > 3.0 : false;
                     }).length} / {students.length}
                   </div>
                 </div>
@@ -1115,7 +1394,7 @@ function InstructorGradesContent() {
                       const passedStudents = studentsWithCompleteGrades.filter(student => {
                         const midterm = calculateStudentGrade(student.StudentID, 'midterm');
                         const final = calculateStudentGrade(student.StudentID, 'final');
-                        return ((midterm + final) / 2) <= 3.0;
+                        return midterm !== null && final !== null ? ((midterm + final) / 2) <= 3.0 : false;
                       });
 
                       return Math.round((passedStudents.length / studentsWithCompleteGrades.length) * 100) + '%';
