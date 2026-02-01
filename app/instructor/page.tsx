@@ -323,6 +323,8 @@ export default function InstructorDashboard() {
 
   const fetchAllInstructorGrades = async (instructorId: number) => {
     try {
+      console.log('Fetching all instructor grades for instructor:', instructorId);
+      
       // First get all schedules for this instructor
       const schedulesResponse = await fetch(`/api/schedules?role=instructor&instructorId=${instructorId}`, {
         credentials: 'include'
@@ -335,27 +337,28 @@ export default function InstructorDashboard() {
       const schedulesData = await schedulesResponse.json();
       const schedules = schedulesData.success ? schedulesData.data : (Array.isArray(schedulesData) ? schedulesData : []);
 
+      console.log('Fetched schedules:', schedules.length);
+
       if (!Array.isArray(schedules) || schedules.length === 0) {
         setAllInstructorGrades([]);
         return;
       }
 
-      // For each schedule, get enrollment data and calculate grade statistics
+      // For each schedule, get enrolled students and their individual grades
       const gradeDataPromises = schedules.map(async (schedule: Schedule) => {
         try {
-          // Get enrolled students for this schedule
+          console.log(`Processing schedule ${schedule.ScheduleID} (${schedule.SubjectCode})`);
+          
+          // Get enrollment count for student count
           const enrollmentResponse = await fetch(`/api/enrollments?scheduleId=${schedule.ScheduleID}`, {
             credentials: 'include'
           });
-
-          if (!enrollmentResponse.ok) {
-            throw new Error(`Failed to fetch enrollments for schedule ${schedule.ScheduleID}`);
-          }
-
           const enrollmentData = await enrollmentResponse.json();
-          const enrollments = enrollmentData.success ? enrollmentData.data : [];
+          const enrolledStudents = enrollmentData.success ? enrollmentData.data : [];
+          const studentCount = enrolledStudents.length;
 
-          if (!Array.isArray(enrollments) || enrollments.length === 0) {
+          if (studentCount === 0) {
+            console.log(`No students enrolled in schedule ${schedule.ScheduleID}`);
             return {
               ScheduleID: schedule.ScheduleID,
               SubjectCode: schedule.SubjectCode,
@@ -370,55 +373,315 @@ export default function InstructorDashboard() {
               studentCount: 0,
               passedCount: 0,
               failedCount: 0,
-              averageGrade: 5.0
+              averageGrade: 0
             };
           }
 
-          // Fetch grades for all students in this schedule
-          const studentGradePromises = enrollments.map(async (enrollment: any) => {
+          // Check if this is an NSTP subject
+          const isNSTP = schedule.SubjectCode?.toUpperCase().includes('NSTP');
+          
+          if (isNSTP) {
+            console.log(`Schedule ${schedule.ScheduleID} is NSTP - fetching raw grades directly`);
+            
+            // For NSTP, fetch raw grades directly since the API skips NSTP in summary calculation
+            const rawGradesResponse = await fetch(`/api/grades?scheduleId=${schedule.ScheduleID}&role=instructor&userId=${instructorId}`, {
+              credentials: 'include'
+            });
+            
+            if (!rawGradesResponse.ok) {
+              console.warn(`Failed to fetch raw grades for NSTP schedule ${schedule.ScheduleID}`);
+              return {
+                ScheduleID: schedule.ScheduleID,
+                SubjectCode: schedule.SubjectCode,
+                SubjectName: schedule.SubjectTitle,
+                Course: schedule.Course,
+                YearLevel: schedule.YearLevel,
+                Section: schedule.Section,
+                ClassType: schedule.ClassType,
+                midterm: null,
+                final: null,
+                summary: null,
+                studentCount: studentCount,
+                passedCount: 0,
+                failedCount: 0,
+                averageGrade: 0
+              };
+            }
+            
+            const rawGradesData = await rawGradesResponse.json();
+            
+            if (!rawGradesData.success || !rawGradesData.data || rawGradesData.data.length === 0) {
+              console.log(`No raw grades found for NSTP schedule ${schedule.ScheduleID}`);
+              return {
+                ScheduleID: schedule.ScheduleID,
+                SubjectCode: schedule.SubjectCode,
+                SubjectName: schedule.SubjectTitle,
+                Course: schedule.Course,
+                YearLevel: schedule.YearLevel,
+                Section: schedule.Section,
+                ClassType: schedule.ClassType,
+                midterm: null,
+                final: null,
+                summary: null,
+                studentCount: studentCount,
+                passedCount: 0,
+                failedCount: 0,
+                averageGrade: 0
+              };
+            }
+            
+            // Calculate grades manually from raw data for NSTP using proper grading system
+            const grades = rawGradesData.data;
+            const studentGradeMap: { [key: number]: { midterm: any[], final: any[] } } = {};
+            
+            // Group grades by student and term
+            grades.forEach((grade: any) => {
+              if (!studentGradeMap[grade.StudentID]) {
+                studentGradeMap[grade.StudentID] = { midterm: [], final: [] };
+              }
+              
+              const term = (grade.Term || '').toLowerCase();
+              if (term === 'midterm') {
+                studentGradeMap[grade.StudentID].midterm.push(grade);
+              } else if (term === 'final') {
+                studentGradeMap[grade.StudentID].final.push(grade);
+              }
+            });
+            
+            // Helper function to calculate term grade using proper grading system
+            const calculateTermGrade = (termGrades: any[], classType: string) => {
+              if (!termGrades || termGrades.length === 0) return null;
+              
+              // Normalize component names
+              const normalizeComponentName = (name: string): string => {
+                if (!name) return '';
+                const lower = name.toLowerCase().trim();
+                const componentMap: { [key: string]: string } = {
+                  'quiz': 'quiz',
+                  'quizzes': 'quiz',
+                  'major exam': 'major exam',
+                  'major': 'major exam',
+                  'exam': 'major exam'
+                };
+                return componentMap[lower] || lower;
+              };
+              
+              // NSTP grading: Quiz 60%, Major Exam 40%
+              const componentWeights: { [key: string]: number } = {
+                'quiz': 60,
+                'major exam': 40
+              };
+              
+              // Group grades by component
+              const componentGroups: { [key: string]: any[] } = {};
+              termGrades.forEach(grade => {
+                const normalizedComponent = normalizeComponentName(grade.Component);
+                if (!componentGroups[normalizedComponent]) {
+                  componentGroups[normalizedComponent] = [];
+                }
+                componentGroups[normalizedComponent].push(grade);
+              });
+              
+              let totalWeightedScore = 0;
+              let totalWeight = 0;
+              
+              // Calculate weighted average for each component
+              Object.keys(componentGroups).forEach(component => {
+                const grades = componentGroups[component];
+                const weight = componentWeights[component] || 0;
+                
+                if (weight === 0 || grades.length === 0) return;
+                
+                // Calculate total score and total max score for this component
+                let currentTotalScore = 0;
+                let currentTotalMaxScore = 0;
+                
+                grades.forEach((grade: any) => {
+                  const score = parseFloat(grade.Score) || 0;
+                  const max = parseFloat(grade.MaxScore) || 0;
+                  currentTotalScore += score;
+                  currentTotalMaxScore += max;
+                });
+                
+                // Calculate percentage for this component
+                if (currentTotalMaxScore > 0) {
+                  const componentPercentage = (currentTotalScore / currentTotalMaxScore) * 100;
+                  totalWeightedScore += componentPercentage * (weight / 100);
+                  totalWeight += weight;
+                }
+              });
+              
+              if (totalWeight === 0) return null;
+              
+              // Normalize the final percentage
+              const finalPercentage = (totalWeightedScore / totalWeight) * 100;
+              
+              // Convert percentage to Filipino grade
+              const convertToGrade = (pct: number) => {
+                if (pct >= 98) return 1.0;
+                if (pct >= 95) return 1.25;
+                if (pct >= 92) return 1.5;
+                if (pct >= 89) return 1.75;
+                if (pct >= 86) return 2.0;
+                if (pct >= 83) return 2.25;
+                if (pct >= 80) return 2.5;
+                if (pct >= 77) return 2.75;
+                if (pct >= 75) return 3.0;
+                return 5.0;
+              };
+              
+              return {
+                grade: convertToGrade(finalPercentage),
+                percentage: finalPercentage
+              };
+            };
+            
+            // Calculate grades for each student
+            const studentAverages = Object.entries(studentGradeMap).map(([studentId, studentGrades]) => {
+              const midtermResult = calculateTermGrade(studentGrades.midterm, schedule.ClassType);
+              const finalResult = calculateTermGrade(studentGrades.final, schedule.ClassType);
+              
+              let summary = null;
+              if (midtermResult && finalResult) {
+                summary = (midtermResult.grade + finalResult.grade) / 2;
+              }
+              
+              return {
+                studentId: parseInt(studentId),
+                midtermGrade: midtermResult?.grade || null,
+                finalGrade: finalResult?.grade || null,
+                summary: summary
+              };
+            });
+            
+            const validSummaries = studentAverages.filter(s => s.summary !== null);
+            
+            if (validSummaries.length === 0) {
+              console.log(`NSTP Schedule ${schedule.ScheduleID}: No students with complete grades`);
+              return {
+                ScheduleID: schedule.ScheduleID,
+                SubjectCode: schedule.SubjectCode,
+                SubjectName: schedule.SubjectTitle,
+                Course: schedule.Course,
+                YearLevel: schedule.YearLevel,
+                Section: schedule.Section,
+                ClassType: schedule.ClassType,
+                midterm: null,
+                final: null,
+                summary: null,
+                studentCount: studentCount,
+                passedCount: 0,
+                failedCount: 0,
+                averageGrade: 0
+              };
+            }
+            
+            // Calculate class averages
+            const midtermGrades = studentAverages.filter(s => s.midtermGrade !== null).map(s => s.midtermGrade!);
+            const finalGrades = studentAverages.filter(s => s.finalGrade !== null).map(s => s.finalGrade!);
+            
+            const classMidtermAvg = midtermGrades.length > 0 
+              ? midtermGrades.reduce((sum, g) => sum + g, 0) / midtermGrades.length 
+              : null;
+            const classFinalAvg = finalGrades.length > 0 
+              ? finalGrades.reduce((sum, g) => sum + g, 0) / finalGrades.length 
+              : null;
+            const classSummaryAvg = validSummaries.reduce((sum, s) => sum + s.summary!, 0) / validSummaries.length;
+            
+            const passedCount = validSummaries.filter(s => s.summary! <= 3.0).length;
+            const failedCount = validSummaries.length - passedCount;
+            
+            console.log(`NSTP Schedule ${schedule.ScheduleID}: ${validSummaries.length} students with complete grades`);
+            console.log(`NSTP averages - Midterm: ${classMidtermAvg}, Final: ${classFinalAvg}, Summary: ${classSummaryAvg}`);
+            
+            return {
+              ScheduleID: schedule.ScheduleID,
+              SubjectCode: schedule.SubjectCode,
+              SubjectName: schedule.SubjectTitle,
+              Course: schedule.Course,
+              YearLevel: schedule.YearLevel,
+              Section: schedule.Section,
+              ClassType: schedule.ClassType,
+              midterm: classMidtermAvg,
+              final: classFinalAvg,
+              summary: classSummaryAvg,
+              studentCount: studentCount,
+              passedCount: passedCount,
+              failedCount: failedCount,
+              averageGrade: classSummaryAvg
+            };
+          }
+
+          // For non-NSTP subjects, use the student API approach
+          const studentGradePromises = enrolledStudents.map(async (student: any) => {
             try {
-              const gradesResponse = await fetch(
-                `/api/grades?role=student&userId=${enrollment.StudentID}`,
+              const studentGradeResponse = await fetch(
+                `/api/grades?role=student&userId=${student.StudentID}`,
                 { credentials: 'include' }
               );
-
-              if (gradesResponse.ok) {
-                const gradesData = await gradesResponse.json();
-
-                if (gradesData.success && gradesData.summary && gradesData.summary[schedule.ScheduleID]) {
-                  const scheduleGrades = gradesData.summary[schedule.ScheduleID];
+              
+              if (studentGradeResponse.ok) {
+                const studentGradeData = await studentGradeResponse.json();
+                if (studentGradeData.success && studentGradeData.summary && studentGradeData.summary[schedule.ScheduleID]) {
+                  const studentScheduleGrade = studentGradeData.summary[schedule.ScheduleID];
                   return {
-                    midterm: scheduleGrades.midterm || 5.0,
-                    final: scheduleGrades.final || 5.0,
-                    summary: scheduleGrades.summary || 5.0
+                    midterm: studentScheduleGrade.midterm,
+                    final: studentScheduleGrade.final,
+                    summary: studentScheduleGrade.summary
                   };
                 }
               }
-
-              return { midterm: 5.0, final: 5.0, summary: 5.0 };
+              return null;
             } catch (error) {
-              console.error(`Error fetching grades for student ${enrollment.StudentID}:`, error);
-              return { midterm: 5.0, final: 5.0, summary: 5.0 };
+              console.error(`Error fetching grade for student ${student.StudentID}:`, error);
+              return null;
             }
           });
 
           const studentGrades = await Promise.all(studentGradePromises);
+          const validGrades = studentGrades.filter(g => g !== null && g.summary !== null);
+          
+          console.log(`Schedule ${schedule.ScheduleID}: ${validGrades.length} students with grades out of ${studentCount} enrolled`);
 
-          // Calculate statistics
-          const studentCount = studentGrades.length;
-          const passedCount = studentGrades.filter(g => g.summary <= 3.0).length;
-          const failedCount = studentCount - passedCount;
-          const averageGrade = studentCount > 0
-            ? studentGrades.reduce((sum, g) => sum + g.summary, 0) / studentCount
-            : 5.0;
+          if (validGrades.length === 0) {
+            // No grades entered yet
+            return {
+              ScheduleID: schedule.ScheduleID,
+              SubjectCode: schedule.SubjectCode,
+              SubjectName: schedule.SubjectTitle,
+              Course: schedule.Course,
+              YearLevel: schedule.YearLevel,
+              Section: schedule.Section,
+              ClassType: schedule.ClassType,
+              midterm: null,
+              final: null,
+              summary: null,
+              studentCount: studentCount,
+              passedCount: 0,
+              failedCount: 0,
+              averageGrade: 0
+            };
+          }
 
-          // Calculate class averages for midterm and final
-          const midtermAvg = studentCount > 0
-            ? studentGrades.reduce((sum, g) => sum + g.midterm, 0) / studentCount
+          // Calculate averages
+          const midtermGrades = validGrades.filter(g => g.midterm !== null).map(g => g.midterm);
+          const finalGrades = validGrades.filter(g => g.final !== null).map(g => g.final);
+          const summaryGrades = validGrades.map(g => g.summary);
+
+          const midtermAvg = midtermGrades.length > 0
+            ? midtermGrades.reduce((sum, g) => sum + g, 0) / midtermGrades.length
             : null;
-          const finalAvg = studentCount > 0
-            ? studentGrades.reduce((sum, g) => sum + g.final, 0) / studentCount
+          
+          const finalAvg = finalGrades.length > 0
+            ? finalGrades.reduce((sum, g) => sum + g, 0) / finalGrades.length
             : null;
+          
+          const summaryAvg = summaryGrades.reduce((sum, g) => sum + g, 0) / summaryGrades.length;
+
+          const passedCount = summaryGrades.filter(g => g <= 3.0).length;
+          const failedCount = summaryGrades.filter(g => g > 3.0).length;
+
+          console.log(`Schedule ${schedule.ScheduleID} averages - Midterm: ${midtermAvg}, Final: ${finalAvg}, Summary: ${summaryAvg}`);
 
           return {
             ScheduleID: schedule.ScheduleID,
@@ -430,11 +693,11 @@ export default function InstructorDashboard() {
             ClassType: schedule.ClassType,
             midterm: midtermAvg,
             final: finalAvg,
-            summary: averageGrade,
-            studentCount,
-            passedCount,
-            failedCount,
-            averageGrade
+            summary: summaryAvg,
+            studentCount: studentCount,
+            passedCount: passedCount,
+            failedCount: failedCount,
+            averageGrade: summaryAvg
           };
 
         } catch (error) {
@@ -453,12 +716,13 @@ export default function InstructorDashboard() {
             studentCount: 0,
             passedCount: 0,
             failedCount: 0,
-            averageGrade: 5.0
+            averageGrade: 0
           };
         }
       });
 
       const allGradeData = await Promise.all(gradeDataPromises);
+      console.log('All instructor grade data:', allGradeData);
       setAllInstructorGrades(allGradeData);
 
     } catch (error) {
