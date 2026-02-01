@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
     const conditions: string[] = [];
     const params: any[] = [];
 
-    // Add school year and semester filters
-    if (schoolYear) {
+    // Add school year and semester filters - only if not 'all' and not empty
+    if (schoolYear && schoolYear !== 'all') {
       conditions.push('sch.AcademicYear = ?');
       params.push(schoolYear);
     }

@@ -99,11 +99,11 @@ export default function AnalyticsFilters({
 
   // Get default school year dynamically
   const currentYear = new Date().getFullYear();
-  const defaultSchoolYear = `${currentYear}-${currentYear + 1}`;
+  const defaultSchoolYear = 'all';
 
   const getActiveFiltersCount = () => {
     let count = 0
-    if (schoolYear !== defaultSchoolYear && schoolYear !== 'all') count++
+    if (schoolYear !== 'all') count++
     if (semester !== '1st') count++
     if (section !== 'all') count++
     if (course !== 'all') count++
@@ -244,7 +244,7 @@ export default function AnalyticsFilters({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  onSchoolYearChange(defaultSchoolYear)
+                  onSchoolYearChange('all')
                   onSemesterChange('1st')
                   onCourseChange('all')
                   onYearLevelChange('all')

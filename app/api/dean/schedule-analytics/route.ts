@@ -76,8 +76,8 @@ export async function GET(request: NextRequest) {
     
     const params: any[] = [];
     
-    // Add filters if provided
-    if (schoolYear) {
+    // Add filters if provided - only add school year filter if not 'all' and not empty
+    if (schoolYear && schoolYear !== 'all') {
       query += ` AND sch.AcademicYear = ?`;
       params.push(schoolYear);
     }

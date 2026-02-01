@@ -58,7 +58,8 @@ export async function GET(request: NextRequest) {
     const scheduleFilters: string[] = [];
     const scheduleParams: any[] = [];
     
-    if (schoolYear) {
+    // Only add school year filter if it's not 'all' and not empty
+    if (schoolYear && schoolYear !== 'all') {
       scheduleFilters.push('sch_inner.AcademicYear = ?');
       scheduleParams.push(schoolYear);
     }
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN schedules sch ON s.Course = sch.Course AND s.Section = sch.Section AND s.YearLevel = sch.YearLevel
         AND UPPER(COALESCE(sch.SubjectCode, '')) NOT LIKE '%NSTP%'
         AND UPPER(COALESCE(sch.SubjectName, sch.SubjectTitle, '')) NOT LIKE '%NSTP%'
-        ${schoolYear ? 'AND sch.AcademicYear = ?' : ''}
+        ${schoolYear && schoolYear !== 'all' ? 'AND sch.AcademicYear = ?' : ''}
         ${semester ? 'AND sch.Semester = ?' : ''}
       LEFT JOIN (
         SELECT 
@@ -124,7 +125,7 @@ export async function GET(request: NextRequest) {
         ${filterCondition}
       GROUP BY s.Course, s.Section, s.YearLevel
       ORDER BY s.Course, s.YearLevel, s.Section
-    `, [...(schoolYear ? [schoolYear] : []), ...(semester ? [semester] : []), ...scheduleParams, ...scheduleParams, ...scheduleParams, ...studentParams]);
+    `, [...(schoolYear && schoolYear !== 'all' ? [schoolYear] : []), ...(semester ? [semester] : []), ...scheduleParams, ...scheduleParams, ...scheduleParams, ...studentParams]);
 
     const analytics: SectionAnalytics[] = (sectionsResult as any[]).map(row => ({
       course: row.Course || '',

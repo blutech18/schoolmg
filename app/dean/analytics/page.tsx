@@ -89,9 +89,9 @@ export default function DeanAnalyticsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showDetailedView, setShowDetailedView] = useState(false);
 
-  // Filter states - use dynamic current school year
+  // Filter states - default to "all" to show all school years
   const currentYear = new Date().getFullYear();
-  const defaultSchoolYear = `${currentYear}-${currentYear + 1}`;
+  const defaultSchoolYear = 'all';
   const [schoolYear, setSchoolYear] = useState(defaultSchoolYear);
   const [semester, setSemester] = useState('1st');
   const [course, setCourse] = useState('all');
@@ -202,7 +202,7 @@ export default function DeanAnalyticsPage() {
 
   // Reset filters
   const handleResetFilters = () => {
-    setSchoolYear(defaultSchoolYear);
+    setSchoolYear('all');
     setSemester('1st');
     setCourse('all');
     setYearLevel('all');

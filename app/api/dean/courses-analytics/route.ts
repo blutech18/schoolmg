@@ -47,7 +47,8 @@ export async function GET(request: NextRequest) {
     const scheduleFilters: string[] = [];
     const scheduleParams: any[] = [];
     
-    if (schoolYear) {
+    // Only add school year filter if it's not 'all' and not empty
+    if (schoolYear && schoolYear !== 'all') {
       scheduleFilters.push('sch.AcademicYear = ?');
       scheduleParams.push(schoolYear);
     }

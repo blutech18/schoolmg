@@ -945,7 +945,7 @@ function InstructorGradesContent() {
     if (percentage >= 80) return 2.5;
     if (percentage >= 77) return 2.75;
     if (percentage >= 75) return 3.0;
-    if (percentage >= 70) return 4.0;
+    // Below 75% is automatically 5.0 (no 4.0 grade)
     return 5.0;
   };
 
