@@ -72,8 +72,12 @@ export async function GET(request: NextRequest) {
     // Calculate summary grades for instructor view as well
     if (userRole === "instructor") {
       const grades = rows as any[];
-      const summaryGrades = calculateStudentGrades(grades);
-      return NextResponse.json({ success: true, data: grades, summary: summaryGrades });
+      // For instructors, we don't want to calculate a single summary for the whole schedule
+      // because that would aggregate all students' grades into one.
+      // return just the raw data and let the frontend calculate per-student grades.
+      // We return an empty summary object to trigger the local calculation fallback in the frontend
+      // (which happens when data.summary exists but data.summary[scheduleId] does not).
+      return NextResponse.json({ success: true, data: grades, summary: {} });
     }
 
     return NextResponse.json({ success: true, data: rows });
@@ -216,15 +220,18 @@ function calculateStudentGrades(grades: any[]) {
         SubjectName: grade.SubjectName,
         ClassType: grade.ClassType,
         midterm: [],
-        final: []
+        final: [],
+        // Keep track of all items for this schedule to determine which are "active"
+        allItems: []
       };
     }
-    // Normalize term name to lowercase to ensure consistency (e.g., "Midterm" → "midterm")
+    // Normalize term name
     const termKey = (grade.Term || "").toString().toLowerCase();
     if (!acc[grade.ScheduleID][termKey]) {
       acc[grade.ScheduleID][termKey] = [];
     }
     acc[grade.ScheduleID][termKey].push(grade);
+    acc[grade.ScheduleID].allItems.push(grade);
     return acc;
   }, {});
 
@@ -234,18 +241,35 @@ function calculateStudentGrades(grades: any[]) {
     const classType = scheduleGrades.ClassType;
     const subjectCode = scheduleGrades.SubjectCode || '';
 
-    // Skip NSTP subjects - they don't count towards GPA/grade computation
+    // Skip NSTP subjects
     if (subjectCode.toUpperCase().includes('NSTP')) {
-      console.log(`Skipping NSTP subject: ${subjectCode}`);
       return;
     }
 
-    console.log(`Calculating grades for Schedule ${scheduleId}, ClassType: ${classType}`);
-    console.log('Midterm grades:', scheduleGrades.midterm);
-    console.log('Final grades:', scheduleGrades.final);
+    // Determine "Active Items": Items where AT LEAST ONE student has a score > 0
+    // This ignores initialized "0"s that serve as placeholders
+    const activeItems = new Set<string>();
+    scheduleGrades.allItems.forEach((g: any) => {
+      if (g.Score !== null && parseFloat(g.Score) > 0) {
+        // Create a unique key for Component + ItemNumber + Term
+        const key = `${g.Term}-${g.Component}-${g.ItemNumber}`.toLowerCase();
+        activeItems.add(key);
+      }
+    });
 
-    const midtermResult = calculateTermGrade(scheduleGrades.midterm || [], classType);
-    const finalResult = calculateTermGrade(scheduleGrades.final || [], classType);
+    // Helper to filter grades to only active items
+    const filterActive = (grades: any[]) => {
+      return grades.filter((g: any) => {
+        const key = `${g.Term}-${g.Component}-${g.ItemNumber}`.toLowerCase();
+        // If it's in activeItems, keep it. 
+        // Also keep if explicitly non-zero (though that covers the definition).
+        // If it's 0 but NO ONE has >0 for this item, we filter it out.
+        return activeItems.has(key);
+      });
+    };
+
+    const midtermResult = calculateTermGrade(filterActive(scheduleGrades.midterm || []), classType);
+    const finalResult = calculateTermGrade(filterActive(scheduleGrades.final || []), classType);
 
     // Extract grades and percentages
     const midtermGrade = midtermResult?.grade || null;
@@ -253,20 +277,16 @@ function calculateStudentGrades(grades: any[]) {
     const midtermPercentage = midtermResult?.percentage || null;
     const finalPercentage = finalResult?.percentage || null;
 
-    // Calculate summary grade - only if both midterm and final exist, average them
-    // If only one exists or neither exists, summary should be null (incomplete)
+    // Calculate summary grade (average of valid terms)
     let summaryGrade = null;
     let summaryPercentage = null;
+
     if (midtermGrade !== null && finalGrade !== null) {
       summaryGrade = (midtermGrade + finalGrade) / 2;
       if (midtermPercentage !== null && finalPercentage !== null) {
         summaryPercentage = (midtermPercentage + finalPercentage) / 2;
       }
     }
-    // Note: If only midterm OR only final exists, summaryGrade remains null
-    // This ensures students are not marked as passed/failed with incomplete grades
-
-    console.log(`Calculated - Midterm: ${midtermGrade} (${midtermPercentage}%), Final: ${finalGrade} (${finalPercentage}%), Summary: ${summaryGrade} (${summaryPercentage}%)`);
 
     summaryGrades[scheduleId] = {
       SubjectCode: scheduleGrades.SubjectCode,
@@ -287,7 +307,7 @@ function calculateStudentGrades(grades: any[]) {
 // Helper function to calculate term grade based on class type
 function calculateTermGrade(termGrades: any[], classType: string) {
   if (!termGrades || !termGrades.length) {
-    console.log('No grades found for term calculation');
+    // console.log('No grades found for term calculation');
     return null;
   }
 
@@ -308,17 +328,20 @@ function calculateTermGrade(termGrades: any[], classType: string) {
       'laboratory activity': 'laboratory',
       'olo': 'olo',
       'online learning opportunity': 'olo',
-      'exam': 'exam',
-      'examination': 'exam',
-      'midterm': 'exam',
-      'final': 'exam',
-      'midterm exam': 'exam',
-      'final exam': 'exam',
-      'major exam': 'major exam',  // Keep major exam as its own category
-      // OJT-specific components
+      'exam': 'major exam',
+      'examination': 'major exam',
+      'midterm': 'major exam',
+      'final': 'major exam',
+      'midterm exam': 'major exam',
+      'final exam': 'major exam',
+      'major exam': 'major exam',
       'online course': 'online course',
       'recitation': 'recitation',
-      'seatwork': 'seatwork'
+      'seatwork': 'seatwork',
+      'attendance': 'attendance',
+      'participation': 'attendance',
+      'thesis': 'thesis',
+      'defense': 'thesis defense'
     };
 
     // Check if we have a direct mapping
@@ -333,10 +356,10 @@ function calculateTermGrade(termGrades: any[], classType: string) {
       }
     }
 
-    // Fallback – return the cleaned lower-cased name so we still group identical unknown components together
     return lower;
   };
 
+  // Group grades by normalized component
   const gradesByComponent = termGrades.reduce((acc: any, grade: any) => {
     const component = normalizeComponentName(grade.Component || '');
     if (!acc[component]) {
@@ -346,361 +369,126 @@ function calculateTermGrade(termGrades: any[], classType: string) {
     return acc;
   }, {});
 
-  // Also store original component names for debugging
-  const originalGradesByComponent = termGrades.reduce((acc: any, grade: any) => {
-    const component = grade.Component || '';
-    if (!acc[component]) {
-      acc[component] = [];
+  // Define weights for different class types
+  // Note: CISCO usually follows MAJOR or LECTURE+LAB. We'll map it to MAJOR if not specified.
+  // THESIS usually has its own components.
+  const WEIGHTS: { [key: string]: { [key: string]: number } } = {
+    'LECTURE': {
+      'quiz': 60,
+      'major exam': 40
+    },
+    'LECTURE+LAB': {
+      'quiz': 15,
+      'laboratory': 30,
+      'olo': 15,
+      'major exam': 40
+    },
+    'MAJOR': {
+      'quiz': 15,
+      'laboratory': 40,
+      'olo': 15,
+      'major exam': 30
+    },
+    'CISCO': { // Assumption: Same as MAJOR
+      'quiz': 15,
+      'laboratory': 40,
+      'olo': 15,
+      'major exam': 30
+    },
+    'NSTP': {
+      'quiz': 60,
+      'major exam': 40
+    },
+    'OJT': {
+      'online course': 50,
+      'recitation': 20,
+      'seatwork': 30
+    },
+    'THESIS': {
+      'thesis': 100,
+      'thesis defense': 100,
+      'project': 100
+      // If thesis uses standard components, they will be picked up if we add them, 
+      // otherwise it might fallback to 100% for whatever component exists if we code it right.
     }
-    acc[component].push(grade);
-    return acc;
-  }, {});
+  };
 
-  console.log('Original grades by component:', originalGradesByComponent);
-  console.log('Normalized grades by component:', gradesByComponent);
-  console.log('Class Type:', classType, '-> Normalized:', normalizedClassType);
-  console.log('Available normalized components:', Object.keys(gradesByComponent));
-  console.log('Looking for: quiz, laboratory, olo, exam');
-  console.log('Term grades count:', termGrades.length);
-  console.log('Sample grade data:', termGrades.slice(0, 3));
-
-  let classStanding = 0;
-  let examGrade = 0;
-  let hasValidGrades = false;
-
-  switch (normalizedClassType) {
-    case 'LECTURE':
-      // LECTURE: Class Standing 60% (Quizzes 60%), Exam 40%
-      let lectureQuizGrade = 0;
-
-      // Quiz component (60% of total grade)
-      const lectureQuizComponents = gradesByComponent.quiz || [];
-      if (lectureQuizComponents.length > 0) {
-        const validQuizzes = lectureQuizComponents.filter((q: any) => q.Score !== null && q.Score !== undefined);
-        if (validQuizzes.length > 0) {
-          const totalQuizScore = validQuizzes.reduce((sum: number, q: any) => sum + (parseFloat(q.Score) || 0), 0);
-          const totalQuizMaxScore = validQuizzes.reduce((sum: number, q: any) => sum + (parseFloat(q.MaxScore) || 0), 0);
-          if (totalQuizMaxScore > 0) {
-            const quizPercentage = (totalQuizScore / totalQuizMaxScore) * 100;
-            lectureQuizGrade = quizPercentage * 0.6; // 60% weight
-            hasValidGrades = true;
-          }
-        }
-      }
-
-      // Class Standing = Quiz (60%) = 60% total
-      classStanding = lectureQuizGrade;
-
-      // Major Exam is 40% of total grade
-      const lectureExamComponents = gradesByComponent['major exam'] || gradesByComponent.exam || [];
-      if (lectureExamComponents.length > 0) {
-        const validExam = lectureExamComponents.find((e: any) => e.Score !== null && e.Score !== undefined);
-        if (validExam) {
-          const examPercentage = (parseFloat(validExam.Score) || 0) / (parseFloat(validExam.MaxScore) || 60) * 100;
-          examGrade = examPercentage * 0.4; // 40% weight
-          hasValidGrades = true;
-        }
-      }
-      break;
-
-    case 'LECTURE+LAB':
-      // LECTURE+LAB: Quiz 15% + Lab 30% + OLO 15% + Exam 40% = 100%
-      let lecLabQuizGrade = 0, lecLabLabGrade = 0, lecLabOloGrade = 0;
-
-      // Quiz component (15% of total grade)
-      console.log('Checking for quiz component:', gradesByComponent.quiz);
-      if (gradesByComponent.quiz && gradesByComponent.quiz.length > 0) {
-        const quizComponents = gradesByComponent.quiz;
-        const validQuizzes = quizComponents.filter((q: any) => q.Score !== null && q.Score !== undefined);
-        if (validQuizzes.length > 0) {
-          const totalQuizScore = validQuizzes.reduce((sum: number, q: any) => sum + (parseFloat(q.Score) || 0), 0);
-          const totalQuizMaxScore = validQuizzes.reduce((sum: number, q: any) => sum + (parseFloat(q.MaxScore) || 0), 0);
-          if (totalQuizMaxScore > 0) {
-            const quizPercentage = (totalQuizScore / totalQuizMaxScore) * 100;
-            lecLabQuizGrade = quizPercentage * 0.15; // 15% weight
-            hasValidGrades = true;
-            console.log(`LECTURE+LAB Quiz Debug - TotalScore: ${totalQuizScore}, TotalMax: ${totalQuizMaxScore}, Percentage: ${quizPercentage}, Weighted: ${lecLabQuizGrade}`);
-          }
-        }
-      } else {
-        console.log('LECTURE+LAB Quiz component not found or empty');
-      }
-
-      // Lab component (30% of total grade)
-      console.log('Checking for laboratory component:', gradesByComponent.laboratory);
-      if (gradesByComponent.laboratory && gradesByComponent.laboratory.length > 0) {
-        const labComponents = gradesByComponent.laboratory;
-        const validLabs = labComponents.filter((l: any) => l.Score !== null && l.Score !== undefined);
-        if (validLabs.length > 0) {
-          const totalLabScore = validLabs.reduce((sum: number, l: any) => sum + (parseFloat(l.Score) || 0), 0);
-          const totalLabMaxScore = validLabs.reduce((sum: number, l: any) => sum + (parseFloat(l.MaxScore) || 0), 0);
-          if (totalLabMaxScore > 0) {
-            const labPercentage = (totalLabScore / totalLabMaxScore) * 100;
-            lecLabLabGrade = labPercentage * 0.3; // 30% weight
-            hasValidGrades = true;
-            console.log(`LECTURE+LAB Lab Debug - TotalScore: ${totalLabScore}, TotalMax: ${totalLabMaxScore}, Percentage: ${labPercentage}, Weighted: ${lecLabLabGrade}`);
-          } else if (totalLabMaxScore === 0) {
-            // If total max score is 0, consider it as 100% (perfect)
-            const labPercentage = 100;
-            lecLabLabGrade = labPercentage * 0.3; // 30% weight
-            hasValidGrades = true;
-            console.log(`LECTURE+LAB Lab Debug - TotalScore: ${totalLabScore}, TotalMax: 0, Percentage: 100 (Auto-perfect), Weighted: ${lecLabLabGrade}`);
-          }
-        }
-      } else {
-        console.log('LECTURE+LAB Laboratory component not found or empty');
-      }
-
-      // OLO component (15% of total grade)
-      console.log('Checking for olo component:', gradesByComponent.olo);
-      if (gradesByComponent.olo && gradesByComponent.olo.length > 0) {
-        const oloComponents = gradesByComponent.olo;
-        const validOlos = oloComponents.filter((o: any) => o.Score !== null && o.Score !== undefined);
-        if (validOlos.length > 0) {
-          const totalOloScore = validOlos.reduce((sum: number, o: any) => sum + (parseFloat(o.Score) || 0), 0);
-          const totalOloMaxScore = validOlos.reduce((sum: number, o: any) => sum + (parseFloat(o.MaxScore) || 0), 0);
-          if (totalOloMaxScore > 0) {
-            const oloPercentage = (totalOloScore / totalOloMaxScore) * 100;
-            lecLabOloGrade = oloPercentage * 0.15; // 15% weight
-            hasValidGrades = true;
-            console.log(`LECTURE+LAB OLO Debug - TotalScore: ${totalOloScore}, TotalMax: ${totalOloMaxScore}, Percentage: ${oloPercentage}, Weighted: ${lecLabOloGrade}`);
-          }
-        }
-      } else {
-        console.log('LECTURE+LAB OLO component not found or empty');
-      }
-
-      // Class Standing = Quiz (15%) + Lab (30%) + OLO (15%) = 60% total
-      classStanding = lecLabQuizGrade + lecLabLabGrade + lecLabOloGrade;
-      console.log(`LECTURE+LAB Debug - Quiz: ${lecLabQuizGrade}, Lab: ${lecLabLabGrade}, OLO: ${lecLabOloGrade}, ClassStanding: ${classStanding}`);
-
-      // Major Exam is 40% of total grade
-      const lecLabExamComponents = gradesByComponent['major exam'] || gradesByComponent.exam || [];
-      console.log('Checking for major exam component:', lecLabExamComponents);
-      if (lecLabExamComponents.length > 0) {
-        const validExam = lecLabExamComponents.find((e: any) => e.Score !== null && e.Score !== undefined);
-        if (validExam) {
-          const examPercentage = (parseFloat(validExam.Score) || 0) / (parseFloat(validExam.MaxScore) || 60) * 100;
-          examGrade = examPercentage * 0.4; // 40% weight
-          hasValidGrades = true;
-          console.log(`LECTURE+LAB Debug - Exam Score: ${validExam.Score}, Max: ${validExam.MaxScore}, Percentage: ${examPercentage}, ExamGrade: ${examGrade}`);
-        }
-      } else {
-        console.log('LECTURE+LAB Exam component not found or empty');
-      }
-      break;
-
-    case 'MAJOR':
-      // MAJOR: Class Standing 70% (Quiz 15% + Lab 40% + OLO 15%), Exam 30%
-      let majorQuizGrade = 0, majorLabGrade = 0, majorOloGrade = 0;
-
-      // Quiz component (15% of total grade)
-      const majorQuizComponents = gradesByComponent.quiz || [];
-      if (majorQuizComponents.length > 0) {
-        const validQuizzes = majorQuizComponents.filter((q: any) => q.Score !== null && q.Score !== undefined);
-        if (validQuizzes.length > 0) {
-          const totalQuizScore = validQuizzes.reduce((sum: number, q: any) => sum + (parseFloat(q.Score) || 0), 0);
-          const totalQuizMaxScore = validQuizzes.reduce((sum: number, q: any) => sum + (parseFloat(q.MaxScore) || 0), 0);
-          if (totalQuizMaxScore > 0) {
-            const quizPercentage = (totalQuizScore / totalQuizMaxScore) * 100;
-            majorQuizGrade = quizPercentage * 0.15; // 15% weight
-            hasValidGrades = true;
-            console.log(`MAJOR Quiz calculation: ${totalQuizScore}/${totalQuizMaxScore} = ${quizPercentage}% × 0.15 = ${majorQuizGrade}`);
-          }
-        }
-      }
-
-      // Lab component (40% of total grade)
-      const majorLabComponents = gradesByComponent.laboratory || [];
-      if (majorLabComponents.length > 0) {
-        const validLabs = majorLabComponents.filter((l: any) => l.Score !== null && l.Score !== undefined);
-        if (validLabs.length > 0) {
-          const totalLabScore = validLabs.reduce((sum: number, l: any) => sum + (parseFloat(l.Score) || 0), 0);
-          const totalLabMaxScore = validLabs.reduce((sum: number, l: any) => sum + (parseFloat(l.MaxScore) || 0), 0);
-          if (totalLabMaxScore > 0) {
-            const labPercentage = (totalLabScore / totalLabMaxScore) * 100;
-            majorLabGrade = labPercentage * 0.4; // 40% weight
-            hasValidGrades = true;
-            console.log(`MAJOR Lab calculation: ${totalLabScore}/${totalLabMaxScore} = ${labPercentage}% × 0.4 = ${majorLabGrade}`);
-          } else if (totalLabMaxScore === 0) {
-            // If total max score is 0, consider it as 100% (perfect)
-            const labPercentage = 100;
-            majorLabGrade = labPercentage * 0.4; // 40% weight
-            hasValidGrades = true;
-            console.log(`MAJOR Lab calculation: ${totalLabScore}/0 = 100% (Auto-perfect) × 0.4 = ${majorLabGrade}`);
-          }
-        }
-      }
-
-      // OLO component (15% of total grade)
-      const majorOloComponents = gradesByComponent.olo || [];
-      if (majorOloComponents.length > 0) {
-        const validOlos = majorOloComponents.filter((o: any) => o.Score !== null && o.Score !== undefined);
-        if (validOlos.length > 0) {
-          const totalOloScore = validOlos.reduce((sum: number, o: any) => sum + (parseFloat(o.Score) || 0), 0);
-          const totalOloMaxScore = validOlos.reduce((sum: number, o: any) => sum + (parseFloat(o.MaxScore) || 0), 0);
-          if (totalOloMaxScore > 0) {
-            const oloPercentage = (totalOloScore / totalOloMaxScore) * 100;
-            majorOloGrade = oloPercentage * 0.15; // 15% weight
-            hasValidGrades = true;
-            console.log(`MAJOR OLO calculation: ${totalOloScore}/${totalOloMaxScore} = ${oloPercentage}% × 0.15 = ${majorOloGrade}`);
-          }
-        }
-      }
-
-      // Class Standing = Quiz (15%) + Lab (40%) + OLO (15%) = 70% total
-      classStanding = majorQuizGrade + majorLabGrade + majorOloGrade;
-      console.log(`MAJOR Class Standing total: ${majorQuizGrade} + ${majorLabGrade} + ${majorOloGrade} = ${classStanding}`);
-
-      // Exam is 30% of total grade
-      const majorExamComponents = gradesByComponent.exam || [];
-      if (majorExamComponents.length > 0) {
-        const validExam = majorExamComponents.find((e: any) => e.Score !== null && e.Score !== undefined);
-        if (validExam) {
-          const examPercentage = (parseFloat(validExam.Score) || 0) / (parseFloat(validExam.MaxScore) || 60) * 100;
-          examGrade = examPercentage * 0.3; // 30% weight
-          hasValidGrades = true;
-          console.log(`MAJOR Exam calculation: ${validExam.Score}/${validExam.MaxScore} = ${examPercentage}% × 0.3 = ${examGrade}`);
-        }
-      }
-      break;
-
-    case 'NSTP':
-      // NSTP: Same grading system percentage with lecture
-      // Class Standing 60% (Quizzes 60%), Exam 40%
-      let nstpQuizGrade = 0;
-
-      // Quiz component (60% of total grade)
-      const nstpQuizComponents = gradesByComponent.quiz || [];
-      if (nstpQuizComponents.length > 0) {
-        const validQuizzes = nstpQuizComponents.filter((q: any) => q.Score !== null && q.Score !== undefined);
-        if (validQuizzes.length > 0) {
-          const totalQuizScore = validQuizzes.reduce((sum: number, q: any) => sum + (parseFloat(q.Score) || 0), 0);
-          const totalQuizMaxScore = validQuizzes.reduce((sum: number, q: any) => sum + (parseFloat(q.MaxScore) || 0), 0);
-          if (totalQuizMaxScore > 0) {
-            const quizPercentage = (totalQuizScore / totalQuizMaxScore) * 100;
-            nstpQuizGrade = quizPercentage * 0.6; // 60% weight
-            hasValidGrades = true;
-          }
-        }
-      }
-
-      // Class Standing = Quiz (60%) = 60% total
-      classStanding = nstpQuizGrade;
-
-      // Exam is 40% of total grade
-      const nstpExamComponents = gradesByComponent.exam || [];
-      if (nstpExamComponents.length > 0) {
-        const validExam = nstpExamComponents.find((e: any) => e.Score !== null && e.Score !== undefined);
-        if (validExam) {
-          const examPercentage = (parseFloat(validExam.Score) || 0) / (parseFloat(validExam.MaxScore) || 60) * 100;
-          examGrade = examPercentage * 0.4; // 40% weight
-          hasValidGrades = true;
-        }
-      }
-      break;
-
-    case 'OJT':
-      // OJT: Online Course 50%, Recitation 20%, Seatwork 30%
-      let ojtOnlineCourseGrade = 0, ojtRecitationGrade = 0, ojtSeatworkGrade = 0;
-
-      // Online Course component (50% of total grade)
-      const ojtOnlineCourseComponents = gradesByComponent['online course'] || [];
-      if (ojtOnlineCourseComponents.length > 0) {
-        const validOnlineCourses = ojtOnlineCourseComponents.filter((oc: any) => oc.Score !== null && oc.Score !== undefined);
-        if (validOnlineCourses.length > 0) {
-          const totalOnlineCourseScore = validOnlineCourses.reduce((sum: number, oc: any) => sum + (parseFloat(oc.Score) || 0), 0);
-          const totalOnlineCourseMaxScore = validOnlineCourses.reduce((sum: number, oc: any) => sum + (parseFloat(oc.MaxScore) || 0), 0);
-          if (totalOnlineCourseMaxScore > 0) {
-            const onlineCoursePercentage = (totalOnlineCourseScore / totalOnlineCourseMaxScore) * 100;
-            ojtOnlineCourseGrade = onlineCoursePercentage * 0.5; // 50% weight
-            hasValidGrades = true;
-          }
-        }
-      }
-
-      // Recitation component (20% of total grade)
-      const ojtRecitationComponents = gradesByComponent.recitation || [];
-      if (ojtRecitationComponents.length > 0) {
-        const validRecitations = ojtRecitationComponents.filter((r: any) => r.Score !== null && r.Score !== undefined);
-        if (validRecitations.length > 0) {
-          const totalRecitationScore = validRecitations.reduce((sum: number, r: any) => sum + (parseFloat(r.Score) || 0), 0);
-          const totalRecitationMaxScore = validRecitations.reduce((sum: number, r: any) => sum + (parseFloat(r.MaxScore) || 0), 0);
-          if (totalRecitationMaxScore > 0) {
-            const recitationPercentage = (totalRecitationScore / totalRecitationMaxScore) * 100;
-            ojtRecitationGrade = recitationPercentage * 0.2; // 20% weight
-            hasValidGrades = true;
-          }
-        }
-      }
-
-      // Seatwork component (30% of total grade)
-      const ojtSeatworkComponents = gradesByComponent.seatwork || [];
-      if (ojtSeatworkComponents.length > 0) {
-        const validSeatworks = ojtSeatworkComponents.filter((s: any) => s.Score !== null && s.Score !== undefined);
-        if (validSeatworks.length > 0) {
-          const totalSeatworkScore = validSeatworks.reduce((sum: number, s: any) => sum + (parseFloat(s.Score) || 0), 0);
-          const totalSeatworkMaxScore = validSeatworks.reduce((sum: number, s: any) => sum + (parseFloat(s.MaxScore) || 0), 0);
-          if (totalSeatworkMaxScore > 0) {
-            const seatworkPercentage = (totalSeatworkScore / totalSeatworkMaxScore) * 100;
-            ojtSeatworkGrade = seatworkPercentage * 0.3; // 30% weight
-            hasValidGrades = true;
-          }
-        }
-      }
-
-      // Class Standing = Online Course (50%) + Recitation (20%) + Seatwork (30%) = 100% total
-      classStanding = ojtOnlineCourseGrade + ojtRecitationGrade + ojtSeatworkGrade;
-      examGrade = 0; // OJT doesn't have exams
-      break;
-
-    default:
-      // Default to LECTURE calculation: Class Standing 60% (Quizzes 60%), Exam 40%
-      let defaultQuizGrade = 0;
-
-      // Quiz component (60% of total grade)
-      if ((gradesByComponent.Quiz || gradesByComponent.quiz) && (gradesByComponent.Quiz || gradesByComponent.quiz).length > 0) {
-        const quizComponents = gradesByComponent.Quiz || gradesByComponent.quiz;
-        const validQuizzes = quizComponents.filter((q: any) => q.Score !== null && q.Score !== undefined);
-        if (validQuizzes.length > 0) {
-          const totalQuizScore = validQuizzes.reduce((sum: number, q: any) => sum + (parseFloat(q.Score) || 0), 0);
-          const totalQuizMaxScore = validQuizzes.reduce((sum: number, q: any) => sum + (parseFloat(q.MaxScore) || 0), 0);
-          if (totalQuizMaxScore > 0) {
-            const quizPercentage = (totalQuizScore / totalQuizMaxScore) * 100;
-            defaultQuizGrade = quizPercentage * 0.6; // 60% weight
-            hasValidGrades = true;
-          }
-        }
-      }
-
-      // Class Standing = Quiz (60%) = 60% total
-      classStanding = defaultQuizGrade;
-
-      // Major Exam is 40% of total grade
-      const defaultExamComponents = gradesByComponent['Major Exam'] || gradesByComponent['major exam'] || gradesByComponent.Exam || gradesByComponent.exam || [];
-      if (defaultExamComponents.length > 0) {
-        const validExam = defaultExamComponents.find((e: any) => e.Score !== null && e.Score !== undefined);
-        if (validExam) {
-          const examPercentage = (parseFloat(validExam.Score) || 0) / (parseFloat(validExam.MaxScore) || 60) * 100;
-          examGrade = examPercentage * 0.4; // 40% weight
-          hasValidGrades = true;
-        }
-      }
-      break;
+  // Select weight configuration
+  // Handle "Laboratory" class type alias -> LECTURE+LAB or MAJOR? Usually "Laboratory" subject implies lab focus.
+  // But standard mapping in this system seems to be LECTURE, LECTURE+LAB, MAJOR.
+  // If exact match fails, try simple fallbacks.
+  let activeWeights = WEIGHTS[normalizedClassType];
+  if (!activeWeights) {
+    if (normalizedClassType.includes('LAB')) activeWeights = WEIGHTS['LECTURE+LAB'];
+    else if (normalizedClassType.includes('CISCO')) activeWeights = WEIGHTS['CISCO'];
+    else if (normalizedClassType.includes('THESIS')) activeWeights = WEIGHTS['THESIS'];
+    else activeWeights = WEIGHTS['LECTURE'];
   }
 
-  const finalGrade = classStanding + examGrade;
-  console.log(`Term calculation result - ClassStanding: ${classStanding}, ExamGrade: ${examGrade}, Final: ${finalGrade}`);
+  let totalWeightedScore = 0;
+  let totalWeightUsed = 0;
+  let hasActiveComponents = false;
+
+  // Calculate grade based on ACTIVE components only
+  Object.keys(gradesByComponent).forEach(component => {
+    const componentGrades = gradesByComponent[component];
+    const weight = activeWeights[component] || 0;
+
+    // If this component isn't in our weight map, we ignore it (or should we count it?)
+    // For safety, only count configured weighted components.
+    if (weight > 0 && componentGrades.length > 0) {
+      // Calculate active score for this component
+      let currentTotalScore = 0;
+      let currentTotalMaxScore = 0;
+
+      componentGrades.forEach((g: any) => {
+        const score = parseFloat(g.Score) || 0;
+        const max = parseFloat(g.MaxScore) || 0;
+        if (max > 0) {
+          currentTotalScore += score;
+          currentTotalMaxScore += max;
+        }
+      });
+
+      if (currentTotalMaxScore > 0) {
+        const componentPercentage = (currentTotalScore / currentTotalMaxScore) * 100;
+        totalWeightedScore += componentPercentage * (weight / 100);
+        totalWeightUsed += weight;
+        hasActiveComponents = true;
+      }
+    }
+  });
+
+  // Calculate final percentage
+  // If totalWeightUsed is < 100 (because some components like Exam are missing/inactive),
+  // we re-normalize the score to be out of the used weight.
+  // e.g., if only Quiz (60%) is active and score is perfect, weighted score is 60. 
+  // Final % = 60 / 60 * 100 = 100%.
+
+  if (!hasActiveComponents || totalWeightUsed === 0) {
+    return {
+      grade: null,
+      percentage: null,
+      classStanding: 0,
+      examGrade: 0
+    };
+  }
+
+  const finalPercentage = (totalWeightedScore / (totalWeightUsed / 100));
+
+  // Note: classStanding and examGrade are partial sums. 
+  // To correspond to the "Dynamic" logic, we should probably return the unified finalPercentage.
+  // The UI might expect separated fields, but for "Running Grade" calculation, the single percentage is truth.
 
   // Convert percentage to Filipino grading system (1.0-5.0)
-  const filipinoGrade = hasValidGrades ? convertToFilipinoGrade(finalGrade) : null;
-  console.log(`Converted to Filipino grade: ${filipinoGrade}`);
+  const filipinoGrade = convertToFilipinoGrade(finalPercentage);
 
   return {
     grade: filipinoGrade,
-    percentage: hasValidGrades ? finalGrade : null,
-    classStanding,
-    examGrade
+    percentage: finalPercentage,
+    // We can approximate these splits for UI if needed, or just set them proportional
+    classStanding: 0, // Legacy field
+    examGrade: 0      // Legacy field
   };
 }
 

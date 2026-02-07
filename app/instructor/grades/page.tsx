@@ -638,12 +638,12 @@ function InstructorGradesContent() {
       const response = await fetch(`/api/grades?scheduleId=${scheduleId}&role=instructor`, {
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         console.error(`HTTP error! status: ${response.status} for schedule ${scheduleId}`);
         return;
       }
-      
+
       const data = await response.json();
       console.log(`Grade data for schedule ${scheduleId}:`, data);
 
@@ -651,16 +651,16 @@ function InstructorGradesContent() {
         console.log(`Found calculated grades for schedule ${scheduleId}:`, data.summary);
         console.log(`Summary keys:`, Object.keys(data.summary));
         console.log(`Schedule ${scheduleId} in summary:`, data.summary[scheduleId]);
-        
+
         // Check if we have summary data for this schedule
         const scheduleSummary = data.summary[scheduleId];
         if (scheduleSummary) {
           console.log(`Using API summary data for schedule ${scheduleId}:`, scheduleSummary);
-          
+
           // The API returns one summary per schedule, but we need to apply it to all students
           // Since this is the same subject/class for all students, we'll use the same grades
           const gradesMap: { [key: string]: any } = {};
-          
+
           students.forEach((student: any) => {
             const studentId = student.StudentID;
             gradesMap[studentId] = {
@@ -672,26 +672,26 @@ function InstructorGradesContent() {
               summaryPercentage: scheduleSummary.summaryPercentage
             };
           });
-          
+
           console.log('Final calculated grades map from API:', gradesMap);
           setCalculatedGrades(gradesMap);
         } else {
           console.log(`No summary data found for schedule ${scheduleId}, calculating locally...`);
-          
+
           // Fallback to local calculation if API summary is not available
           const gradesMap: { [key: string]: any } = {};
-          
+
           // The API returns summary grouped by scheduleId, but we need it by studentId
           // We need to extract individual student grades from the raw data
           const studentGradesMap: { [key: string]: { midterm: any[], final: any[] } } = {};
-          
+
           // Group grades by student first
           data.data.forEach((grade: any) => {
             const studentId = grade.StudentID;
             if (!studentGradesMap[studentId]) {
               studentGradesMap[studentId] = { midterm: [], final: [] };
             }
-            
+
             const termKey = (grade.Term || '').toLowerCase();
             if (termKey === 'midterm') {
               studentGradesMap[studentId].midterm.push(grade);
@@ -699,28 +699,44 @@ function InstructorGradesContent() {
               studentGradesMap[studentId].final.push(grade);
             }
           });
-          
+
           // Now calculate grades for each student
+          // Determine "Active Items": Items where AT LEAST ONE student has a score > 0
+          const activeItems = new Set<string>();
+          data.data.forEach((g: any) => {
+            if (g.Score !== null && parseFloat(g.Score) > 0) {
+              const key = `${g.Term}-${g.Component}-${g.ItemNumber}`.toLowerCase();
+              activeItems.add(key);
+            }
+          });
+
+          const filterActive = (grades: any[]) => {
+            return grades.filter((g: any) => {
+              const key = `${g.Term}-${g.Component}-${g.ItemNumber}`.toLowerCase();
+              return activeItems.has(key);
+            });
+          };
+
           students.forEach((student: any) => {
             const studentId = student.StudentID;
             const studentGrades = studentGradesMap[studentId];
-            
+
             if (studentGrades) {
-              const midtermResult = calculateTermGradeLocal(studentGrades.midterm, schedule?.ClassType);
-              const finalResult = calculateTermGradeLocal(studentGrades.final, schedule?.ClassType);
-              
+              const midtermResult = calculateTermGradeLocal(filterActive(studentGrades.midterm), schedule?.ClassType);
+              const finalResult = calculateTermGradeLocal(filterActive(studentGrades.final), schedule?.ClassType);
+
               gradesMap[studentId] = {
                 midterm: midtermResult?.grade || null,
                 final: finalResult?.grade || null,
-                summary: (midtermResult?.grade !== null && midtermResult?.grade !== undefined && finalResult?.grade !== null && finalResult?.grade !== undefined) 
-                  ? (midtermResult.grade + finalResult.grade) / 2 
+                summary: (midtermResult?.grade !== null && midtermResult?.grade !== undefined && finalResult?.grade !== null && finalResult?.grade !== undefined)
+                  ? (midtermResult.grade + finalResult.grade) / 2
                   : null
               };
             } else {
               gradesMap[studentId] = { midterm: null, final: null, summary: null };
             }
           });
-          
+
           console.log('Final calculated grades map (local calculation):', gradesMap);
           setCalculatedGrades(gradesMap);
         }
@@ -742,7 +758,7 @@ function InstructorGradesContent() {
         const response = await fetch(`/api/grades?role=student&userId=${student.StudentID}`, {
           credentials: 'include'
         });
-        
+
         if (!response.ok) {
           console.error(`HTTP error! status: ${response.status} for student ${student.StudentID}`);
           return {
@@ -750,7 +766,7 @@ function InstructorGradesContent() {
             grades: { midterm: null, final: null, summary: null }
           };
         }
-        
+
         const data = await response.json();
 
         if (data.success && data.summary && scheduleId && data.summary[scheduleId]) {
@@ -759,7 +775,7 @@ function InstructorGradesContent() {
             grades: data.summary[scheduleId]
           };
         }
-        
+
         return {
           studentId: student.StudentID,
           grades: { midterm: null, final: null, summary: null }
@@ -831,6 +847,22 @@ function InstructorGradesContent() {
       return componentMap[lower] || lower;
     };
 
+    // Determine "Active Items": Items where AT LEAST ONE student has a score > 0
+    // This requires access to the full `grades` state, not just `termGrades` (which is for one student)
+    // We will pass the full `grades` to this function or derive valid items differently.
+    // Since we can't easily change the signature without breaking things, we'll try to use a heuristic:
+    // We really should filter at the *source* before calling this, but `calculateStudentGrade` calls this per student.
+
+    // BETTER APPROACH: Calculate active items ONCE at component level and pass it down, 
+    // or just implement a simplified version here if we can't see other students' grades.
+
+    // However, `termGrades` is just ONE student's grades. We cannot know if "Active Item" logic applies based on one student.
+    // BUT! `calculateTermGradeLocal` is called inside `fetchCalculatedGrades` loop.
+    // We should refactor `fetchCalculatedGrades` to do the filtering!
+
+    // Let's assume for this local helper, we process what we get.
+    // The filtering should happen BEFORE calling this function.
+
     // Get component weights based on class type
     const getComponentWeights = (classType: string) => {
       const weights: { [key: string]: { [key: string]: number } } = {
@@ -862,10 +894,26 @@ function InstructorGradesContent() {
           'online course': 50,
           'recitation': 20,
           'seatwork': 30
+        },
+        'CISCO': {
+          'quiz': 15,
+          'laboratory': 40,
+          'olo': 15,
+          'major exam': 30
+        },
+        'THESIS': {
+          'thesis': 100,
+          'thesis defense': 100,
+          'project': 100
         }
       };
 
-      return weights[classType] || weights['LECTURE'];
+      if (weights[classType]) return weights[classType];
+      if (classType.includes('CISCO')) return weights['CISCO'];
+      if (classType.includes('THESIS')) return weights['THESIS'];
+      if (classType.includes('LAB')) return weights['LECTURE+LAB'];
+
+      return weights['LECTURE'];
     };
 
     const componentWeights = getComponentWeights(normalizedClassType);
@@ -896,8 +944,12 @@ function InstructorGradesContent() {
       grades.forEach((grade: any) => {
         const score = parseFloat(grade.Score) || 0;
         const max = parseFloat(grade.MaxScore) || 0;
-        currentTotalScore += score;
-        currentTotalMaxScore += max;
+
+        // Only count if MaxScore > 0 to avoid division by zero errors generally
+        if (max > 0) {
+          currentTotalScore += score;
+          currentTotalMaxScore += max;
+        }
       });
 
       // Calculate percentage for this component
@@ -1120,7 +1172,9 @@ function InstructorGradesContent() {
                       ))
                     )) || []}
                     <th className="border border-gray-300 p-3 text-center font-semibold bg-blue-50 min-w-[100px]">
-                      <div className="text-sm font-bold">Final Grade</div>
+                      <div className="text-sm font-bold">
+                        {selectedTerm.charAt(0).toUpperCase() + selectedTerm.slice(1)} Grade
+                      </div>
                     </th>
                   </tr>
 
@@ -1337,10 +1391,10 @@ function InstructorGradesContent() {
                       if (studentsWithCompleteGrades.length === 0) return 'N/A';
 
                       const average = studentsWithCompleteGrades.reduce((sum, student) => {
-                      const midterm = calculateStudentGrade(student.StudentID, 'midterm');
-                      const final = calculateStudentGrade(student.StudentID, 'final');
-                      return midterm !== null && final !== null ? sum + ((midterm + final) / 2) : sum;
-                    }, 0) / studentsWithCompleteGrades.length;
+                        const midterm = calculateStudentGrade(student.StudentID, 'midterm');
+                        const final = calculateStudentGrade(student.StudentID, 'final');
+                        return midterm !== null && final !== null ? sum + ((midterm + final) / 2) : sum;
+                      }, 0) / studentsWithCompleteGrades.length;
 
                       return average.toFixed(2);
                     })()}
