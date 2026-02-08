@@ -19,12 +19,17 @@ interface DashboardStats {
   totalCourses: number;
   totalSubjects: number;
   averageAttendance: number;
+  passRate: number;
+  failRate: number;
+  atRiskStudents: number;
+  averageGrade: number;
 }
 
 interface CourseData {
   name: string;
   students: number;
   attendance: number;
+  passRate?: number;
 }
 
 interface AttendanceData {
@@ -35,6 +40,26 @@ interface AttendanceData {
 interface GradeDistribution {
   grade: string;
   range: string;
+  count: number;
+  percentage: number;
+  [key: string]: string | number; // Index signature for recharts compatibility
+}
+
+interface SubjectPerformance {
+  name: string;
+  averageGrade: number;
+  passRate: number;
+  students: number;
+}
+
+interface SubjectEnrollment {
+  name: string;
+  students: number;
+  sections: number;
+}
+
+interface AttendanceStatus {
+  status: string;
   count: number;
   percentage: number;
   [key: string]: string | number; // Index signature for recharts compatibility
@@ -54,12 +79,19 @@ export default function DeanAnalyticsPage() {
     totalStudents: 0,
     totalCourses: 0,
     totalSubjects: 0,
-    averageAttendance: 0
+    averageAttendance: 0,
+    passRate: 0,
+    failRate: 0,
+    atRiskStudents: 0,
+    averageGrade: 0
   });
   
   const [courseData, setCourseData] = useState<CourseData[]>([]);
   const [attendanceData, setAttendanceData] = useState<AttendanceData[]>([]);
   const [gradeDistribution, setGradeDistribution] = useState<GradeDistribution[]>([]);
+  const [subjectPerformance, setSubjectPerformance] = useState<SubjectPerformance[]>([]);
+  const [subjectEnrollment, setSubjectEnrollment] = useState<SubjectEnrollment[]>([]);
+  const [attendanceStatus, setAttendanceStatus] = useState<AttendanceStatus[]>([]);
   const [schoolYears, setSchoolYears] = useState<string[]>([]);
   const [yearLevels, setYearLevels] = useState<number[]>([]);
 
@@ -91,7 +123,10 @@ export default function DeanAnalyticsPage() {
         fetchDashboardStats(),
         fetchCourseData(),
         fetchAttendanceData(),
-        fetchGradeDistribution()
+        fetchGradeDistribution(),
+        fetchSubjectPerformance(),
+        fetchSubjectEnrollment(),
+        fetchAttendanceStatus()
       ]);
     } catch (error) {
       console.error("Error fetching analytics:", error);
@@ -122,13 +157,23 @@ export default function DeanAnalyticsPage() {
       // Calculate stats from the filtered data
       let totalStudents = 0;
       let totalAttendanceSum = 0;
+      let totalPassRate = 0;
+      let totalFailRate = 0;
       let courseCount = 0;
+      let atRiskCount = 0;
 
       if (coursesData.success && Array.isArray(coursesData.data)) {
         coursesData.data.forEach((course: any) => {
           totalStudents += course.totalStudents || 0;
           totalAttendanceSum += (course.averageAttendance || 0) * (course.totalStudents || 0);
+          totalPassRate += course.passRate || 0;
+          totalFailRate += (100 - (course.passRate || 0));
           courseCount++;
+          
+          // Students with attendance < 75% or pass rate < 50% are at risk
+          if (course.averageAttendance < 75 || course.passRate < 50) {
+            atRiskCount += course.totalStudents || 0;
+          }
         });
       }
 
@@ -137,11 +182,32 @@ export default function DeanAnalyticsPage() {
         ? totalAttendanceSum / totalStudents 
         : 0;
 
+      // Calculate average pass/fail rates
+      const avgPassRate = courseCount > 0 ? totalPassRate / courseCount : 0;
+      const avgFailRate = courseCount > 0 ? totalFailRate / courseCount : 0;
+
+      // Calculate average grade from subjects
+      let totalGradeSum = 0;
+      let subjectCount = 0;
+      if (subjectsData.success && Array.isArray(subjectsData.data)) {
+        subjectsData.data.forEach((subject: any) => {
+          if (subject.averageGrade > 0) {
+            totalGradeSum += subject.averageGrade;
+            subjectCount++;
+          }
+        });
+      }
+      const averageGrade = subjectCount > 0 ? totalGradeSum / subjectCount : 0;
+
       setDashboardStats({
         totalStudents: totalStudents,
         totalCourses: coursesData.success ? coursesData.data.length : 0,
         totalSubjects: subjectsData.success ? subjectsData.data.length : 0,
-        averageAttendance: Math.round(averageAttendance * 10) / 10
+        averageAttendance: Math.round(averageAttendance * 10) / 10,
+        passRate: Math.round(avgPassRate * 10) / 10,
+        failRate: Math.round(avgFailRate * 10) / 10,
+        atRiskStudents: atRiskCount,
+        averageGrade: Math.round(averageGrade * 100) / 100
       });
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -150,7 +216,11 @@ export default function DeanAnalyticsPage() {
         totalStudents: 0,
         totalCourses: 0,
         totalSubjects: 0,
-        averageAttendance: 0
+        averageAttendance: 0,
+        passRate: 0,
+        failRate: 0,
+        atRiskStudents: 0,
+        averageGrade: 0
       });
     }
   };
@@ -169,12 +239,42 @@ export default function DeanAnalyticsPage() {
         const courseData = data.data.map((course: any) => ({
           name: course.courseCode,
           students: course.totalStudents,
-          attendance: course.averageAttendance
+          attendance: course.averageAttendance,
+          passRate: course.passRate
         }));
         setCourseData(courseData);
       }
     } catch (error) {
       console.error("Error fetching course data:", error);
+    }
+  };
+
+  const fetchSubjectPerformance = async () => {
+    try {
+      const params = new URLSearchParams({
+        schoolYear,
+        semester,
+        ...(yearLevel !== 'all' && { yearLevel })
+      });
+      
+      const response = await fetch(`/api/dean/subjects-analytics?${params}`);
+      const data = await response.json();
+      if (data.success) {
+        const subjectData = data.data
+          .filter((subject: any) => subject.totalStudents > 0)
+          .map((subject: any) => ({
+            name: subject.subjectCode,
+            averageGrade: subject.averageGrade || 0,
+            passRate: subject.averageGrade <= 3.0 ? 100 : 0, // Simplified pass rate based on average
+            students: subject.totalStudents
+          }))
+          .sort((a: any, b: any) => b.passRate - a.passRate)
+          .slice(0, 10); // Top 10 subjects
+        
+        setSubjectPerformance(subjectData);
+      }
+    } catch (error) {
+      console.error("Error fetching subject performance:", error);
     }
   };
 
@@ -223,6 +323,78 @@ export default function DeanAnalyticsPage() {
       console.error("Error fetching grade distribution:", error);
       // Set empty data on error
       setGradeDistribution([]);
+    }
+  };
+
+  const fetchSubjectEnrollment = async () => {
+    try {
+      const params = new URLSearchParams({
+        schoolYear,
+        semester,
+        ...(yearLevel !== 'all' && { yearLevel })
+      });
+      
+      const response = await fetch(`/api/dean/subjects-analytics?${params}`);
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        const subjectData = data.data
+          .filter((subject: any) => subject.totalStudents > 0)
+          .map((subject: any) => ({
+            name: subject.subjectCode,
+            students: subject.totalStudents,
+            sections: subject.totalSchedules || 1
+          }))
+          .sort((a: any, b: any) => b.students - a.students)
+          .slice(0, 15); // Top 15 subjects by enrollment
+        
+        setSubjectEnrollment(subjectData);
+      } else {
+        setSubjectEnrollment([]);
+      }
+    } catch (error) {
+      console.error("Error fetching subject enrollment:", error);
+      setSubjectEnrollment([]);
+    }
+  };
+
+  const fetchAttendanceStatus = async () => {
+    try {
+      const params = new URLSearchParams({
+        schoolYear,
+        semester,
+        ...(yearLevel !== 'all' && { yearLevel })
+      });
+      
+      const response = await fetch(`/api/dean/attendance-overview?${params}`);
+      const data = await response.json();
+      
+      if (data.success && data.data && data.data.attendanceByStatus) {
+        // Extract attendance status from the API response
+        const statusData = data.data.attendanceByStatus;
+        
+        // Convert to array format for charts
+        const statusArray = [
+          { status: 'Present', count: statusData.present || 0 },
+          { status: 'Absent', count: statusData.absent || 0 },
+          { status: 'Late', count: statusData.late || 0 },
+          { status: 'Excused', count: statusData.excused || 0 }
+        ].filter(item => item.count > 0); // Only show statuses with data
+
+        const total = statusArray.reduce((sum, item) => sum + item.count, 0);
+        
+        const statusWithPercentage = statusArray.map(item => ({
+          ...item,
+          percentage: total > 0 ? Math.round((item.count / total) * 100 * 10) / 10 : 0
+        }));
+
+        setAttendanceStatus(statusWithPercentage);
+      } else {
+        setAttendanceStatus([]);
+      }
+    } catch (error) {
+      console.error("Error fetching attendance status:", error);
+      setAttendanceStatus([]);
     }
   };
 
@@ -379,6 +551,61 @@ export default function DeanAnalyticsPage() {
         </Card>
       </div>
 
+      {/* Additional Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pass Rate</p>
+                <p className="text-3xl font-bold text-green-600">{dashboardStats.passRate}%</p>
+                <p className="text-xs text-gray-500 mt-1">Average across courses</p>
+              </div>
+              <Target className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Fail Rate</p>
+                <p className="text-3xl font-bold text-red-600">{dashboardStats.failRate}%</p>
+                <p className="text-xs text-gray-500 mt-1">Average across courses</p>
+              </div>
+              <Target className="h-8 w-8 text-red-600" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">At-Risk Students</p>
+                <p className="text-3xl font-bold text-yellow-600">{dashboardStats.atRiskStudents}</p>
+                <p className="text-xs text-gray-500 mt-1">Low attendance or grades</p>
+              </div>
+              <Users className="h-8 w-8 text-yellow-600" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Avg Grade</p>
+                <p className="text-3xl font-bold text-indigo-600">{dashboardStats.averageGrade.toFixed(2)}</p>
+                <p className="text-xs text-gray-500 mt-1">Overall performance</p>
+              </div>
+              <GraduationCap className="h-8 w-8 text-indigo-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Course Enrollment Chart */}
@@ -521,6 +748,239 @@ export default function DeanAnalyticsPage() {
                 <div className="text-center">
                   <Activity className="h-12 w-12 mx-auto mb-2 text-gray-400" />
                   <p>No attendance data available</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Subject Performance */}
+      {subjectPerformance.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Performing Subjects</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={subjectPerformance} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" domain={[0, 100]} />
+                <YAxis dataKey="name" type="category" width={100} />
+                <Tooltip 
+                  formatter={(value: any, name: any) => {
+                    if (name === 'averageGrade') return [value.toFixed(2), 'Avg Grade'];
+                    if (name === 'passRate') return [`${value}%`, 'Pass Rate'];
+                    return [value, name];
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="passRate" fill="#10B981" name="Pass Rate %" />
+                <Bar dataKey="students" fill="#3B82F6" name="Students" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Subject Enrollment and Average Grades */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Subject Enrollment Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Subject Enrollment Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {subjectEnrollment.length > 0 ? (
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={subjectEnrollment}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                  <YAxis />
+                  <Tooltip 
+                    formatter={(value: any, name: any) => {
+                      if (name === 'students') return [value, 'Students'];
+                      if (name === 'sections') return [value, 'Sections'];
+                      return [value, name];
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="students" fill="#8B5CF6" name="Students" />
+                  <Bar dataKey="sections" fill="#F59E0B" name="Sections" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[400px] flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <BookOpen className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                  <p>No subject enrollment data available</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Subject Average Grades Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Subject Average Grades</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {subjectPerformance.length > 0 ? (
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={subjectPerformance}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                  <YAxis domain={[0, 5]} />
+                  <Tooltip 
+                    formatter={(value: any, name: any) => {
+                      if (name === 'averageGrade') return [value.toFixed(2), 'Average Grade'];
+                      return [value, name];
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="averageGrade" fill="#3B82F6" name="Average Grade">
+                    {subjectPerformance.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.averageGrade <= 3.0 ? '#10B981' : '#EF4444'} 
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[400px] flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <Target className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                  <p>No subject grade data available</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Attendance Status Distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Attendance Status Pie Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Attendance Status Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {attendanceStatus.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={attendanceStatus}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={({ status, percentage }) => `${status}: ${percentage}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="count"
+                    >
+                      {attendanceStatus.map((entry, index) => {
+                        const colorMap: { [key: string]: string } = {
+                          'Present': '#10B981',
+                          'Absent': '#EF4444',
+                          'Late': '#F59E0B',
+                          'Excused': '#3B82F6'
+                        };
+                        return (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={colorMap[entry.status] || COLORS[index % COLORS.length]} 
+                          />
+                        );
+                      })}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: any, name: any, props: any) => [
+                        `${value} records (${props.payload.percentage}%)`,
+                        props.payload.status
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {attendanceStatus.map((item, index) => {
+                    const colorMap: { [key: string]: string } = {
+                      'Present': '#10B981',
+                      'Absent': '#EF4444',
+                      'Late': '#F59E0B',
+                      'Excused': '#3B82F6'
+                    };
+                    return (
+                      <div key={index} className="flex items-center gap-2">
+                        <div 
+                          className="w-4 h-4 rounded" 
+                          style={{ backgroundColor: colorMap[item.status] || COLORS[index % COLORS.length] }}
+                        />
+                        <span className="text-sm text-gray-700">
+                          {item.status}: {item.count} ({item.percentage}%)
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <Activity className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                  <p>No attendance status data available</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Attendance Status Bar Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Attendance Records by Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {attendanceStatus.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={attendanceStatus}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="status" />
+                  <YAxis />
+                  <Tooltip 
+                    formatter={(value: any, name: any, props: any) => [
+                      `${value} records (${props.payload.percentage}%)`,
+                      'Count'
+                    ]}
+                  />
+                  <Legend />
+                  <Bar dataKey="count" name="Records">
+                    {attendanceStatus.map((entry, index) => {
+                      const colorMap: { [key: string]: string } = {
+                        'Present': '#10B981',
+                        'Absent': '#EF4444',
+                        'Late': '#F59E0B',
+                        'Excused': '#3B82F6'
+                      };
+                      return (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={colorMap[entry.status] || COLORS[index % COLORS.length]} 
+                        />
+                      );
+                    })}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <Activity className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                  <p>No attendance status data available</p>
                 </div>
               </div>
             )}
