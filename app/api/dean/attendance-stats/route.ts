@@ -1,113 +1,65 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from "@/app/lib/db";
-
-interface AttendanceStats {
-  averageAttendance: number;
-  totalRecords: number;
-  presentRecords: number;
-  absentRecords: number;
-  excusedRecords: number;
-  lateRecords: number;
-  unmarkedRecords: number;
-}
 
 export async function GET(request: NextRequest) {
   try {
-    // Get overall attendance statistics
-    const [statsResult] = await db.execute(`
-      SELECT 
-        COUNT(*) as totalActualRecords,
-        COUNT(CASE WHEN Status = 'P' THEN 1 END) as presentRecords,
-        COUNT(CASE WHEN Status = 'A' THEN 1 END) as absentRecords,
-        COUNT(CASE WHEN Status = 'E' THEN 1 END) as excusedRecords,
-        COUNT(CASE WHEN Status = 'L' THEN 1 END) as lateRecords
-      FROM attendance
-      WHERE Status IN ('P', 'A', 'E', 'L')
-    `);
+    const { searchParams } = new URL(request.url);
+    const schoolYear = searchParams.get('schoolYear');
+    const semester = searchParams.get('semester');
+    const yearLevel = searchParams.get('yearLevel');
 
-    const stats = (statsResult as any[])[0];
+    // Build filter conditions
+    const conditions: string[] = [];
+    const params: any[] = [];
 
-    // Calculate expected attendance records
-    // For each enrollment, we expect attendance records for weeks 1-18 for both lecture and lab sessions
-    // However, we'll use a simpler approach: count distinct student-schedule combinations
-    const [expectedResult] = await db.execute(`
-      SELECT 
-        COUNT(DISTINCT CONCAT(e.StudentID, '-', e.ScheduleID)) as totalEnrollments
-      FROM enrollments e
-      WHERE e.Status = 'enrolled'
-    `);
-
-    const expectedStats = (expectedResult as any[])[0];
-    const totalEnrollments = expectedStats.totalEnrollments || 0;
-
-    // For a more accurate calculation, we need to know how many weeks/sessions have been conducted
-    // Let's get the maximum week number from attendance records
-    const [maxWeekResult] = await db.execute(`
-      SELECT COALESCE(MAX(Week), 0) as maxWeek
-      FROM attendance
-    `);
-
-    const maxWeek = (maxWeekResult as any[])[0]?.maxWeek || 0;
-
-    // Calculate expected records: enrollments × max week × 2 (lecture + lab sessions)
-    // This assumes each schedule can have both lecture and lab sessions
-    const expectedTotalRecords = totalEnrollments * maxWeek * 2;
-
-    // Unmarked = Expected records - Actual records taken
-    const actualRecordsTaken = stats.totalActualRecords || 0;
-    const unmarkedRecords = Math.max(0, expectedTotalRecords - actualRecordsTaken);
-
-    // Total records for percentage calculation includes both actual and unmarked
-    const totalRecords = actualRecordsTaken + unmarkedRecords;
-
-    // Calculate average attendance percentage
-    // Only Present (P), Excused (E), and Late (L) are considered "attended"
-    const attendedRecords = (stats.presentRecords || 0) + (stats.excusedRecords || 0) + (stats.lateRecords || 0);
-
-    // Calculate the actual average attendance based on data
-    let averageAttendance = 0;
-    if (totalRecords > 0) {
-      averageAttendance = (attendedRecords / totalRecords) * 100;
-
-      // Cap at 100%
-      if (averageAttendance > 100) {
-        console.warn(`Attendance calculation exceeded 100%: ${averageAttendance}%. Capping at 100%.`);
-        console.warn(`Debug: attendedRecords=${attendedRecords}, totalRecords=${totalRecords}`);
-        averageAttendance = 100;
-      }
-      if (averageAttendance < 0) {
-        averageAttendance = 0;
-      }
+    if (schoolYear && schoolYear !== 'all') {
+      conditions.push('sch.AcademicYear = ?');
+      params.push(schoolYear);
     }
 
-    const attendanceStats: AttendanceStats = {
-      averageAttendance: Math.round(averageAttendance * 10) / 10,
-      totalRecords: totalRecords,
-      presentRecords: stats.presentRecords || 0,
-      absentRecords: stats.absentRecords || 0,
-      excusedRecords: stats.excusedRecords || 0,
-      lateRecords: stats.lateRecords || 0,
-      unmarkedRecords: unmarkedRecords
-    };
+    if (semester) {
+      conditions.push('sch.Semester = ?');
+      params.push(semester);
+    }
+
+    if (yearLevel && yearLevel !== 'all') {
+      conditions.push('sch.YearLevel = ?');
+      params.push(parseInt(yearLevel));
+    }
+
+    const filterCondition = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    // Get attendance data grouped by month
+    const [attendanceResult] = await db.execute(`
+      SELECT 
+        DATE_FORMAT(a.Date, '%b') as month,
+        MONTH(a.Date) as monthNum,
+        ROUND(AVG(CASE WHEN a.Status = 'P' THEN 100 ELSE 0 END), 0) as attendance
+      FROM attendance a
+      JOIN schedules sch ON a.ScheduleID = sch.ScheduleID
+      ${filterCondition}
+      GROUP BY MONTH(a.Date), DATE_FORMAT(a.Date, '%b')
+      ORDER BY monthNum
+    `, params);
+
+    const data = (attendanceResult as any[]).map(row => ({
+      month: row.month,
+      attendance: row.attendance || 0
+    }));
 
     return NextResponse.json({
       success: true,
-      data: attendanceStats,
-      message: "Attendance statistics retrieved successfully"
+      data: data,
+      message: "Attendance stats retrieved successfully"
     });
 
   } catch (error: any) {
-    console.error("Error fetching attendance statistics:", error);
-    console.error("Error details:", {
-      message: error?.message,
-      code: error?.code,
-      sqlState: error?.sqlState,
-      sqlMessage: error?.sqlMessage
-    });
+    console.error('Error fetching attendance stats:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to fetch attendance statistics",
+      { 
+        success: false, 
+        error: 'Failed to fetch attendance stats',
+        data: [],
         details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       },
       { status: 500 }

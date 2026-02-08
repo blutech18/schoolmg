@@ -34,6 +34,7 @@ interface AttendanceData {
 
 interface GradeDistribution {
   grade: string;
+  range: string;
   count: number;
   percentage: number;
   [key: string]: string | number; // Index signature for recharts compatibility
@@ -46,6 +47,7 @@ export default function DeanAnalyticsPage() {
   // Filter states
   const [schoolYear, setSchoolYear] = useState('all');
   const [semester, setSemester] = useState('1st');
+  const [yearLevel, setYearLevel] = useState('all');
 
   // Data states
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
@@ -59,6 +61,7 @@ export default function DeanAnalyticsPage() {
   const [attendanceData, setAttendanceData] = useState<AttendanceData[]>([]);
   const [gradeDistribution, setGradeDistribution] = useState<GradeDistribution[]>([]);
   const [schoolYears, setSchoolYears] = useState<string[]>([]);
+  const [yearLevels, setYearLevels] = useState<number[]>([]);
 
   useEffect(() => {
     fetchSchoolYears();
@@ -66,7 +69,7 @@ export default function DeanAnalyticsPage() {
 
   useEffect(() => {
     fetchAllData();
-  }, [schoolYear, semester]);
+  }, [schoolYear, semester, yearLevel]);
 
   const fetchSchoolYears = async () => {
     try {
@@ -74,6 +77,7 @@ export default function DeanAnalyticsPage() {
       const data = await response.json();
       if (data.success) {
         setSchoolYears(data.data.schoolYears || []);
+        setYearLevels(data.data.yearLevels || []);
       }
     } catch (error) {
       console.error('Error fetching school years:', error);
@@ -99,10 +103,17 @@ export default function DeanAnalyticsPage() {
 
   const fetchDashboardStats = async () => {
     try {
+      // Build query parameters
+      const params = new URLSearchParams({
+        schoolYear,
+        semester,
+        ...(yearLevel !== 'all' && { yearLevel })
+      });
+
       // Fetch filtered course and subject data
       const [coursesRes, subjectsRes] = await Promise.all([
-        fetch(`/api/dean/courses-analytics?schoolYear=${schoolYear}&semester=${semester}`),
-        fetch(`/api/dean/subjects-analytics?schoolYear=${schoolYear}&semester=${semester}`)
+        fetch(`/api/dean/courses-analytics?${params}`),
+        fetch(`/api/dean/subjects-analytics?${params}`)
       ]);
 
       const coursesData = await coursesRes.json();
@@ -146,7 +157,13 @@ export default function DeanAnalyticsPage() {
 
   const fetchCourseData = async () => {
     try {
-      const response = await fetch(`/api/dean/courses-analytics?schoolYear=${schoolYear}&semester=${semester}`);
+      const params = new URLSearchParams({
+        schoolYear,
+        semester,
+        ...(yearLevel !== 'all' && { yearLevel })
+      });
+      
+      const response = await fetch(`/api/dean/courses-analytics?${params}`);
       const data = await response.json();
       if (data.success) {
         const courseData = data.data.map((course: any) => ({
@@ -163,33 +180,49 @@ export default function DeanAnalyticsPage() {
 
   const fetchAttendanceData = async () => {
     try {
-      // Mock attendance trend data - replace with actual API call
-      const mockData = [
-        { month: 'Jan', attendance: 85 },
-        { month: 'Feb', attendance: 88 },
-        { month: 'Mar', attendance: 82 },
-        { month: 'Apr', attendance: 90 },
-        { month: 'May', attendance: 87 },
-        { month: 'Jun', attendance: 89 }
-      ];
-      setAttendanceData(mockData);
+      const params = new URLSearchParams({
+        schoolYear,
+        semester,
+        ...(yearLevel !== 'all' && { yearLevel })
+      });
+      
+      const response = await fetch(`/api/dean/attendance-stats?${params}`);
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        setAttendanceData(data.data);
+      } else {
+        // Fallback to empty data if API fails
+        setAttendanceData([]);
+      }
     } catch (error) {
       console.error("Error fetching attendance data:", error);
+      // Set empty data on error
+      setAttendanceData([]);
     }
   };
 
   const fetchGradeDistribution = async () => {
     try {
-      // Mock grade distribution data - replace with actual API call
-      const mockData = [
-        { grade: 'Excellent (1.0-1.5)', count: 120, percentage: 25 },
-        { grade: 'Very Good (1.75-2.25)', count: 180, percentage: 37 },
-        { grade: 'Good (2.5-3.0)', count: 150, percentage: 31 },
-        { grade: 'Failed (5.0)', count: 35, percentage: 7 }
-      ];
-      setGradeDistribution(mockData);
+      const params = new URLSearchParams({
+        schoolYear,
+        semester,
+        ...(yearLevel !== 'all' && { yearLevel })
+      });
+      
+      const response = await fetch(`/api/dean/grade-distribution?${params}`);
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        setGradeDistribution(data.data);
+      } else {
+        // Fallback to empty data if API fails
+        setGradeDistribution([]);
+      }
     } catch (error) {
       console.error("Error fetching grade distribution:", error);
+      // Set empty data on error
+      setGradeDistribution([]);
     }
   };
 
@@ -249,7 +282,7 @@ export default function DeanAnalyticsPage() {
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-gray-700">School Year:</label>
               <Select value={schoolYear} onValueChange={setSchoolYear}>
@@ -274,6 +307,20 @@ export default function DeanAnalyticsPage() {
                   <SelectItem value="1st">1st Semester</SelectItem>
                   <SelectItem value="2nd">2nd Semester</SelectItem>
                   <SelectItem value="summer">Summer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">Year Level:</label>
+              <Select value={yearLevel} onValueChange={setYearLevel}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Levels</SelectItem>
+                  {yearLevels.map((level) => (
+                    <SelectItem key={level} value={String(level)}>Year {level}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -340,15 +387,25 @@ export default function DeanAnalyticsPage() {
             <CardTitle>Students by Course</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={courseData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="students" fill="#3B82F6" />
-              </BarChart>
-            </ResponsiveContainer>
+            {courseData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={courseData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="students" fill="#3B82F6" name="Students" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <Users className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                  <p>No course data available</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -358,45 +415,85 @@ export default function DeanAnalyticsPage() {
             <CardTitle>Attendance Trend</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={attendanceData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="attendance" stroke="#10B981" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
+            {attendanceData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={attendanceData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip formatter={(value: any) => [`${value}%`, 'Attendance']} />
+                  <Legend />
+                  <Line type="monotone" dataKey="attendance" stroke="#10B981" strokeWidth={2} name="Attendance %" />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <Activity className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                  <p>No attendance data available</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
       {/* Grade Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Grade Distribution */}
         <Card>
           <CardHeader>
             <CardTitle>Grade Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={gradeDistribution}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percentage }) => `${name}: ${percentage}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                >
-                  {gradeDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            {gradeDistribution.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={gradeDistribution}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={({ grade, range, percentage }) => `${grade} (${range}): ${percentage}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="count"
+                    >
+                      {gradeDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: any, name: any, props: any) => [
+                        `${value} students (${props.payload.percentage}%)`,
+                        `${props.payload.grade} (${props.payload.range})`
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {gradeDistribution.map((item, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div 
+                        className="w-4 h-4 rounded" 
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      />
+                      <span className="text-sm text-gray-700">
+                        {item.grade} ({item.range}): {item.count} students
+                      </span>
+                    </div>
                   ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+                </div>
+              </>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <Target className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                  <p>No grade data available</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -406,15 +503,27 @@ export default function DeanAnalyticsPage() {
             <CardTitle>Course Attendance Rates</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={courseData} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="name" type="category" width={60} />
-                <Tooltip />
-                <Bar dataKey="attendance" fill="#F59E0B" />
-              </BarChart>
-            </ResponsiveContainer>
+            {courseData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={courseData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" domain={[0, 100]} />
+                  <YAxis dataKey="name" type="category" width={80} />
+                  <Tooltip 
+                    formatter={(value: any) => [`${value}%`, 'Attendance Rate']}
+                  />
+                  <Legend />
+                  <Bar dataKey="attendance" fill="#F59E0B" name="Attendance %" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <Activity className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                  <p>No attendance data available</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
