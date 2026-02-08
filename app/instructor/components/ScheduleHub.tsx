@@ -263,241 +263,221 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
         return
       }
 
-      // Check if this is an NSTP subject
-      const isNSTP = schedule.SubjectCode?.toUpperCase().includes('NSTP')
-
-      if (isNSTP) {
-        // For NSTP, fetch raw grades and calculate manually
-        console.log('Fetching NSTP grades for schedule:', schedule.ScheduleID)
-        
-        const rawGradesResponse = await fetch(`/api/grades?scheduleId=${schedule.ScheduleID}&role=instructor`, {
-          credentials: 'include'
-        })
-        
-        if (!rawGradesResponse.ok) {
-          console.error('Failed to fetch NSTP grades')
-          setGrades(students.map((student: any) => ({
-            StudentID: student.StudentID,
-            StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
-            Course: student.Course,
-            YearLevel: student.YearLevel,
-            Section: student.Section,
-            midtermGrade: 0,
-            finalGrade: 0,
-            summaryGrade: 0,
-            status: 'Incomplete'
-          })))
-          return
-        }
-        
-        const rawGradesData = await rawGradesResponse.json()
-        
-        if (!rawGradesData.success || !rawGradesData.data) {
-          console.error('No NSTP grades data')
-          setGrades(students.map((student: any) => ({
-            StudentID: student.StudentID,
-            StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
-            Course: student.Course,
-            YearLevel: student.YearLevel,
-            Section: student.Section,
-            midtermGrade: 0,
-            finalGrade: 0,
-            summaryGrade: 0,
-            status: 'Incomplete'
-          })))
-          return
-        }
-        
-        // Group grades by student and term
-        const studentGradeMap: { [key: number]: { midterm: any[], final: any[] } } = {}
-        
-        rawGradesData.data.forEach((grade: any) => {
-          if (!studentGradeMap[grade.StudentID]) {
-            studentGradeMap[grade.StudentID] = { midterm: [], final: [] }
-          }
-          
-          const term = (grade.Term || '').toLowerCase()
-          if (term === 'midterm') {
-            studentGradeMap[grade.StudentID].midterm.push(grade)
-          } else if (term === 'final') {
-            studentGradeMap[grade.StudentID].final.push(grade)
-          }
-        })
-        
-        // Calculate grades for each student
-        const calculateTermGrade = (termGrades: any[]) => {
-          if (!termGrades || termGrades.length === 0) return null
-          
-          // Normalize component names
-          const normalizeComponentName = (name: string): string => {
-            if (!name) return ''
-            const lower = name.toLowerCase().trim()
-            const componentMap: { [key: string]: string } = {
-              'quiz': 'quiz',
-              'quizzes': 'quiz',
-              'major exam': 'major exam',
-              'major': 'major exam',
-              'exam': 'major exam'
-            }
-            return componentMap[lower] || lower
-          }
-          
-          // NSTP grading: Quiz 60%, Major Exam 40%
-          const componentWeights: { [key: string]: number } = {
-            'quiz': 60,
-            'major exam': 40
-          }
-          
-          // Group grades by component
-          const componentGroups: { [key: string]: any[] } = {}
-          termGrades.forEach(grade => {
-            const normalizedComponent = normalizeComponentName(grade.Component)
-            if (!componentGroups[normalizedComponent]) {
-              componentGroups[normalizedComponent] = []
-            }
-            componentGroups[normalizedComponent].push(grade)
-          })
-          
-          let totalWeightedScore = 0
-          let totalWeight = 0
-          
-          // Calculate weighted average for each component
-          Object.keys(componentGroups).forEach(component => {
-            const grades = componentGroups[component]
-            const weight = componentWeights[component] || 0
-            
-            if (weight === 0 || grades.length === 0) return
-            
-            let currentTotalScore = 0
-            let currentTotalMaxScore = 0
-            
-            grades.forEach((grade: any) => {
-              const score = parseFloat(grade.Score) || 0
-              const max = parseFloat(grade.MaxScore) || 0
-              currentTotalScore += score
-              currentTotalMaxScore += max
-            })
-            
-            if (currentTotalMaxScore > 0) {
-              const componentPercentage = (currentTotalScore / currentTotalMaxScore) * 100
-              totalWeightedScore += componentPercentage * (weight / 100)
-              totalWeight += weight
-            }
-          })
-          
-          if (totalWeight === 0) return null
-          
-          const finalPercentage = (totalWeightedScore / totalWeight) * 100
-          
-          // Convert percentage to Filipino grade
-          const convertToGrade = (pct: number) => {
-            if (pct >= 98) return 1.0
-            if (pct >= 95) return 1.25
-            if (pct >= 92) return 1.5
-            if (pct >= 89) return 1.75
-            if (pct >= 86) return 2.0
-            if (pct >= 83) return 2.25
-            if (pct >= 80) return 2.5
-            if (pct >= 77) return 2.75
-            if (pct >= 75) return 3.0
-            return 5.0
-          }
-          
-          return convertToGrade(finalPercentage)
-        }
-        
-        // Map students to their grades
-        const results = students.map((student: any) => {
-          const studentGrades = studentGradeMap[student.StudentID]
-          
-          if (!studentGrades) {
-            return {
-              StudentID: student.StudentID,
-              StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
-              Course: student.Course,
-              YearLevel: student.YearLevel,
-              Section: student.Section,
-              midtermGrade: 0,
-              finalGrade: 0,
-              summaryGrade: 0,
-              status: 'Incomplete'
-            }
-          }
-          
-          const midtermGrade = calculateTermGrade(studentGrades.midterm)
-          const finalGrade = calculateTermGrade(studentGrades.final)
-          const summaryGrade = (midtermGrade !== null && finalGrade !== null) 
-            ? (midtermGrade + finalGrade) / 2 
-            : null
-          
-          return {
-            StudentID: student.StudentID,
-            StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
-            Course: student.Course,
-            YearLevel: student.YearLevel,
-            Section: student.Section,
-            midtermGrade: midtermGrade || 0,
-            finalGrade: finalGrade || 0,
-            summaryGrade: summaryGrade || 0,
-            status: summaryGrade ? (summaryGrade <= 3.0 ? 'Passed' : 'Failed') : 'Incomplete'
-          }
-        })
-        
-        console.log('NSTP grades calculated:', results)
-        setGrades(results)
+      // Fetch grades using instructor API for consistency
+      const rawGradesResponse = await fetch(`/api/grades?scheduleId=${schedule.ScheduleID}&role=instructor`, {
+        credentials: 'include'
+      })
+      
+      if (!rawGradesResponse.ok) {
+        console.error('Failed to fetch grades')
+        setGrades(students.map((student: any) => ({
+          StudentID: student.StudentID,
+          StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
+          Course: student.Course,
+          YearLevel: student.YearLevel,
+          Section: student.Section,
+          midtermGrade: 0,
+          finalGrade: 0,
+          summaryGrade: 0,
+          status: 'Incomplete'
+        })))
         return
       }
-
-      // For non-NSTP subjects, use the student API approach
-      const gradePromises = students.map(async (student: any) => {
-        try {
-          const response = await fetch(`/api/grades?role=student&userId=${student.StudentID}`, {
-            credentials: 'include'
-          })
-          const data = await response.json()
-
-          if (data.success && data.summary && data.summary[schedule.ScheduleID]) {
-            const studentGrades = data.summary[schedule.ScheduleID]
-            return {
-              StudentID: student.StudentID,
-              StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
-              Course: student.Course,
-              YearLevel: student.YearLevel,
-              Section: student.Section,
-              midtermGrade: studentGrades.midterm || 0,
-              finalGrade: studentGrades.final || 0,
-              summaryGrade: studentGrades.summary || 0,
-              status: studentGrades.summary ? (studentGrades.summary <= 3.0 ? 'Passed' : 'Failed') : 'Incomplete'
-            }
-          }
-          return {
-            StudentID: student.StudentID,
-            StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
-            Course: student.Course,
-            YearLevel: student.YearLevel,
-            Section: student.Section,
-            midtermGrade: 0,
-            finalGrade: 0,
-            summaryGrade: 0,
-            status: 'Incomplete'
-          }
-        } catch (error) {
-          console.error(`Error fetching grades for student ${student.StudentID}:`, error)
-          return {
-            StudentID: student.StudentID,
-            StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
-            Course: student.Course,
-            YearLevel: student.YearLevel,
-            Section: student.Section,
-            midtermGrade: 0,
-            finalGrade: 0,
-            summaryGrade: 0,
-            status: 'Incomplete'
-          }
+      
+      const rawGradesData = await rawGradesResponse.json()
+      
+      if (!rawGradesData.success || !rawGradesData.data) {
+        console.error('No grades data')
+        setGrades(students.map((student: any) => ({
+          StudentID: student.StudentID,
+          StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
+          Course: student.Course,
+          YearLevel: student.YearLevel,
+          Section: student.Section,
+          midtermGrade: 0,
+          finalGrade: 0,
+          summaryGrade: 0,
+          status: 'Incomplete'
+        })))
+        return
+      }
+      
+      // Group grades by student and term
+      const studentGradeMap: { [key: number]: { midterm: any[], final: any[] } } = {}
+      
+      rawGradesData.data.forEach((grade: any) => {
+        if (!studentGradeMap[grade.StudentID]) {
+          studentGradeMap[grade.StudentID] = { midterm: [], final: [] }
+        }
+        
+        const term = (grade.Term || '').toLowerCase()
+        if (term === 'midterm') {
+          studentGradeMap[grade.StudentID].midterm.push(grade)
+        } else if (term === 'final') {
+          studentGradeMap[grade.StudentID].final.push(grade)
+        }
+      })
+      
+      // Determine "Active Items": Items where AT LEAST ONE student has a score > 0
+      const activeItems = new Set<string>()
+      rawGradesData.data.forEach((g: any) => {
+        if (g.Score !== null && parseFloat(g.Score) > 0) {
+          const key = `${g.Term}-${g.Component}-${g.ItemNumber}`.toLowerCase()
+          activeItems.add(key)
         }
       })
 
-      const results = await Promise.all(gradePromises)
+      const filterActive = (grades: any[]) => {
+        return grades.filter((g: any) => {
+          const key = `${g.Term}-${g.Component}-${g.ItemNumber}`.toLowerCase()
+          return activeItems.has(key)
+        })
+      }
+      
+      // Calculate grades for each student using the same logic as the grades page
+      const calculateTermGrade = (termGrades: any[], classType?: string) => {
+        if (!termGrades || termGrades.length === 0) return null
+        
+        // Normalize classType
+        const normalizedClassType = (classType || 'LECTURE').replace(/\s+/g, '').toUpperCase()
+        
+        // Normalize component names
+        const normalizeComponentName = (name: string): string => {
+          if (!name) return ''
+          const lower = name.toLowerCase().trim()
+          const componentMap: { [key: string]: string } = {
+            'quiz': 'quiz',
+            'quizzes': 'quiz',
+            'laboratory': 'laboratory',
+            'lab': 'laboratory',
+            'recitation': 'recitation',
+            'seatwork': 'seatwork',
+            'assignment': 'assignment',
+            'homework': 'assignment',
+            'project': 'project',
+            'major exam': 'major exam',
+            'major': 'major exam',
+            'exam': 'major exam',
+            'olo': 'olo',
+            'online course': 'online course'
+          }
+          return componentMap[lower] || lower
+        }
+        
+        // Define component weights based on class type
+        let componentWeights: { [key: string]: number } = {}
+        
+        if (normalizedClassType === 'LECTURE') {
+          componentWeights = { 'quiz': 60, 'major exam': 40 }
+        } else if (normalizedClassType === 'LECTURE+LAB') {
+          componentWeights = { 'quiz': 15, 'laboratory': 30, 'olo': 15, 'major exam': 40 }
+        } else if (normalizedClassType === 'MAJOR') {
+          componentWeights = { 'quiz': 15, 'laboratory': 40, 'olo': 15, 'major exam': 30 }
+        } else if (normalizedClassType === 'NSTP') {
+          componentWeights = { 'quiz': 60, 'major exam': 40 }
+        } else if (normalizedClassType === 'OJT') {
+          componentWeights = { 'online course': 50, 'recitation': 20, 'seatwork': 30 }
+        } else {
+          // Default to LECTURE
+          componentWeights = { 'quiz': 60, 'major exam': 40 }
+        }
+        
+        // Group grades by component
+        const componentGroups: { [key: string]: any[] } = {}
+        termGrades.forEach(grade => {
+          const normalizedComponent = normalizeComponentName(grade.Component)
+          if (!componentGroups[normalizedComponent]) {
+            componentGroups[normalizedComponent] = []
+          }
+          componentGroups[normalizedComponent].push(grade)
+        })
+        
+        let totalWeightedScore = 0
+        let totalWeight = 0
+        
+        // Calculate weighted average for each component
+        Object.keys(componentGroups).forEach(component => {
+          const grades = componentGroups[component]
+          const weight = componentWeights[component] || 0
+          
+          if (weight === 0 || grades.length === 0) return
+          
+          let currentTotalScore = 0
+          let currentTotalMaxScore = 0
+          
+          grades.forEach((grade: any) => {
+            const score = parseFloat(grade.Score) || 0
+            const max = parseFloat(grade.MaxScore) || 0
+            currentTotalScore += score
+            currentTotalMaxScore += max
+          })
+          
+          if (currentTotalMaxScore > 0) {
+            const componentPercentage = (currentTotalScore / currentTotalMaxScore) * 100
+            totalWeightedScore += componentPercentage * (weight / 100)
+            totalWeight += weight
+          }
+        })
+        
+        if (totalWeight === 0) return null
+        
+        const finalPercentage = (totalWeightedScore / totalWeight) * 100
+        
+        // Convert percentage to Filipino grade
+        const convertToGrade = (pct: number) => {
+          if (pct >= 98) return 1.0
+          if (pct >= 95) return 1.25
+          if (pct >= 92) return 1.5
+          if (pct >= 89) return 1.75
+          if (pct >= 86) return 2.0
+          if (pct >= 83) return 2.25
+          if (pct >= 80) return 2.5
+          if (pct >= 77) return 2.75
+          if (pct >= 75) return 3.0
+          return 5.0
+        }
+        
+        return convertToGrade(finalPercentage)
+      }
+      
+      // Map students to their grades
+      const results = students.map((student: any) => {
+        const studentGrades = studentGradeMap[student.StudentID]
+        
+        if (!studentGrades) {
+          return {
+            StudentID: student.StudentID,
+            StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
+            Course: student.Course,
+            YearLevel: student.YearLevel,
+            Section: student.Section,
+            midtermGrade: 0,
+            finalGrade: 0,
+            summaryGrade: 0,
+            status: 'Incomplete'
+          }
+        }
+        
+        const midtermGrade = calculateTermGrade(filterActive(studentGrades.midterm), schedule.ClassType)
+        const finalGrade = calculateTermGrade(filterActive(studentGrades.final), schedule.ClassType)
+        const summaryGrade = (midtermGrade !== null && finalGrade !== null) 
+          ? (midtermGrade + finalGrade) / 2 
+          : null
+        
+        return {
+          StudentID: student.StudentID,
+          StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
+          Course: student.Course,
+          YearLevel: student.YearLevel,
+          Section: student.Section,
+          midtermGrade: midtermGrade || 0,
+          finalGrade: finalGrade || 0,
+          summaryGrade: summaryGrade || 0,
+          status: summaryGrade ? (summaryGrade <= 3.0 ? 'Passed' : 'Failed') : 'Incomplete'
+        }
+      })
+      
+      console.log('Grades calculated:', results)
       setGrades(results)
     } catch (error) {
       console.error('Error fetching grades:', error)
