@@ -72,5 +72,13 @@ export const db = mysql.createPool({
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
+  // MySQL 9.4.0 compatibility
+  authPlugins: {
+    mysql_native_password: () => () => Buffer.alloc(0),
+  },
+  // Add SSL configuration for Railway
+  ssl: process.env.NODE_ENV === 'production' ? {
+    rejectUnauthorized: false
+  } : undefined,
 });
 
