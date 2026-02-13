@@ -1294,8 +1294,34 @@ function InstructorGradesContent() {
                       const midtermGrade = calculateStudentGrade(student.StudentID, 'midterm');
                       const finalGrade = calculateStudentGrade(student.StudentID, 'final');
 
-                      // Only calculate overall average and status if both grades are actually available
-                      const overallAverage = (hasMidterm && hasFinal && midtermGrade !== null && finalGrade !== null) ? (midtermGrade + finalGrade) / 2 : null;
+                      // Helper function to round to nearest valid Filipino grade
+                      const roundToValidGrade = (grade: number): number => {
+                        const validGrades = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00, 5.00];
+                        
+                        if (validGrades.includes(grade)) return grade;
+                        if (grade > 3.0) return 5.00;
+                        
+                        let nearest = validGrades[0];
+                        let minDiff = Math.abs(grade - nearest);
+                        
+                        for (const validGrade of validGrades) {
+                          const diff = Math.abs(grade - validGrade);
+                          if (diff < minDiff) {
+                            minDiff = diff;
+                            nearest = validGrade;
+                          }
+                        }
+                        
+                        return nearest;
+                      };
+
+                      // Calculate overall average - round to nearest valid grade
+                      let overallAverage = null;
+                      if (hasMidterm && hasFinal && midtermGrade !== null && finalGrade !== null) {
+                        const average = (midtermGrade + finalGrade) / 2;
+                        overallAverage = roundToValidGrade(average);
+                      }
+                      
                       const finalStatus = overallAverage !== null
                         ? (overallAverage <= 3.0 ? 'Passed' : 'Failed')
                         : 'Incomplete';
@@ -1381,6 +1407,22 @@ function InstructorGradesContent() {
                   <div className="text-sm font-medium text-blue-700">Class Average</div>
                   <div className="text-2xl font-bold text-blue-800">
                     {(() => {
+                      const roundToValidGrade = (grade: number): number => {
+                        const validGrades = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00, 5.00];
+                        if (validGrades.includes(grade)) return grade;
+                        if (grade > 3.0) return 5.00;
+                        let nearest = validGrades[0];
+                        let minDiff = Math.abs(grade - nearest);
+                        for (const validGrade of validGrades) {
+                          const diff = Math.abs(grade - validGrade);
+                          if (diff < minDiff) {
+                            minDiff = diff;
+                            nearest = validGrade;
+                          }
+                        }
+                        return nearest;
+                      };
+
                       const studentsWithCompleteGrades = students.filter(student => {
                         const studentGrades = calculatedGrades[student.StudentID];
                         return studentGrades &&
@@ -1393,7 +1435,12 @@ function InstructorGradesContent() {
                       const average = studentsWithCompleteGrades.reduce((sum, student) => {
                         const midterm = calculateStudentGrade(student.StudentID, 'midterm');
                         const final = calculateStudentGrade(student.StudentID, 'final');
-                        return midterm !== null && final !== null ? sum + ((midterm + final) / 2) : sum;
+                        if (midterm !== null && final !== null) {
+                          const avg = (midterm + final) / 2;
+                          const finalAvg = roundToValidGrade(avg);
+                          return sum + finalAvg;
+                        }
+                        return sum;
                       }, 0) / studentsWithCompleteGrades.length;
 
                       return average.toFixed(2);

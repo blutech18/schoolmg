@@ -263,88 +263,70 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
         return
       }
 
-      // Fetch grades using instructor API for consistency
-      const rawGradesResponse = await fetch(`/api/grades?scheduleId=${schedule.ScheduleID}&role=instructor`, {
+      // Fetch grades using instructor API - same as grades page
+      const response = await fetch(`/api/grades?scheduleId=${schedule.ScheduleID}&role=instructor`, {
         credentials: 'include'
-      })
-      
-      if (!rawGradesResponse.ok) {
-        console.error('Failed to fetch grades')
-        setGrades(students.map((student: any) => ({
-          StudentID: student.StudentID,
-          StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
-          Course: student.Course,
-          YearLevel: student.YearLevel,
-          Section: student.Section,
-          midtermGrade: 0,
-          finalGrade: 0,
-          summaryGrade: 0,
-          status: 'Incomplete'
-        })))
-        return
+      });
+
+      if (!response.ok) {
+        console.error(`HTTP error! status: ${response.status} for schedule ${schedule.ScheduleID}`);
+        setGrades([])
+        return;
       }
-      
-      const rawGradesData = await rawGradesResponse.json()
-      
-      if (!rawGradesData.success || !rawGradesData.data) {
-        console.error('No grades data')
-        setGrades(students.map((student: any) => ({
-          StudentID: student.StudentID,
-          StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
-          Course: student.Course,
-          YearLevel: student.YearLevel,
-          Section: student.Section,
-          midtermGrade: 0,
-          finalGrade: 0,
-          summaryGrade: 0,
-          status: 'Incomplete'
-        })))
-        return
+
+      const data = await response.json();
+
+      if (!data.success || !data.data) {
+        console.error('No grades data');
+        setGrades([])
+        return;
       }
-      
-      // Group grades by student and term
-      const studentGradeMap: { [key: number]: { midterm: any[], final: any[] } } = {}
-      
-      rawGradesData.data.forEach((grade: any) => {
-        if (!studentGradeMap[grade.StudentID]) {
-          studentGradeMap[grade.StudentID] = { midterm: [], final: [] }
+
+      // Group grades by student first
+      const studentGradesMap: { [key: string]: { midterm: any[], final: any[] } } = {};
+
+      data.data.forEach((grade: any) => {
+        const studentId = grade.StudentID;
+        if (!studentGradesMap[studentId]) {
+          studentGradesMap[studentId] = { midterm: [], final: [] };
         }
-        
-        const term = (grade.Term || '').toLowerCase()
-        if (term === 'midterm') {
-          studentGradeMap[grade.StudentID].midterm.push(grade)
-        } else if (term === 'final') {
-          studentGradeMap[grade.StudentID].final.push(grade)
+
+        const termKey = (grade.Term || '').toLowerCase();
+        if (termKey === 'midterm') {
+          studentGradesMap[studentId].midterm.push(grade);
+        } else if (termKey === 'final') {
+          studentGradesMap[studentId].final.push(grade);
         }
-      })
-      
+      });
+
       // Determine "Active Items": Items where AT LEAST ONE student has a score > 0
-      const activeItems = new Set<string>()
-      rawGradesData.data.forEach((g: any) => {
+      const activeItems = new Set<string>();
+      data.data.forEach((g: any) => {
         if (g.Score !== null && parseFloat(g.Score) > 0) {
-          const key = `${g.Term}-${g.Component}-${g.ItemNumber}`.toLowerCase()
-          activeItems.add(key)
+          const key = `${g.Term}-${g.Component}-${g.ItemNumber}`.toLowerCase();
+          activeItems.add(key);
         }
-      })
+      });
 
       const filterActive = (grades: any[]) => {
         return grades.filter((g: any) => {
-          const key = `${g.Term}-${g.Component}-${g.ItemNumber}`.toLowerCase()
-          return activeItems.has(key)
-        })
-      }
-      
-      // Calculate grades for each student using the same logic as the grades page
-      const calculateTermGrade = (termGrades: any[], classType?: string) => {
-        if (!termGrades || termGrades.length === 0) return null
-        
-        // Normalize classType
-        const normalizedClassType = (classType || 'LECTURE').replace(/\s+/g, '').toUpperCase()
-        
-        // Normalize component names
+          const key = `${g.Term}-${g.Component}-${g.ItemNumber}`.toLowerCase();
+          return activeItems.has(key);
+        });
+      };
+
+      // Helper function to calculate term grade - EXACT copy from grades page
+      const calculateTermGradeLocal = (termGrades: any[], classType?: string) => {
+        if (!termGrades || !termGrades.length) {
+          return null;
+        }
+
+        const normalizedClassType = (classType || 'LECTURE').replace(/\s+/g, '').toUpperCase();
+
         const normalizeComponentName = (name: string): string => {
-          if (!name) return ''
-          const lower = name.toLowerCase().trim()
+          if (!name) return '';
+          const lower = name.toLowerCase().trim();
+
           const componentMap: { [key: string]: string } = {
             'quiz': 'quiz',
             'quizzes': 'quiz',
@@ -358,93 +340,196 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
             'major exam': 'major exam',
             'major': 'major exam',
             'exam': 'major exam',
+            'periodical exam': 'major exam',
+            'periodical': 'major exam',
             'olo': 'olo',
-            'online course': 'online course'
-          }
-          return componentMap[lower] || lower
-        }
-        
-        // Define component weights based on class type
-        let componentWeights: { [key: string]: number } = {}
-        
-        if (normalizedClassType === 'LECTURE') {
-          componentWeights = { 'quiz': 60, 'major exam': 40 }
-        } else if (normalizedClassType === 'LECTURE+LAB') {
-          componentWeights = { 'quiz': 15, 'laboratory': 30, 'olo': 15, 'major exam': 40 }
-        } else if (normalizedClassType === 'MAJOR') {
-          componentWeights = { 'quiz': 15, 'laboratory': 40, 'olo': 15, 'major exam': 30 }
-        } else if (normalizedClassType === 'NSTP') {
-          componentWeights = { 'quiz': 60, 'major exam': 40 }
-        } else if (normalizedClassType === 'OJT') {
-          componentWeights = { 'online course': 50, 'recitation': 20, 'seatwork': 30 }
-        } else {
-          // Default to LECTURE
-          componentWeights = { 'quiz': 60, 'major exam': 40 }
-        }
-        
-        // Group grades by component
-        const componentGroups: { [key: string]: any[] } = {}
+            'online learning activity': 'olo',
+            'online course': 'online course',
+            'attendance': 'attendance',
+            'class participation': 'attendance',
+            'participation': 'attendance'
+          };
+
+          return componentMap[lower] || lower;
+        };
+
+        const getComponentWeights = (classType: string) => {
+          const weights: { [key: string]: { [key: string]: number } } = {
+            'LECTURE': {
+              'quiz': 30,
+              'assignment': 10,
+              'recitation': 10,
+              'seatwork': 10,
+              'major exam': 40
+            },
+            'LECTURE+LAB': {
+              'quiz': 15,
+              'laboratory': 40,
+              'assignment': 10,
+              'recitation': 10,
+              'major exam': 25
+            },
+            'MAJOR': {
+              'quiz': 15,
+              'laboratory': 40,
+              'olo': 15,
+              'major exam': 30
+            },
+            'NSTP': {
+              'quiz': 60,
+              'major exam': 40
+            },
+            'OJT': {
+              'online course': 50,
+              'recitation': 20,
+              'seatwork': 30
+            },
+            'CISCO': {
+              'quiz': 15,
+              'laboratory': 40,
+              'olo': 15,
+              'major exam': 30
+            },
+            'THESIS': {
+              'thesis': 100,
+              'thesis defense': 100,
+              'project': 100
+            }
+          };
+
+          if (weights[classType]) return weights[classType];
+          if (classType.includes('CISCO')) return weights['CISCO'];
+          if (classType.includes('THESIS')) return weights['THESIS'];
+          if (classType.includes('LAB')) return weights['LECTURE+LAB'];
+
+          return weights['LECTURE'];
+        };
+
+        const componentWeights = getComponentWeights(normalizedClassType);
+        let totalWeightedScore = 0;
+        let totalWeight = 0;
+
+        const componentGroups: { [key: string]: any[] } = {};
         termGrades.forEach(grade => {
-          const normalizedComponent = normalizeComponentName(grade.Component)
+          const normalizedComponent = normalizeComponentName(grade.Component);
           if (!componentGroups[normalizedComponent]) {
-            componentGroups[normalizedComponent] = []
+            componentGroups[normalizedComponent] = [];
           }
-          componentGroups[normalizedComponent].push(grade)
-        })
-        
-        let totalWeightedScore = 0
-        let totalWeight = 0
-        
-        // Calculate weighted average for each component
+          componentGroups[normalizedComponent].push(grade);
+        });
+
         Object.keys(componentGroups).forEach(component => {
-          const grades = componentGroups[component]
-          const weight = componentWeights[component] || 0
-          
-          if (weight === 0 || grades.length === 0) return
-          
-          let currentTotalScore = 0
-          let currentTotalMaxScore = 0
-          
+          const grades = componentGroups[component];
+          const weight = componentWeights[component] || 0;
+
+          if (weight === 0 || grades.length === 0) return;
+
+          let currentTotalScore = 0;
+          let currentTotalMaxScore = 0;
+
           grades.forEach((grade: any) => {
-            const score = parseFloat(grade.Score) || 0
-            const max = parseFloat(grade.MaxScore) || 0
-            currentTotalScore += score
-            currentTotalMaxScore += max
-          })
-          
+            const score = parseFloat(grade.Score) || 0;
+            const max = parseFloat(grade.MaxScore) || 0;
+
+            if (max > 0) {
+              currentTotalScore += score;
+              currentTotalMaxScore += max;
+            }
+          });
+
+          let componentPercentage = 0;
           if (currentTotalMaxScore > 0) {
-            const componentPercentage = (currentTotalScore / currentTotalMaxScore) * 100
-            totalWeightedScore += componentPercentage * (weight / 100)
-            totalWeight += weight
+            componentPercentage = (currentTotalScore / currentTotalMaxScore) * 100;
           }
-        })
+
+          totalWeightedScore += componentPercentage * (weight / 100);
+          totalWeight += weight;
+        });
+
+        if (totalWeight === 0) {
+          return null;
+        }
+
+        const finalPercentage = (totalWeightedScore / totalWeight) * 100;
+
+        const convertToFilipinoGrade = (percentage: number): number => {
+          if (percentage >= 98) return 1.0;
+          if (percentage >= 95) return 1.25;
+          if (percentage >= 92) return 1.5;
+          if (percentage >= 89) return 1.75;
+          if (percentage >= 86) return 2.0;
+          if (percentage >= 83) return 2.25;
+          if (percentage >= 80) return 2.5;
+          if (percentage >= 77) return 2.75;
+          if (percentage >= 75) return 3.0;
+          return 5.0;
+        };
+
+        const filipinoGrade = convertToFilipinoGrade(finalPercentage);
+
+        return {
+          grade: filipinoGrade,
+          percentage: finalPercentage
+        };
+      };
+
+      // Helper function to round to nearest valid Filipino grade
+      const roundToValidGrade = (grade: number): number => {
+        const validGrades = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00, 5.00];
         
-        if (totalWeight === 0) return null
+        // If grade is already a valid grade, return it
+        if (validGrades.includes(grade)) return grade;
         
-        const finalPercentage = (totalWeightedScore / totalWeight) * 100
+        // If grade exceeds 3.0, return 5.00
+        if (grade > 3.0) return 5.00;
         
-        // Convert percentage to Filipino grade
-        const convertToGrade = (pct: number) => {
-          if (pct >= 98) return 1.0
-          if (pct >= 95) return 1.25
-          if (pct >= 92) return 1.5
-          if (pct >= 89) return 1.75
-          if (pct >= 86) return 2.0
-          if (pct >= 83) return 2.25
-          if (pct >= 80) return 2.5
-          if (pct >= 77) return 2.75
-          if (pct >= 75) return 3.0
-          return 5.0
+        // Find the nearest valid grade
+        let nearest = validGrades[0];
+        let minDiff = Math.abs(grade - nearest);
+        
+        for (const validGrade of validGrades) {
+          const diff = Math.abs(grade - validGrade);
+          if (diff < minDiff) {
+            minDiff = diff;
+            nearest = validGrade;
+          }
         }
         
-        return convertToGrade(finalPercentage)
-      }
-      
-      // Map students to their grades
+        return nearest;
+      };
+
+      // Calculate grades for each student
       const results = students.map((student: any) => {
-        const studentGrades = studentGradeMap[student.StudentID]
-        
-        if (!studentGrades) {
+        const studentId = student.StudentID;
+        const studentGrades = studentGradesMap[studentId];
+
+        if (studentGrades) {
+          const midtermResult = calculateTermGradeLocal(filterActive(studentGrades.midterm), schedule.ClassType);
+          const finalResult = calculateTermGradeLocal(filterActive(studentGrades.final), schedule.ClassType);
+
+          const midtermGrade = midtermResult?.grade || null;
+          const finalGrade = finalResult?.grade || null;
+          
+          // Calculate summary grade
+          let summaryGrade = null;
+          if (midtermGrade !== null && midtermGrade !== undefined && finalGrade !== null && finalGrade !== undefined) {
+            const average = (midtermGrade + finalGrade) / 2;
+            // Round to nearest valid grade
+            summaryGrade = roundToValidGrade(average);
+          }
+
+          return {
+            StudentID: student.StudentID,
+            StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
+            Course: student.Course,
+            YearLevel: student.YearLevel,
+            Section: student.Section,
+            midtermGrade: midtermGrade || 0,
+            finalGrade: finalGrade || 0,
+            summaryGrade: summaryGrade || 0,
+            status: summaryGrade ? (summaryGrade <= 3.0 ? 'Passed' : 'Failed') : 'Incomplete'
+          };
+        } else {
           return {
             StudentID: student.StudentID,
             StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
@@ -455,30 +540,12 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
             finalGrade: 0,
             summaryGrade: 0,
             status: 'Incomplete'
-          }
+          };
         }
-        
-        const midtermGrade = calculateTermGrade(filterActive(studentGrades.midterm), schedule.ClassType)
-        const finalGrade = calculateTermGrade(filterActive(studentGrades.final), schedule.ClassType)
-        const summaryGrade = (midtermGrade !== null && finalGrade !== null) 
-          ? (midtermGrade + finalGrade) / 2 
-          : null
-        
-        return {
-          StudentID: student.StudentID,
-          StudentName: student.StudentName || `${student.FirstName || ''} ${student.LastName || ''}`.trim() || `Student ${student.StudentID}`,
-          Course: student.Course,
-          YearLevel: student.YearLevel,
-          Section: student.Section,
-          midtermGrade: midtermGrade || 0,
-          finalGrade: finalGrade || 0,
-          summaryGrade: summaryGrade || 0,
-          status: summaryGrade ? (summaryGrade <= 3.0 ? 'Passed' : 'Failed') : 'Incomplete'
-        }
-      })
-      
-      console.log('Grades calculated:', results)
-      setGrades(results)
+      });
+
+      console.log('Grades calculated (matching grades page logic):', results);
+      setGrades(results);
     } catch (error) {
       console.error('Error fetching grades:', error)
       setGrades([])
@@ -1843,7 +1910,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                                   <div className="text-center p-2 bg-blue-50 rounded">
                                     <p className="text-xs text-gray-600 mb-1">Midterm</p>
                                     <p className="text-lg font-bold text-blue-700">
-                                      {grade.midtermGrade > 0 ? grade.midtermGrade.toFixed(1) : 'N/A'}
+                                      {grade.midtermGrade > 0 ? grade.midtermGrade.toFixed(2) : 'N/A'}
                                     </p>
                                     {grade.midtermGrade > 0 && (
                                       <div className={`text-xs mt-1 px-1 py-0.5 rounded ${grade.midtermGrade <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
@@ -1856,7 +1923,7 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
                                   <div className="text-center p-2 bg-purple-50 rounded">
                                     <p className="text-xs text-gray-600 mb-1">Final</p>
                                     <p className="text-lg font-bold text-purple-700">
-                                      {grade.finalGrade > 0 ? grade.finalGrade.toFixed(1) : 'N/A'}
+                                      {grade.finalGrade > 0 ? grade.finalGrade.toFixed(2) : 'N/A'}
                                     </p>
                                     {grade.finalGrade > 0 && (
                                       <div className={`text-xs mt-1 px-1 py-0.5 rounded ${grade.finalGrade <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
@@ -1868,11 +1935,11 @@ export default function ScheduleHub({ schedule, onClose }: ScheduleHubProps) {
 
                                   <div className="text-center p-2 bg-green-50 rounded">
                                     <p className="text-xs text-gray-600 mb-1">Overall</p>
-                                    <p className="text-lg font-bold text-slate-900">
-                                      {grade.summaryGrade > 0 ? grade.summaryGrade.toFixed(1) : 'N/A'}
+                                    <p className={`text-lg font-bold ${grade.summaryGrade > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
+                                      {grade.summaryGrade > 0 ? grade.summaryGrade.toFixed(2) : 'N/A'}
                                     </p>
                                     {grade.summaryGrade > 0 && (
-                                      <div className={`text-xs mt-1 px-1 py-0.5 rounded ${grade.summaryGrade <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                                      <div className={`text-xs mt-1 px-1 py-0.5 rounded ${grade.summaryGrade <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                         }`}>
                                         {grade.summaryGrade <= 3.0 ? 'Passed' : 'Failed'}
                                       </div>

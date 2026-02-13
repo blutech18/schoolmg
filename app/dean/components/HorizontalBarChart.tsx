@@ -8,7 +8,7 @@ import {
 } from "recharts";
 import { 
   Activity, TrendingUp, Users, BookOpen, 
-  ChevronRight, BarChart3, PieChart as PieChartIcon,
+  BarChart3,
   Target, ClipboardList, GraduationCap, Calendar
 } from "lucide-react";
 
@@ -40,6 +40,9 @@ interface DetailedViewProps {
     rooms: any[];
     schedules: any[];
     gradeDistribution: any[];
+    schoolYear: any[];
+    institute: any[];
+    courses: any[];
   };
 }
 
@@ -67,6 +70,9 @@ const getCategoryIcon = (cat: string) => {
     case 'rooms': return <Calendar className="h-6 w-6" style={{ color: '#BE185D' }} />;
     case 'schedules': return <Calendar className="h-6 w-6" style={{ color: '#0F766E' }} />;
     case 'gradeDistribution': return <TrendingUp className="h-6 w-6" style={{ color: '#16A34A' }} />;
+    case 'schoolYear': return <TrendingUp className="h-6 w-6" style={{ color: '#00C49F' }} />;
+    case 'institute': return <GraduationCap className="h-6 w-6" style={{ color: '#0088FE' }} />;
+    case 'courses': return <GraduationCap className="h-6 w-6" style={{ color: '#7C3AED' }} />;
     default: return <BarChart3 className="h-6 w-6" style={{ color: COLORS.default }} />;
   }
 };
@@ -899,6 +905,188 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
+          </div>
+        );
+
+      case 'schoolYear':
+        return (
+          <div className="space-y-6">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={categoryData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="students" fill="#3B82F6" name="Students" />
+                <Bar dataKey="courses" fill="#10B981" name="Courses" />
+                <Bar dataKey="subjects" fill="#F59E0B" name="Subjects" />
+              </BarChart>
+            </ResponsiveContainer>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-4">
+                <h4 className="font-semibold">School Year Statistics</h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                    <span>Total School Years</span>
+                    <span className="font-semibold">{categoryData.length}</span>
+                  </div>
+                  <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                    <span>Total Students</span>
+                    <span className="font-semibold">
+                      {categoryData.reduce((sum, item) => sum + (item.students || 0), 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <h4 className="font-semibold">Course Statistics</h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                    <span>Total Courses</span>
+                    <span className="font-semibold">
+                      {categoryData.reduce((sum, item) => sum + (item.courses || 0), 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                    <span>Total Subjects</span>
+                    <span className="font-semibold">
+                      {categoryData.reduce((sum, item) => sum + (item.subjects || 0), 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, students }) => `${name}: ${students}`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="students"
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][index % 5]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        );
+
+      case 'institute':
+        return (
+          <div className="space-y-6">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={categoryData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="students" fill="#0088FE" name="Students" />
+                <Bar dataKey="courses" fill="#00C49F" name="Courses" />
+              </BarChart>
+            </ResponsiveContainer>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={categoryData} layout="horizontal">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" width={80} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="averageAttendance" fill="#10B981" name="Avg Attendance %" />
+                </BarChart>
+              </ResponsiveContainer>
+              
+              <div className="space-y-4">
+                <h4 className="font-semibold">Institute Statistics</h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                    <span>Total Institutes</span>
+                    <span className="font-semibold">{categoryData.length}</span>
+                  </div>
+                  <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                    <span>Total Students</span>
+                    <span className="font-semibold">
+                      {categoryData.reduce((sum, item) => sum + (item.students || 0), 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                    <span>Average Attendance</span>
+                    <span className="font-semibold">
+                      {categoryData.length > 0 
+                        ? Math.round((categoryData.reduce((sum, item) => sum + (item.averageAttendance || 0), 0) / categoryData.length) * 10) / 10
+                        : 0}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'courses':
+        return (
+          <div className="space-y-6">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={categoryData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="students" fill="#7C3AED" name="Students" />
+                <Bar dataKey="attendance" fill="#10B981" name="Attendance %" />
+              </BarChart>
+            </ResponsiveContainer>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={categoryData} layout="horizontal">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" domain={[0, 100]} />
+                  <YAxis dataKey="name" type="category" width={100} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="passRate" fill="#059669" name="Pass Rate %" />
+                </BarChart>
+              </ResponsiveContainer>
+              
+              <div className="space-y-4">
+                <h4 className="font-semibold">Course Statistics</h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                    <span>Total Courses</span>
+                    <span className="font-semibold">{categoryData.length}</span>
+                  </div>
+                  <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                    <span>Total Students</span>
+                    <span className="font-semibold">
+                      {categoryData.reduce((sum, item) => sum + (item.students || 0), 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
+                    <span>Average Pass Rate</span>
+                    <span className="font-semibold">
+                      {categoryData.length > 0 
+                        ? Math.round((categoryData.reduce((sum, item) => sum + (item.passRate || 0), 0) / categoryData.length) * 10) / 10
+                        : 0}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         );
 

@@ -297,15 +297,15 @@ export async function GET(request: NextRequest) {
 // Convert percentage to Filipino grading system (1.0-5.0)
 // 1.0 is highest, 3.0 is passing, 5.0 is failed
 function convertToFilipinoGradeForDean(percentage: number): number {
-  if (percentage >= 97) return 1.0;   // 97-100%
-  if (percentage >= 94) return 1.25;  // 94-96%
-  if (percentage >= 91) return 1.5;   // 91-93%
-  if (percentage >= 88) return 1.75;  // 88-90%
-  if (percentage >= 85) return 2.0;   // 85-87%
-  if (percentage >= 82) return 2.25;  // 82-84%
-  if (percentage >= 79) return 2.5;   // 79-81%
-  if (percentage >= 76) return 2.75;  // 76-78%
-  if (percentage >= 75) return 3.0;   // 75% - Passing grade
+  if (percentage >= 98) return 1.0;   // 98-100%
+  if (percentage >= 95) return 1.25;  // 95-97%
+  if (percentage >= 92) return 1.5;   // 92-94%
+  if (percentage >= 89) return 1.75;  // 89-91%
+  if (percentage >= 86) return 2.0;   // 86-88%
+  if (percentage >= 83) return 2.25;  // 83-85%
+  if (percentage >= 80) return 2.5;   // 80-82%
+  if (percentage >= 77) return 2.75;  // 77-79%
+  if (percentage >= 75) return 3.0;   // 75-76% - Passing grade
   return 5.0;  // Below 75% - Failed
 }
 

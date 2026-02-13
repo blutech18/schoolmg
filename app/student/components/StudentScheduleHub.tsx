@@ -276,6 +276,27 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
     return 'text-slate-900'  // Passed - black
   }
 
+  // Helper function to round to nearest valid Filipino grade (matches instructor grading logic)
+  const roundToValidGrade = (grade: number): number => {
+    const validGrades = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00, 5.00]
+    
+    if (validGrades.includes(grade)) return grade
+    if (grade > 3.0) return 5.00
+    
+    let nearest = validGrades[0]
+    let minDiff = Math.abs(grade - nearest)
+    
+    for (const validGrade of validGrades) {
+      const diff = Math.abs(grade - validGrade)
+      if (diff < minDiff) {
+        minDiff = diff
+        nearest = validGrade
+      }
+    }
+    
+    return nearest
+  }
+
   const getExcuseLetterStatusColor = (status: string) => {
     switch (status) {
       case 'approved': return 'bg-green-100 text-green-800'
@@ -628,7 +649,10 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                       </div>
                     ) : (
                       <div className="space-y-6">
-                        {(gradeSummary ? [gradeSummary] : grades).map((grade) => (
+                        {(gradeSummary ? [gradeSummary] : grades).map((grade) => {
+                          // Round overall grade to nearest valid Filipino grade (matches instructor grading sheet)
+                          const roundedSummary = grade.summary ? roundToValidGrade(grade.summary) : null
+                          return (
                           <div key={grade.ScheduleID} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-all duration-200 bg-white">
                             <div className="flex items-center justify-between mb-4">
                               <div>
@@ -636,14 +660,14 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                                 <p className="text-sm text-slate-600">{grade.ClassType}</p>
                               </div>
                               <Badge 
-                                variant={grade.summary && grade.summary <= 3.0 ? 'default' : 'destructive'}
+                                variant={roundedSummary !== null && roundedSummary <= 3.0 ? 'default' : 'destructive'}
                                 className={`text-lg px-3 py-1 font-semibold ${
-                                  grade.summary && grade.summary <= 3.0 ? 'bg-green-500 text-white' : 
-                                  grade.summary ? 'bg-red-500 text-white' : 
+                                  roundedSummary !== null && roundedSummary <= 3.0 ? 'bg-green-500 text-white' : 
+                                  roundedSummary !== null ? 'bg-red-500 text-white' : 
                                   'bg-gray-500 text-white'
                                 }`}
                               >
-                                {grade.summary ? grade.summary.toFixed(2) : 'N/A'}
+                                {roundedSummary !== null ? roundedSummary.toFixed(2) : 'N/A'}
                               </Badge>
                             </div>
                             
@@ -676,14 +700,14 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                               </div>
                               <div className="text-center p-4 bg-green-50 rounded-lg border border-green-100">
                                 <p className="text-xs text-slate-600 mb-1 font-medium">Overall Average</p>
-                                <p className={`text-2xl font-bold ${getGradeColor(grade.summary)}`}>
-                                  {grade.summary ? grade.summary.toFixed(2) : 'N/A'}
+                                <p className={`text-2xl font-bold ${getGradeColor(roundedSummary)}`}>
+                                  {roundedSummary !== null ? roundedSummary.toFixed(2) : 'N/A'}
                                 </p>
-                                {grade.summary && (
+                                {roundedSummary !== null && (
                                   <div className={`text-xs mt-1 px-2 py-0.5 rounded ${
-                                    grade.summary <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                    roundedSummary <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                   }`}>
-                                    {grade.summary <= 3.0 ? 'Passed' : 'Failed'}
+                                    {roundedSummary <= 3.0 ? 'Passed' : 'Failed'}
                                   </div>
                                 )}
                               </div>
@@ -753,7 +777,8 @@ export default function StudentScheduleHub({ schedule, studentId, studentName, s
                               })}
                             </div>
                           </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     )}
                   </CardContent>

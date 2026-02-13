@@ -614,6 +614,27 @@ export default function StudentDashboard() {
     }
   };
 
+  // Helper function to round to nearest valid Filipino grade (matches instructor grading logic)
+  const roundToValidGrade = (grade: number): number => {
+    const validGrades = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00, 5.00];
+    
+    if (validGrades.includes(grade)) return grade;
+    if (grade > 3.0) return 5.00;
+    
+    let nearest = validGrades[0];
+    let minDiff = Math.abs(grade - nearest);
+    
+    for (const validGrade of validGrades) {
+      const diff = Math.abs(grade - validGrade);
+      if (diff < minDiff) {
+        minDiff = diff;
+        nearest = validGrade;
+      }
+    }
+    
+    return nearest;
+  };
+
   const openScheduleHub = (schedule: Schedule) => {
     setSelectedScheduleForHub(schedule);
     setShowScheduleHub(true);
@@ -836,25 +857,43 @@ export default function StudentDashboard() {
                     date: new Date().toLocaleDateString(),
                   });
 
-                  const validGrades = grades.filter(g => g.summary !== null);
-                  const overallGPA = validGrades.length > 0
-                    ? (validGrades.reduce((sum, g) => sum + (g.summary || 0), 0) / validGrades.length).toFixed(2)
-                    : 'N/A';
+                  // Round each subject's overall grade to valid Filipino grade for print
+                  const roundGrade = (grade: number): number => {
+                    const valid = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00, 5.00];
+                    if (valid.includes(grade)) return grade;
+                    if (grade > 3.0) return 5.00;
+                    let nearest = valid[0];
+                    let minDiff = Math.abs(grade - nearest);
+                    for (const v of valid) {
+                      const diff = Math.abs(grade - v);
+                      if (diff < minDiff) { minDiff = diff; nearest = v; }
+                    }
+                    return nearest;
+                  };
 
-                  const gradesRows = grades.map(g => `
+                  const validGrades = grades.filter(g => g.summary !== null);
+                  const roundedGradeValues = validGrades.map(g => roundGrade(g.summary as number));
+                  const rawGPAValue = roundedGradeValues.length > 0
+                    ? roundedGradeValues.reduce((sum, g) => sum + g, 0) / roundedGradeValues.length
+                    : null;
+                  const overallGPA = rawGPAValue !== null ? roundGrade(rawGPAValue).toFixed(2) : 'N/A';
+
+                  const gradesRows = grades.map(g => {
+                    const rounded = g.summary !== null ? roundGrade(g.summary) : null;
+                    return `
                     <tr>
                       <td style="border: 1px solid #000; padding: 8px; font-weight: bold;">${g.SubjectCode}</td>
                       <td style="border: 1px solid #000; padding: 8px;">${g.SubjectName || g.SubjectTitle || 'N/A'}</td>
                       <td style="border: 1px solid #000; padding: 8px; text-align: center;">${g.midterm !== null ? g.midterm.toFixed(2) : 'N/A'}</td>
                       <td style="border: 1px solid #000; padding: 8px; text-align: center;">${g.final !== null ? g.final.toFixed(2) : 'N/A'}</td>
-                      <td style="border: 1px solid #000; padding: 8px; text-align: center; font-weight: bold; color: ${g.summary !== null && g.summary <= 3.0 ? '#155724' : '#721c24'};">${g.summary !== null ? g.summary.toFixed(2) : 'N/A'}</td>
+                      <td style="border: 1px solid #000; padding: 8px; text-align: center; font-weight: bold; color: ${rounded !== null && rounded <= 3.0 ? '#155724' : '#721c24'};">${rounded !== null ? rounded.toFixed(2) : 'N/A'}</td>
                       <td style="border: 1px solid #000; padding: 8px; text-align: center;">
-                        <span style="padding: 4px 8px; border-radius: 4px; font-size: 12px; background-color: ${g.summary !== null && g.summary <= 3.0 ? '#d4edda' : '#f8d7da'}; color: ${g.summary !== null && g.summary <= 3.0 ? '#155724' : '#721c24'};">
-                          ${g.summary !== null ? (g.summary <= 3.0 ? 'Passed' : 'Failed') : 'N/A'}
+                        <span style="padding: 4px 8px; border-radius: 4px; font-size: 12px; background-color: ${rounded !== null && rounded <= 3.0 ? '#d4edda' : '#f8d7da'}; color: ${rounded !== null && rounded <= 3.0 ? '#155724' : '#721c24'};">
+                          ${rounded !== null ? (rounded <= 3.0 ? 'Passed' : 'Failed') : 'N/A'}
                         </span>
                       </td>
                     </tr>
-                  `).join('');
+                  `}).join('');
 
                   const content = `
                     ${header}
@@ -942,36 +981,40 @@ export default function StudentDashboard() {
                     </div>
 
                     {/* Grade Rows */}
-                    {grades.map((grade) => (
-                      <div key={grade.ScheduleID} className="grid grid-cols-5 gap-4 py-3 border-b hover:bg-gray-50 transition-colors items-center">
-                        <div>
-                          <p className="font-medium text-slate-900">{grade.SubjectCode}</p>
-                          <p className="text-xs text-gray-600">{grade.SubjectTitle}</p>
+                    {grades.map((grade) => {
+                      // Round overall grade to nearest valid Filipino grade (matches instructor grading sheet)
+                      const roundedSummary = grade.summary !== null ? roundToValidGrade(grade.summary) : null;
+                      return (
+                        <div key={grade.ScheduleID} className="grid grid-cols-5 gap-4 py-3 border-b hover:bg-gray-50 transition-colors items-center">
+                          <div>
+                            <p className="font-medium text-slate-900">{grade.SubjectCode}</p>
+                            <p className="text-xs text-gray-600">{grade.SubjectTitle}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className={`text-lg font-semibold ${grade.midterm !== null && grade.midterm > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
+                              {grade.midterm !== null ? grade.midterm.toFixed(2) : 'N/A'}
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className={`text-lg font-semibold ${grade.final !== null && grade.final > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
+                              {grade.final !== null ? grade.final.toFixed(2) : 'N/A'}
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className={`text-lg font-semibold ${roundedSummary !== null && roundedSummary > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
+                              {roundedSummary !== null ? roundedSummary.toFixed(2) : 'N/A'}
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            {roundedSummary !== null && (
+                              <Badge className={`${roundedSummary <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                {roundedSummary <= 3.0 ? 'Passed' : 'Failed'}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-center">
-                          <p className={`text-lg font-semibold ${grade.midterm !== null && grade.midterm > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
-                            {grade.midterm !== null ? grade.midterm.toFixed(2) : 'N/A'}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className={`text-lg font-semibold ${grade.final !== null && grade.final > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
-                            {grade.final !== null ? grade.final.toFixed(2) : 'N/A'}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className={`text-lg font-semibold ${grade.summary !== null && grade.summary > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
-                            {grade.summary !== null ? grade.summary.toFixed(2) : 'N/A'}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          {grade.summary !== null && (
-                            <Badge className={`${grade.summary <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                              {grade.summary <= 3.0 ? 'Passed' : 'Failed'}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -979,32 +1022,29 @@ export default function StudentDashboard() {
               {/* Overall GPA Card */}
               <Card className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200">
                 <CardContent className="pt-6">
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-gray-600 mb-2">OVERALL GRADE POINT AVERAGE (GPA)</p>
-                    <p className="text-5xl font-bold text-slate-900 mb-2">
-                      {(() => {
-                        const validGrades = grades.filter(g => g.summary !== null).map(g => g.summary as number);
-                        if (validGrades.length === 0) return 'N/A';
-                        const totalGPA = validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length;
-                        return totalGPA.toFixed(2);
-                      })()}
-                    </p>
-                    {(() => {
-                      const validGrades = grades.filter(g => g.summary !== null).map(g => g.summary as number);
-                      if (validGrades.length > 0) {
-                        const totalGPA = validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length;
-                        return (
-                          <Badge className={`text-sm px-4 py-1 ${totalGPA <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {totalGPA <= 3.0 ? 'Good Standing' : 'Needs Improvement'}
+                  {(() => {
+                    const validGradeValues = grades.filter(g => g.summary !== null).map(g => roundToValidGrade(g.summary as number));
+                    const hasGrades = validGradeValues.length > 0;
+                    const rawGPA = hasGrades ? validGradeValues.reduce((sum, grade) => sum + grade, 0) / validGradeValues.length : 0;
+                    const roundedGPA = hasGrades ? roundToValidGrade(rawGPA) : null;
+
+                    return (
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-600 mb-2">OVERALL GRADE POINT AVERAGE (GPA)</p>
+                        <p className={`text-5xl font-bold mb-2 ${roundedGPA !== null && roundedGPA > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
+                          {roundedGPA !== null ? roundedGPA.toFixed(2) : 'N/A'}
+                        </p>
+                        {roundedGPA !== null && (
+                          <Badge className={`text-sm px-4 py-1 ${roundedGPA <= 3.0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {roundedGPA <= 3.0 ? 'Good Standing' : 'Needs Improvement'}
                           </Badge>
-                        );
-                      }
-                      return null;
-                    })()}
-                    <p className="text-xs text-gray-500 mt-2">
-                      Based on {grades.filter(g => g.summary !== null).length} subject(s)
-                    </p>
-                  </div>
+                        )}
+                        <p className="text-xs text-gray-500 mt-2">
+                          Based on {validGradeValues.length} subject(s)
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             </>

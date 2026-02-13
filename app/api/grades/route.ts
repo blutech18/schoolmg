@@ -193,18 +193,36 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Round to nearest valid Filipino grade (matches instructor grading sheet)
+function roundToValidGrade(grade: number): number {
+  const validGrades = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00, 5.00];
+  if (validGrades.includes(grade)) return grade;
+  if (grade > 3.0) return 5.00;
+  let nearest = validGrades[0];
+  let minDiff = Math.abs(grade - nearest);
+  for (const validGrade of validGrades) {
+    const diff = Math.abs(grade - validGrade);
+    if (diff < minDiff) {
+      minDiff = diff;
+      nearest = validGrade;
+    }
+  }
+  return nearest;
+}
+
 // Convert percentage to Filipino grading system (1.0-5.0)
 // 1.0 is highest, 3.0 is passing, 5.0 is failed
+// Thresholds match the instructor grading sheet
 function convertToFilipinoGrade(percentage: number): number {
-  if (percentage >= 97) return 1.0;   // 97-100%
-  if (percentage >= 94) return 1.25;  // 94-96%
-  if (percentage >= 91) return 1.5;   // 91-93%
-  if (percentage >= 88) return 1.75;  // 88-90%
-  if (percentage >= 85) return 2.0;   // 85-87%
-  if (percentage >= 82) return 2.25;  // 82-84%
-  if (percentage >= 79) return 2.5;   // 79-81%
-  if (percentage >= 76) return 2.75;  // 76-78%
-  if (percentage >= 75) return 3.0;   // 75% - Passing grade
+  if (percentage >= 98) return 1.0;   // 98-100%
+  if (percentage >= 95) return 1.25;  // 95-97%
+  if (percentage >= 92) return 1.5;   // 92-94%
+  if (percentage >= 89) return 1.75;  // 89-91%
+  if (percentage >= 86) return 2.0;   // 86-88%
+  if (percentage >= 83) return 2.25;  // 83-85%
+  if (percentage >= 80) return 2.5;   // 80-82%
+  if (percentage >= 77) return 2.75;  // 77-79%
+  if (percentage >= 75) return 3.0;   // 75-76% - Passing grade
   return 5.0;  // Below 75% - Failed
 }
 
@@ -278,11 +296,13 @@ function calculateStudentGrades(grades: any[]) {
     const finalPercentage = finalResult?.percentage || null;
 
     // Calculate summary grade (average of valid terms)
+    // Round to nearest valid Filipino grade to match instructor grading sheet
     let summaryGrade = null;
     let summaryPercentage = null;
 
     if (midtermGrade !== null && finalGrade !== null) {
-      summaryGrade = (midtermGrade + finalGrade) / 2;
+      const rawAverage = (midtermGrade + finalGrade) / 2;
+      summaryGrade = roundToValidGrade(rawAverage);
       if (midtermPercentage !== null && finalPercentage !== null) {
         summaryPercentage = (midtermPercentage + finalPercentage) / 2;
       }
@@ -326,19 +346,27 @@ function calculateTermGrade(termGrades: any[], classType: string) {
       'laboratory': 'laboratory',
       'lab': 'laboratory',
       'laboratory activity': 'laboratory',
-      'olo': 'olo',
-      'online learning opportunity': 'olo',
+      'recitation': 'recitation',
+      'seatwork': 'seatwork',
+      'assignment': 'assignment',
+      'homework': 'assignment',
+      'project': 'project',
+      'major exam': 'major exam',
+      'major': 'major exam',
       'exam': 'major exam',
       'examination': 'major exam',
+      'periodical exam': 'major exam',
+      'periodical': 'major exam',
       'midterm': 'major exam',
       'final': 'major exam',
       'midterm exam': 'major exam',
       'final exam': 'major exam',
-      'major exam': 'major exam',
+      'olo': 'olo',
+      'online learning opportunity': 'olo',
+      'online learning activity': 'olo',
       'online course': 'online course',
-      'recitation': 'recitation',
-      'seatwork': 'seatwork',
       'attendance': 'attendance',
+      'class participation': 'attendance',
       'participation': 'attendance',
       'thesis': 'thesis',
       'defense': 'thesis defense'
@@ -370,18 +398,21 @@ function calculateTermGrade(termGrades: any[], classType: string) {
   }, {});
 
   // Define weights for different class types
-  // Note: CISCO usually follows MAJOR or LECTURE+LAB. We'll map it to MAJOR if not specified.
-  // THESIS usually has its own components.
+  // These MUST match the instructor grading page weights (calculateTermGradeLocal)
   const WEIGHTS: { [key: string]: { [key: string]: number } } = {
     'LECTURE': {
-      'quiz': 60,
+      'quiz': 30,
+      'assignment': 10,
+      'recitation': 10,
+      'seatwork': 10,
       'major exam': 40
     },
     'LECTURE+LAB': {
       'quiz': 15,
-      'laboratory': 30,
-      'olo': 15,
-      'major exam': 40
+      'laboratory': 40,
+      'assignment': 10,
+      'recitation': 10,
+      'major exam': 25
     },
     'MAJOR': {
       'quiz': 15,
@@ -389,7 +420,7 @@ function calculateTermGrade(termGrades: any[], classType: string) {
       'olo': 15,
       'major exam': 30
     },
-    'CISCO': { // Assumption: Same as MAJOR
+    'CISCO': {
       'quiz': 15,
       'laboratory': 40,
       'olo': 15,
@@ -408,15 +439,10 @@ function calculateTermGrade(termGrades: any[], classType: string) {
       'thesis': 100,
       'thesis defense': 100,
       'project': 100
-      // If thesis uses standard components, they will be picked up if we add them, 
-      // otherwise it might fallback to 100% for whatever component exists if we code it right.
     }
   };
 
-  // Select weight configuration
-  // Handle "Laboratory" class type alias -> LECTURE+LAB or MAJOR? Usually "Laboratory" subject implies lab focus.
-  // But standard mapping in this system seems to be LECTURE, LECTURE+LAB, MAJOR.
-  // If exact match fails, try simple fallbacks.
+  // Select weight configuration with fallbacks
   let activeWeights = WEIGHTS[normalizedClassType];
   if (!activeWeights) {
     if (normalizedClassType.includes('LAB')) activeWeights = WEIGHTS['LECTURE+LAB'];
