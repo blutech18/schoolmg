@@ -2,12 +2,12 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
 } from "recharts";
-import { 
-  Activity, TrendingUp, Users, BookOpen, 
+import {
+  Activity, TrendingUp, Users, BookOpen,
   BarChart3,
   Target, ClipboardList, GraduationCap, Calendar
 } from "lucide-react";
@@ -49,7 +49,7 @@ interface DetailedViewProps {
 // Color palette for consistency
 const COLORS = {
   attendance: '#00C49F',
-  performance: '#0088FE', 
+  performance: '#0088FE',
   enrollment: '#FFBB28',
   sections: '#FF8042',
   default: '#8884D8'
@@ -79,7 +79,31 @@ const getCategoryIcon = (cat: string) => {
 
 
 export function HorizontalBarChart({ data, onCategoryClick, selectedCategory }: HorizontalBarChartProps) {
-  const maxValue = Math.max(...data.map(item => item.value));
+  const maxValue = Math.max(...data.map(item => item.value), 1); // Ensure maxValue is at least 1
+
+  // Filter out items with 0 values for better visualization
+  const visibleData = data.filter(item => item.value > 0);
+
+  if (visibleData.length === 0) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Analytics Overview
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[320px] flex items-center justify-center text-gray-500">
+            <div className="text-center">
+              <BarChart3 className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+              <p>No data available for visualization</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full transition-all duration-300 ease-in-out">
@@ -95,55 +119,55 @@ export function HorizontalBarChart({ data, onCategoryClick, selectedCategory }: 
           <div className="relative min-h-[320px] transition-all duration-500 ease-in-out">
             {/* Chart area */}
             <div className="space-y-6">
-              {data.map((item, index) => (
-                 <div
-                   key={item.category}
-                   onClick={() => onCategoryClick(item.category)}
-                   className={`
+              {visibleData.map((item, index) => (
+                <div
+                  key={item.category}
+                  onClick={() => onCategoryClick(item.category)}
+                  className={`
                      relative cursor-pointer group h-16 flex items-center 
                      transition-all duration-300 ease-in-out transform
                      hover:scale-[1.02] hover:shadow-lg
-                     ${selectedCategory === item.category 
-                       ? 'scale-[1.02] shadow-lg ring-2 ring-blue-200 ring-opacity-50' 
-                       : 'hover:bg-gray-50'
-                     }
+                     ${selectedCategory === item.category
+                      ? 'scale-[1.02] shadow-lg ring-2 ring-blue-200 ring-opacity-50'
+                      : 'hover:bg-gray-50'
+                    }
                      rounded-lg p-2 -m-2
                    `}
-                   title={item.label}
-                 >
+                  title={item.label}
+                >
                   {/* Icon */}
-                  <div 
+                  <div
                     className={`
                       w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 z-10 shadow-sm mr-4
                       transition-all duration-300 ease-in-out
-                      ${selectedCategory === item.category 
-                        ? 'scale-110 shadow-lg' 
+                      ${selectedCategory === item.category
+                        ? 'scale-110 shadow-lg'
                         : 'group-hover:scale-105 group-hover:shadow-md'
                       }
                     `}
                     style={{ backgroundColor: `${item.color}20` }}
                   >
-                    <div 
+                    <div
                       className="transition-all duration-300 ease-in-out"
                       style={{ color: item.color }}
                     >
                       {item.icon}
                     </div>
                   </div>
-                  
+
                   {/* Horizontal bar */}
-                  <div 
+                  <div
                     className={`
                       h-10 rounded-lg transition-all duration-500 ease-out flex items-center justify-end pr-4 shadow-sm
-                      ${selectedCategory === item.category 
-                        ? 'h-12 shadow-lg' 
+                      ${selectedCategory === item.category
+                        ? 'h-12 shadow-lg'
                         : 'group-hover:h-12 group-hover:shadow-md'
                       }
                     `}
-                    style={{ 
-                      width: `calc(${(item.value / maxValue) * 80}% + 100px)`,
+                    style={{
+                      width: `calc(${Math.max((item.value / maxValue) * 70, 10)}% + 120px)`, // Ensure minimum 10% width
                       backgroundColor: item.color,
-                      minWidth: '100px'
+                      minWidth: '120px'
                     }}
                   >
                     {/* Value label on bar */}
@@ -151,22 +175,29 @@ export function HorizontalBarChart({ data, onCategoryClick, selectedCategory }: 
                       {item.value.toLocaleString()}
                     </span>
                   </div>
-                  
+
+                  {/* Category label */}
+                  <div className="ml-4 flex-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      {item.label}
+                    </span>
+                  </div>
+
                   {/* Selection indicator */}
                   {selectedCategory === item.category && (
                     <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-3 h-12 bg-blue-600 rounded-full shadow-md animate-pulse"></div>
                   )}
-                  
-                   {/* Custom Tooltip */}
-                   <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-sm px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-in-out pointer-events-none z-20 whitespace-nowrap">
-                     {item.label}
-                     <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                   </div>
-                   
-                   {/* Click ripple effect */}
-                   <div className="absolute inset-0 rounded-lg overflow-hidden">
-                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-10 transition-opacity duration-300 ease-in-out transform -skew-x-12 -translate-x-full group-hover:translate-x-full group-hover:transition-transform group-hover:duration-700"></div>
-                   </div>
+
+                  {/* Custom Tooltip */}
+                  <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-sm px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-in-out pointer-events-none z-20 whitespace-nowrap">
+                    {item.label}
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                  </div>
+
+                  {/* Click ripple effect */}
+                  <div className="absolute inset-0 rounded-lg overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-10 transition-opacity duration-300 ease-in-out transform -skew-x-12 -translate-x-full group-hover:translate-x-full group-hover:transition-transform group-hover:duration-700"></div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -197,7 +228,7 @@ export function HorizontalBarChart({ data, onCategoryClick, selectedCategory }: 
 export function DetailedView({ category, onBack, data }: DetailedViewProps) {
   // Use real data from props instead of mock data
   const categoryData = data[category as keyof typeof data];
-  
+
   if (!categoryData || !Array.isArray(categoryData) || categoryData.length === 0) {
     return (
       <Card className="w-full">
@@ -241,7 +272,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
         return (
           <div className="space-y-6">
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={categoryData} layout="horizontal">
+              <BarChart data={categoryData} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" domain={[0, 100]} />
                 <YAxis dataKey="name" type="category" width={80} />
@@ -250,7 +281,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 <Bar dataKey="attendance" fill={COLORS.attendance} name="Attendance %" />
               </BarChart>
             </ResponsiveContainer>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
@@ -265,13 +296,13 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                     dataKey="attendance"
                   >
                     {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={`${COLORS.attendance}${80 + index * 10}`} />
+                      <Cell key={`cell-${index}`} fill={COLORS.attendance} fillOpacity={0.9 - (index * 0.1)} />
                     ))}
                   </Pie>
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
-              
+
               <div className="space-y-4">
                 <h4 className="font-semibold">Attendance Statistics</h4>
                 <div className="space-y-3">
@@ -282,8 +313,8 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
                     <span>Average Attendance</span>
                     <span className="font-semibold">
-                      {categoryData.length > 0 
-                        ? Math.round(categoryData.reduce((sum, item) => sum + (item.attendance || 0), 0) / categoryData.length) 
+                      {categoryData.length > 0
+                        ? Math.round(categoryData.reduce((sum, item) => sum + (item.attendance || 0), 0) / categoryData.length)
                         : 0}%
                     </span>
                   </div>
@@ -307,7 +338,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 <Bar dataKey="atRisk" fill="#FF8042" name="At Risk Students" />
               </BarChart>
             </ResponsiveContainer>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={categoryData}>
@@ -319,7 +350,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   <Line type="monotone" dataKey="averageGrade" stroke={COLORS.performance} name="Average Grade" />
                 </LineChart>
               </ResponsiveContainer>
-              
+
               <div className="space-y-4">
                 <h4 className="font-semibold">Performance Statistics</h4>
                 <div className="space-y-3">
@@ -330,8 +361,8 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
                     <span>Average Grade</span>
                     <span className="font-semibold">
-                      {categoryData.length > 0 
-                        ? Math.round(categoryData.reduce((sum, item) => sum + (item.averageGrade || 0), 0) / categoryData.length) 
+                      {categoryData.length > 0
+                        ? Math.round(categoryData.reduce((sum, item) => sum + (item.averageGrade || 0), 0) / categoryData.length)
                         : 0}
                     </span>
                   </div>
@@ -355,7 +386,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 <Area type="monotone" dataKey="new" stackId="2" stroke="#82ca9d" fill="#82ca9d" name="New Enrollments" />
               </AreaChart>
             </ResponsiveContainer>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={categoryData}>
@@ -369,7 +400,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   <Line type="monotone" dataKey="graduates" stroke="#FF8042" name="Graduates" />
                 </LineChart>
               </ResponsiveContainer>
-              
+
               <div className="space-y-4">
                 <h4 className="font-semibold">Enrollment Statistics</h4>
                 <div className="space-y-3">
@@ -403,7 +434,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 <Bar dataKey="totalSubjects" fill="#82ca9d" name="Subjects" />
               </BarChart>
             </ResponsiveContainer>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
@@ -418,19 +449,21 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                     dataKey="totalStudents"
                   >
                     {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={`${COLORS.sections}${80 + index * 20}`} />
+                      <Cell key={`cell-${index}`} fill={COLORS.sections} fillOpacity={0.9 - (index * 0.1)} />
                     ))}
                   </Pie>
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
-              
+
               <div className="space-y-4">
                 <h4 className="font-semibold">Section Statistics</h4>
                 <div className="space-y-3">
                   <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
                     <span>Total Sections</span>
-                    <span className="font-semibold">{categoryData.length}</span>
+                    <span className="font-semibold">
+                      {categoryData.reduce((sum, item) => sum + (item.sectionCount ?? 1), 0)}
+                    </span>
                   </div>
                   <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
                     <span>Total Students</span>
@@ -447,6 +480,18 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
       case 'atRisk':
         return (
           <div className="space-y-6">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={categoryData} layout="vertical" margin={{ left: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" domain={[0, 100]} />
+                <YAxis dataKey="StudentName" type="category" width={150} tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="riskLevel" name="Risk Score (100 - Attendance %)" fill="#EF4444" barSize={20} />
+                <Bar dataKey="AttendanceRate" name="Attendance Rate %" fill="#10B981" barSize={20} />
+              </BarChart>
+            </ResponsiveContainer>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="p-6 bg-red-50 rounded-lg border border-red-200">
                 <h4 className="font-semibold text-red-800 mb-4">At-Risk Students Alert</h4>
@@ -458,14 +503,14 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   <div className="flex justify-between p-3 bg-white rounded-lg">
                     <span>Average Risk Score</span>
                     <span className="font-semibold text-red-600">
-                      {categoryData.length > 0 
-                        ? Math.round(categoryData.reduce((sum, item) => sum + (item.riskLevel || 0), 0) / categoryData.length) 
+                      {categoryData.length > 0
+                        ? Math.round(categoryData.reduce((sum, item) => sum + (item.riskLevel || 0), 0) / categoryData.length)
                         : 0}%
                     </span>
                   </div>
                 </div>
               </div>
-              
+
               <div className="p-6 bg-yellow-50 rounded-lg border border-yellow-200">
                 <h4 className="font-semibold text-yellow-800 mb-4">Intervention Needed</h4>
                 <div className="space-y-3">
@@ -491,14 +536,14 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 <h4 className="font-semibold text-green-800 mb-4">Pass Rate Overview</h4>
                 <div className="text-center">
                   <div className="text-4xl font-bold text-green-600 mb-2">
-                    {categoryData.length > 0 
-                      ? Math.round(categoryData.reduce((sum, item) => sum + (item.passRate || 0), 0) / categoryData.length) 
+                    {categoryData.length > 0
+                      ? Math.round(categoryData.reduce((sum, item) => sum + (item.passRate || 0), 0) / categoryData.length)
                       : 0}%
                   </div>
                   <p className="text-green-700">Overall Pass Rate</p>
                 </div>
               </div>
-              
+
               <div className="p-6 bg-blue-50 rounded-lg border border-blue-200">
                 <h4 className="font-semibold text-blue-800 mb-4">Performance Trends</h4>
                 <div className="space-y-2">
@@ -516,7 +561,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   </div>
                 </div>
               </div>
-              
+
               <div className="p-6 bg-orange-50 rounded-lg border border-orange-200">
                 <h4 className="font-semibold text-orange-800 mb-4">Improvement Areas</h4>
                 <div className="space-y-2">
@@ -563,7 +608,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   </div>
                 </div>
               </div>
-              
+
               <div className="p-6 bg-blue-50 rounded-lg border border-blue-200">
                 <h4 className="font-semibold text-blue-800 mb-4">Processing Time</h4>
                 <div className="space-y-3">
@@ -599,7 +644,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 <Bar dataKey="students" fill="#82ca9d" name="Total Students" />
               </BarChart>
             </ResponsiveContainer>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <h4 className="font-semibold">Instructor Statistics</h4>
@@ -611,21 +656,21 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
                     <span>Average Workload</span>
                     <span className="font-semibold">
-                      {categoryData.length > 0 
-                        ? Math.round(categoryData.reduce((sum, item) => sum + (item.subjects || 0), 0) / categoryData.length) 
+                      {categoryData.length > 0
+                        ? Math.round(categoryData.reduce((sum, item) => sum + (item.subjects || 0), 0) / categoryData.length)
                         : 0} subjects
                     </span>
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <h4 className="font-semibold">Performance Metrics</h4>
                 <div className="space-y-3">
                   <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
                     <span>Average Rating</span>
                     <span className="font-semibold">
-                      {categoryData.length > 0 
+                      {categoryData.length > 0
                         ? (categoryData.reduce((sum, item) => sum + (item.rating || 0), 0) / categoryData.length).toFixed(1)
                         : 'N/A'}/5.0
                     </span>
@@ -656,7 +701,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 <Bar dataKey="schedules" fill="#82ca9d" name="Class Schedules" />
               </BarChart>
             </ResponsiveContainer>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
@@ -671,13 +716,13 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                     dataKey="students"
                   >
                     {categoryData.slice(0, 8).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={`#0891B2${80 + index * 20}`} />
+                      <Cell key={`cell-${index}`} fill="#0891B2" fillOpacity={0.9 - (index * 0.1)} />
                     ))}
                   </Pie>
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
-              
+
               <div className="space-y-4">
                 <h4 className="font-semibold">Subject Statistics</h4>
                 <div className="space-y-3">
@@ -723,14 +768,14 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   <div className="flex justify-between p-3 bg-white rounded-lg">
                     <span>Utilization Rate</span>
                     <span className="font-semibold text-pink-600">
-                      {categoryData.length > 0 
+                      {categoryData.length > 0
                         ? Math.round((categoryData.filter(item => item.status === 'active').length / categoryData.length) * 100)
                         : 0}%
                     </span>
                   </div>
                 </div>
               </div>
-              
+
               <div className="p-6 bg-purple-50 rounded-lg border border-purple-200">
                 <h4 className="font-semibold text-purple-800 mb-4">Capacity Overview</h4>
                 <div className="space-y-3">
@@ -743,7 +788,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   <div className="flex justify-between p-3 bg-white rounded-lg">
                     <span>Average Occupancy</span>
                     <span className="font-semibold text-purple-600">
-                      {categoryData.length > 0 
+                      {categoryData.length > 0
                         ? Math.round(categoryData.reduce((sum, item) => sum + (item.occupancy || 0), 0) / categoryData.length)
                         : 0}%
                     </span>
@@ -775,7 +820,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 <Bar dataKey="count" fill="#0F766E" name="Schedules" />
               </BarChart>
             </ResponsiveContainer>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <h4 className="font-semibold">Schedule Statistics</h4>
@@ -798,7 +843,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <h4 className="font-semibold">Time Distribution</h4>
                 <div className="space-y-3">
@@ -834,43 +879,43 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 <h4 className="font-semibold text-green-800 mb-4">Excellent (90%+)</h4>
                 <div className="text-center">
                   <div className="text-3xl font-bold text-green-600 mb-2">
-                    {categoryData.length > 0 
+                    {categoryData.length > 0
                       ? Math.round(categoryData.reduce((sum, item) => sum + (item.excellent || 0), 0))
                       : 0}
                   </div>
                   <p className="text-green-700">Students</p>
                 </div>
               </div>
-              
+
               <div className="p-6 bg-blue-50 rounded-lg border border-blue-200">
                 <h4 className="font-semibold text-blue-800 mb-4">Good (80-89%)</h4>
                 <div className="text-center">
                   <div className="text-3xl font-bold text-blue-600 mb-2">
-                    {categoryData.length > 0 
+                    {categoryData.length > 0
                       ? Math.round(categoryData.reduce((sum, item) => sum + (item.good || 0), 0))
                       : 0}
                   </div>
                   <p className="text-blue-700">Students</p>
                 </div>
               </div>
-              
+
               <div className="p-6 bg-yellow-50 rounded-lg border border-yellow-200">
                 <h4 className="font-semibold text-yellow-800 mb-4">Satisfactory (75-79%)</h4>
                 <div className="text-center">
                   <div className="text-3xl font-bold text-yellow-600 mb-2">
-                    {categoryData.length > 0 
+                    {categoryData.length > 0
                       ? Math.round(categoryData.reduce((sum, item) => sum + (item.satisfactory || 0), 0))
                       : 0}
                   </div>
                   <p className="text-yellow-700">Students</p>
                 </div>
               </div>
-              
+
               <div className="p-6 bg-red-50 rounded-lg border border-red-200">
                 <h4 className="font-semibold text-red-800 mb-4">Below Standard (&lt;75%)</h4>
                 <div className="text-center">
                   <div className="text-3xl font-bold text-red-600 mb-2">
-                    {categoryData.length > 0 
+                    {categoryData.length > 0
                       ? Math.round(categoryData.reduce((sum, item) => sum + (item.belowStandard || 0), 0))
                       : 0}
                   </div>
@@ -878,7 +923,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 </div>
               </div>
             </div>
-            
+
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -923,7 +968,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 <Bar dataKey="subjects" fill="#F59E0B" name="Subjects" />
               </BarChart>
             </ResponsiveContainer>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-4">
                 <h4 className="font-semibold">School Year Statistics</h4>
@@ -940,7 +985,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <h4 className="font-semibold">Course Statistics</h4>
                 <div className="space-y-3">
@@ -958,7 +1003,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   </div>
                 </div>
               </div>
-              
+
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie
@@ -996,7 +1041,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 <Bar dataKey="courses" fill="#00C49F" name="Courses" />
               </BarChart>
             </ResponsiveContainer>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={categoryData} layout="horizontal">
@@ -1008,7 +1053,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   <Bar dataKey="averageAttendance" fill="#10B981" name="Avg Attendance %" />
                 </BarChart>
               </ResponsiveContainer>
-              
+
               <div className="space-y-4">
                 <h4 className="font-semibold">Institute Statistics</h4>
                 <div className="space-y-3">
@@ -1025,7 +1070,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
                     <span>Average Attendance</span>
                     <span className="font-semibold">
-                      {categoryData.length > 0 
+                      {categoryData.length > 0
                         ? Math.round((categoryData.reduce((sum, item) => sum + (item.averageAttendance || 0), 0) / categoryData.length) * 10) / 10
                         : 0}%
                     </span>
@@ -1050,7 +1095,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                 <Bar dataKey="attendance" fill="#10B981" name="Attendance %" />
               </BarChart>
             </ResponsiveContainer>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={categoryData} layout="horizontal">
@@ -1062,7 +1107,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   <Bar dataKey="passRate" fill="#059669" name="Pass Rate %" />
                 </BarChart>
               </ResponsiveContainer>
-              
+
               <div className="space-y-4">
                 <h4 className="font-semibold">Course Statistics</h4>
                 <div className="space-y-3">
@@ -1079,7 +1124,7 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
                   <div className="flex justify-between p-3 bg-gray-50 rounded-lg">
                     <span>Average Pass Rate</span>
                     <span className="font-semibold">
-                      {categoryData.length > 0 
+                      {categoryData.length > 0
                         ? Math.round((categoryData.reduce((sum, item) => sum + (item.passRate || 0), 0) / categoryData.length) * 10) / 10
                         : 0}%
                     </span>
@@ -1114,10 +1159,10 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
               </p>
             </div>
           </div>
-            <button
-              onClick={onBack}
-              className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-md animate-in slide-in-from-right-4 delay-200"
-            >
+          <button
+            onClick={onBack}
+            className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-md animate-in slide-in-from-right-4 delay-200"
+          >
             ← Back to Overview
           </button>
         </div>

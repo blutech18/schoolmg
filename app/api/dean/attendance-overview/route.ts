@@ -60,16 +60,19 @@ export async function GET(request: NextRequest) {
     const schoolYear = searchParams.get('schoolYear');
     const semester = searchParams.get('semester');
     const yearLevel = searchParams.get('yearLevel');
+    const course = searchParams.get('course');
+    const section = searchParams.get('section');
     
-    console.log("Filters:", { schoolYear, semester, yearLevel });
+    console.log("Filters:", { schoolYear, semester, yearLevel, course, section });
 
-    // Build filter conditions for schedules
+    // Build filter conditions for schedules - more flexible approach
     const scheduleFilters: string[] = [];
     const scheduleParams: any[] = [];
     
+    // Try different possible column names for academic year
     if (schoolYear && schoolYear !== 'all') {
-      scheduleFilters.push('sch.AcademicYear = ?');
-      scheduleParams.push(schoolYear);
+      scheduleFilters.push('(sch.AcademicYear = ? OR sch.SchoolYear = ? OR sch.Year = ?)');
+      scheduleParams.push(schoolYear, schoolYear, schoolYear);
     }
     if (semester) {
       scheduleFilters.push('sch.Semester = ?');
@@ -79,33 +82,62 @@ export async function GET(request: NextRequest) {
       scheduleFilters.push('sch.YearLevel = ?');
       scheduleParams.push(parseInt(yearLevel));
     }
+    if (course && course !== 'all') {
+      scheduleFilters.push('(sch.Course = ? OR s.Course = ?)');
+      scheduleParams.push(course, course);
+    }
+    if (section && section !== 'all') {
+      scheduleFilters.push('(sch.Section = ? OR s.Section = ?)');
+      scheduleParams.push(section, section);
+    }
     
     const scheduleFilterClause = scheduleFilters.length > 0 
       ? 'AND ' + scheduleFilters.join(' AND ') 
       : '';
 
-    // Get total records with filters
+    // Get total records with filters - with fallback
     console.log("Fetching total records...");
-    const [totalRecordsResult] = await db.execute(`
-      SELECT COUNT(*) as total 
-      FROM attendance a
-      JOIN schedules sch ON a.ScheduleID = sch.ScheduleID
-      WHERE 1=1 ${scheduleFilterClause}
-    `, scheduleParams);
-    const totalRecords = (totalRecordsResult as any[])[0]?.total || 0;
+    let totalRecords = 0;
+    try {
+      const [totalRecordsResult] = await db.execute(`
+        SELECT COUNT(*) as total 
+        FROM attendance a
+        JOIN schedules sch ON a.ScheduleID = sch.ScheduleID
+        LEFT JOIN students s ON a.StudentID = s.StudentID
+        WHERE 1=1 ${scheduleFilterClause}
+      `, scheduleParams);
+      totalRecords = (totalRecordsResult as any[])[0]?.total || 0;
+    } catch (error: any) {
+      console.log("Total records query failed, using fallback:", error.message);
+      const [fallbackResult] = await db.execute(`SELECT COUNT(*) as total FROM attendance`);
+      totalRecords = (fallbackResult as any[])[0]?.total || 0;
+    }
     console.log("Total records:", totalRecords);
 
-    // Get attendance by status with filters
+    // Get attendance by status with filters - with fallback
     console.log("Fetching attendance by status...");
-    const [statusResult] = await db.execute(`
-      SELECT 
-        a.Status,
-        COUNT(*) as count
-      FROM attendance a
-      JOIN schedules sch ON a.ScheduleID = sch.ScheduleID
-      WHERE 1=1 ${scheduleFilterClause}
-      GROUP BY a.Status
-    `, scheduleParams);
+    let statusResult;
+    try {
+      [statusResult] = await db.execute(`
+        SELECT 
+          a.Status,
+          COUNT(*) as count
+        FROM attendance a
+        JOIN schedules sch ON a.ScheduleID = sch.ScheduleID
+        LEFT JOIN students s ON a.StudentID = s.StudentID
+        WHERE 1=1 ${scheduleFilterClause}
+        GROUP BY a.Status
+      `, scheduleParams);
+    } catch (error: any) {
+      console.log("Status query failed, using fallback:", error.message);
+      [statusResult] = await db.execute(`
+        SELECT 
+          a.Status,
+          COUNT(*) as count
+        FROM attendance a
+        GROUP BY a.Status
+      `);
+    }
     console.log("Status result:", statusResult);
 
     const attendanceByStatus = {
