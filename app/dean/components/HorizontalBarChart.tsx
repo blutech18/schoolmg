@@ -436,25 +436,32 @@ export function DetailedView({ category, onBack, data }: DetailedViewProps) {
             </ResponsiveContainer>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ course, totalStudents }) => `${course}: ${totalStudents}`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="totalStudents"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS.sections} fillOpacity={0.9 - (index * 0.1)} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="space-y-2">
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      nameKey="course"
+                      labelLine={false}
+                      label={({ course, totalStudents }) => `${course}: ${totalStudents}`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="totalStudents"
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell key={`cell-${entry.course}-${index}`} fill={COLORS.sections} fillOpacity={0.9 - (index * 0.1)} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => [value, 'Students']} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+                <p className="text-xs text-muted-foreground text-center px-2">
+                  <strong>Segment key:</strong> 0 = {categoryData[0]?.course ?? '1st program'}, 1 = {categoryData[1]?.course ?? '2nd program'}, 2 = {categoryData[2]?.course ?? '3rd program'}. Number on slice = student count.
+                </p>
+              </div>
 
               <div className="space-y-4">
                 <h4 className="font-semibold">Section Statistics</h4>

@@ -87,6 +87,7 @@ interface SectionData {
   course: string;
   yearLevel: number;
   students: number;
+  totalSubjects: number;
   averageAttendance: number;
   averageGrade: number;
 }
@@ -675,6 +676,7 @@ export default function DeanAnalyticsPage() {
           course: item.course,
           yearLevel: item.yearLevel,
           students: item.totalStudents || 0,
+          totalSubjects: item.totalSubjects ?? 0,
           averageAttendance: item.averageAttendance || 0,
           averageGrade: item.averageGrade || 0
         }));
@@ -934,6 +936,7 @@ export default function DeanAnalyticsPage() {
           if (!byCourse.has(c)) byCourse.set(c, { totalStudents: 0, totalSubjects: 0, sectionCount: 0 });
           const e = byCourse.get(c)!;
           e.totalStudents += item.students;
+          e.totalSubjects += item.totalSubjects ?? 0;
           e.sectionCount += 1;
         }
         return Array.from(byCourse.entries()).map(([course, data]) => ({
@@ -1021,12 +1024,13 @@ export default function DeanAnalyticsPage() {
 
   // Aggregate section data by course (program) so charts show one bar per program—no duplicate BSCS/BLIS/BSIS
   const sectionDataByCourse = useMemo(() => {
-    const byCourse = new Map<string, { section: string; students: number; attendanceSum: number; gradeSum: number }>();
+    const byCourse = new Map<string, { section: string; students: number; totalSubjects: number; attendanceSum: number; gradeSum: number }>();
     for (const item of sectionData) {
       const c = item.course || 'Other';
-      if (!byCourse.has(c)) byCourse.set(c, { section: c, students: 0, attendanceSum: 0, gradeSum: 0 });
+      if (!byCourse.has(c)) byCourse.set(c, { section: c, students: 0, totalSubjects: 0, attendanceSum: 0, gradeSum: 0 });
       const e = byCourse.get(c)!;
       e.students += item.students;
+      e.totalSubjects += item.totalSubjects ?? 0;
       e.attendanceSum += (item.averageAttendance || 0) * item.students;
       e.gradeSum += (item.averageGrade || 0) * item.students;
     }
@@ -1035,6 +1039,7 @@ export default function DeanAnalyticsPage() {
         section: data.section,
         course,
         students: data.students,
+        totalSubjects: data.totalSubjects,
         averageAttendance: data.students > 0 ? Math.round((data.attendanceSum / data.students) * 10) / 10 : 0,
         averageGrade: data.students > 0 ? Math.round((data.gradeSum / data.students) * 100) / 100 : 0
       }))
@@ -1824,17 +1829,24 @@ export default function DeanAnalyticsPage() {
               <p className="text-sm text-muted-foreground mt-1">
                 By program • {sectionData.length} section{sectionData.length !== 1 ? 's' : ''} total
               </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                X-axis: Students (count) · Attendance (%) · Grade (1–5 scale)
+              </p>
             </CardHeader>
             <CardContent>
               {sectionDataByCourse.length > 0 ? (
                 <ResponsiveContainer width="100%" height={500}>
                   <BarChart data={sectionDataByCourse} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" />
-                    <YAxis dataKey="section" type="category" width={150} />
+                    <XAxis
+                      type="number"
+                      label={{ value: 'Students (count) | Attendance (%) | Grade (1–5)', position: 'insideBottom', offset: -5 }}
+                    />
+                    <YAxis dataKey="section" type="category" width={150} label={{ value: 'Program', angle: -90, position: 'insideLeft' }} />
                     <Tooltip
                       formatter={(value: any, name: any) => {
                         if (name === 'students') return [value.toLocaleString(), 'Students'];
+                        if (name === 'totalSubjects') return [value.toLocaleString(), 'Subjects'];
                         if (name === 'averageAttendance') return [`${value}%`, 'Avg Attendance'];
                         if (name === 'averageGrade') return [value.toFixed(2), 'Avg Grade'];
                         return [value, name];
@@ -1842,6 +1854,7 @@ export default function DeanAnalyticsPage() {
                     />
                     <Legend />
                     <Bar dataKey="students" fill="#3B82F6" name="Students" />
+                    <Bar dataKey="totalSubjects" fill="#8B5CF6" name="Subjects" />
                     <Bar dataKey="averageAttendance" fill="#10B981" name="Avg Attendance %" />
                     <Bar dataKey="averageGrade" fill="#F59E0B" name="Avg Grade" />
                   </BarChart>

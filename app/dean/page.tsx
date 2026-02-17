@@ -48,36 +48,48 @@ export default function DeanDashboard() {
 
   const fetchDashboardStats = async () => {
     try {
-      // Fetch various statistics
-      const [studentsRes, excuseLettersRes, attendanceStatsRes] = await Promise.all([
+      // Fetch various statistics; use attendance-overview for breakdown (has status counts)
+      const [studentsRes, excuseLettersRes, attendanceOverviewRes] = await Promise.all([
         fetch("/api/students"),
-        fetch("/api/excuse-letters?role=dean"),
-        fetch("/api/dean/attendance-stats")
+        fetch("/api/excuse-letters"),
+        fetch("/api/dean/attendance-overview")
       ]);
 
       const studentsData = await studentsRes.json();
       const excuseLettersData = await excuseLettersRes.json();
-      const attendanceStatsData = await attendanceStatsRes.json();
+      const overviewData = await attendanceOverviewRes.json();
 
-      const pendingApprovals = excuseLettersData.success ?
-        excuseLettersData.data.filter((letter: any) => letter.DeanStatus === 'pending').length : 0;
-
-      // Calculate real average attendance from the stats API
-      const averageAttendance = attendanceStatsData.success && attendanceStatsData.data.averageAttendance
-        ? Math.round(attendanceStatsData.data.averageAttendance * 10) / 10
+      const pendingApprovals = excuseLettersData.success && Array.isArray(excuseLettersData.data)
+        ? excuseLettersData.data.filter((letter: { DeanStatus?: string }) => letter.DeanStatus === 'pending').length
         : 0;
 
-      // Calculate percentage rates for each attendance type
-      const totalRecords = attendanceStatsData.success ? attendanceStatsData.data.totalRecords || 0 : 0;
-      const presentRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.presentRecords / totalRecords) * 1000) / 10 : 0;
-      const absentRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.absentRecords / totalRecords) * 1000) / 10 : 0;
-      const excusedRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.excusedRecords / totalRecords) * 1000) / 10 : 0;
-      const lateRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.lateRecords / totalRecords) * 1000) / 10 : 0;
-      const unmarkedRate = totalRecords > 0 ? Math.round((attendanceStatsData.data.unmarkedRecords / totalRecords) * 1000) / 10 : 0;
+      const totalRecords = overviewData.success && overviewData.data
+        ? overviewData.data.totalRecords || 0
+        : 0;
+      const byStatus = overviewData.success && overviewData.data?.attendanceByStatus
+        ? overviewData.data.attendanceByStatus
+        : { present: 0, absent: 0, excused: 0, late: 0, dropped: 0, failed: 0 };
+      const present = byStatus.present ?? 0;
+      const absent = byStatus.absent ?? 0;
+      const excused = byStatus.excused ?? 0;
+      const late = byStatus.late ?? 0;
+      const dropped = byStatus.dropped ?? 0;
+      const failed = byStatus.failed ?? 0;
+      const marked = present + absent + excused + late + dropped + failed;
+      const unmarkedCount = Math.max(0, totalRecords - marked);
+
+      const averageAttendance = totalRecords > 0
+        ? Math.round((present / totalRecords) * 1000) / 10
+        : 0;
+      const presentRate = totalRecords > 0 ? Math.round((present / totalRecords) * 1000) / 10 : 0;
+      const absentRate = totalRecords > 0 ? Math.round((absent / totalRecords) * 1000) / 10 : 0;
+      const excusedRate = totalRecords > 0 ? Math.round((excused / totalRecords) * 1000) / 10 : 0;
+      const lateRate = totalRecords > 0 ? Math.round((late / totalRecords) * 1000) / 10 : 0;
+      const unmarkedRate = totalRecords > 0 ? Math.round((unmarkedCount / totalRecords) * 1000) / 10 : 0;
 
       setStats({
         totalStudents: Array.isArray(studentsData) ? studentsData.length : 0,
-        totalExcuseLetters: excuseLettersData.success ? excuseLettersData.data.length : 0,
+        totalExcuseLetters: excuseLettersData.success && Array.isArray(excuseLettersData.data) ? excuseLettersData.data.length : 0,
         pendingApprovals,
         averageAttendance,
         presentRate,
@@ -88,10 +100,14 @@ export default function DeanDashboard() {
       });
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
-      // Set fallback values on error
       setStats(prev => ({
         ...prev,
-        averageAttendance: 0
+        averageAttendance: 0,
+        presentRate: 0,
+        absentRate: 0,
+        excusedRate: 0,
+        lateRate: 0,
+        unmarkedRate: 0
       }));
     }
   };
@@ -217,18 +233,6 @@ export default function DeanDashboard() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Section Overview - Consolidated View */}
-      <Card className="hover:shadow-md transition-shadow cursor-pointer border-2 border-blue-200 bg-blue-50" onClick={() => window.location.href = '/dean/section-overview'}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">📊 Section Overview (Consolidated)</CardTitle>
-          <Users className="h-4 w-4 text-blue-600" />
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-700">View all sections with subjects and students in one place</p>
-          <p className="text-xs text-blue-600 mt-2 font-medium">Filter by Course → Year → Section → Subjects</p>
-        </CardContent>
-      </Card>
 
       {/* Recent Activity Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
