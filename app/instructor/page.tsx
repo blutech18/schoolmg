@@ -311,9 +311,19 @@ export default function InstructorDashboard() {
         const pendingCount = data.data.filter((letter: ExcuseLetter) =>
           letter.InstructorStatus === 'pending').length;
 
+        // Ensure the top card also matches the detailed split-count view
+        const splitCount = data.data
+          .filter((l: ExcuseLetter) => l.InstructorStatus === 'pending')
+          .reduce((sum: number, letter: any) => {
+            if (letter.SubjectCode === 'Multiple Subjects' && letter.AllSubjectCodes) {
+              return sum + letter.AllSubjectCodes.split(',').filter(Boolean).length;
+            }
+            return sum + 1;
+          }, 0);
+
         setStats(prev => ({
           ...prev,
-          pendingExcuseLetters: pendingCount
+          pendingExcuseLetters: splitCount
         }));
       }
     } catch (error) {
@@ -324,7 +334,7 @@ export default function InstructorDashboard() {
   const fetchAllInstructorGrades = async (instructorId: number) => {
     try {
       console.log('Fetching all instructor grades for instructor:', instructorId);
-      
+
       // First get all schedules for this instructor
       const schedulesResponse = await fetch(`/api/schedules?role=instructor&instructorId=${instructorId}`, {
         credentials: 'include'
@@ -348,7 +358,7 @@ export default function InstructorDashboard() {
       const gradeDataPromises = schedules.map(async (schedule: Schedule) => {
         try {
           console.log(`Processing schedule ${schedule.ScheduleID} (${schedule.SubjectCode})`);
-          
+
           // Get enrollment count for student count
           const enrollmentResponse = await fetch(`/api/enrollments?scheduleId=${schedule.ScheduleID}`, {
             credentials: 'include'
@@ -379,15 +389,15 @@ export default function InstructorDashboard() {
 
           // Check if this is an NSTP subject
           const isNSTP = schedule.SubjectCode?.toUpperCase().includes('NSTP');
-          
+
           if (isNSTP) {
             console.log(`Schedule ${schedule.ScheduleID} is NSTP - fetching raw grades directly`);
-            
+
             // For NSTP, fetch raw grades directly since the API skips NSTP in summary calculation
             const rawGradesResponse = await fetch(`/api/grades?scheduleId=${schedule.ScheduleID}&role=instructor&userId=${instructorId}`, {
               credentials: 'include'
             });
-            
+
             if (!rawGradesResponse.ok) {
               console.warn(`Failed to fetch raw grades for NSTP schedule ${schedule.ScheduleID}`);
               return {
@@ -407,9 +417,9 @@ export default function InstructorDashboard() {
                 averageGrade: 0
               };
             }
-            
+
             const rawGradesData = await rawGradesResponse.json();
-            
+
             if (!rawGradesData.success || !rawGradesData.data || rawGradesData.data.length === 0) {
               console.log(`No raw grades found for NSTP schedule ${schedule.ScheduleID}`);
               return {
@@ -429,17 +439,17 @@ export default function InstructorDashboard() {
                 averageGrade: 0
               };
             }
-            
+
             // Calculate grades manually from raw data for NSTP using proper grading system
             const grades = rawGradesData.data;
             const studentGradeMap: { [key: number]: { midterm: any[], final: any[] } } = {};
-            
+
             // Group grades by student and term
             grades.forEach((grade: any) => {
               if (!studentGradeMap[grade.StudentID]) {
                 studentGradeMap[grade.StudentID] = { midterm: [], final: [] };
               }
-              
+
               const term = (grade.Term || '').toLowerCase();
               if (term === 'midterm') {
                 studentGradeMap[grade.StudentID].midterm.push(grade);
@@ -447,11 +457,11 @@ export default function InstructorDashboard() {
                 studentGradeMap[grade.StudentID].final.push(grade);
               }
             });
-            
+
             // Helper function to calculate term grade using proper grading system
             const calculateTermGrade = (termGrades: any[], classType: string) => {
               if (!termGrades || termGrades.length === 0) return null;
-              
+
               // Normalize component names
               const normalizeComponentName = (name: string): string => {
                 if (!name) return '';
@@ -465,13 +475,13 @@ export default function InstructorDashboard() {
                 };
                 return componentMap[lower] || lower;
               };
-              
+
               // NSTP grading: Quiz 60%, Major Exam 40%
               const componentWeights: { [key: string]: number } = {
                 'quiz': 60,
                 'major exam': 40
               };
-              
+
               // Group grades by component
               const componentGroups: { [key: string]: any[] } = {};
               termGrades.forEach(grade => {
@@ -481,28 +491,28 @@ export default function InstructorDashboard() {
                 }
                 componentGroups[normalizedComponent].push(grade);
               });
-              
+
               let totalWeightedScore = 0;
               let totalWeight = 0;
-              
+
               // Calculate weighted average for each component
               Object.keys(componentGroups).forEach(component => {
                 const grades = componentGroups[component];
                 const weight = componentWeights[component] || 0;
-                
+
                 if (weight === 0 || grades.length === 0) return;
-                
+
                 // Calculate total score and total max score for this component
                 let currentTotalScore = 0;
                 let currentTotalMaxScore = 0;
-                
+
                 grades.forEach((grade: any) => {
                   const score = parseFloat(grade.Score) || 0;
                   const max = parseFloat(grade.MaxScore) || 0;
                   currentTotalScore += score;
                   currentTotalMaxScore += max;
                 });
-                
+
                 // Calculate percentage for this component
                 if (currentTotalMaxScore > 0) {
                   const componentPercentage = (currentTotalScore / currentTotalMaxScore) * 100;
@@ -510,12 +520,12 @@ export default function InstructorDashboard() {
                   totalWeight += weight;
                 }
               });
-              
+
               if (totalWeight === 0) return null;
-              
+
               // Normalize the final percentage
               const finalPercentage = (totalWeightedScore / totalWeight) * 100;
-              
+
               // Convert percentage to Filipino grade
               const convertToGrade = (pct: number) => {
                 if (pct >= 98) return 1.0;
@@ -529,23 +539,23 @@ export default function InstructorDashboard() {
                 if (pct >= 75) return 3.0;
                 return 5.0;
               };
-              
+
               return {
                 grade: convertToGrade(finalPercentage),
                 percentage: finalPercentage
               };
             };
-            
+
             // Calculate grades for each student
             const studentAverages = Object.entries(studentGradeMap).map(([studentId, studentGrades]) => {
               const midtermResult = calculateTermGrade(studentGrades.midterm, schedule.ClassType);
               const finalResult = calculateTermGrade(studentGrades.final, schedule.ClassType);
-              
+
               let summary = null;
               if (midtermResult && finalResult) {
                 summary = (midtermResult.grade + finalResult.grade) / 2;
               }
-              
+
               return {
                 studentId: parseInt(studentId),
                 midtermGrade: midtermResult?.grade || null,
@@ -553,9 +563,9 @@ export default function InstructorDashboard() {
                 summary: summary
               };
             });
-            
+
             const validSummaries = studentAverages.filter(s => s.summary !== null);
-            
+
             if (validSummaries.length === 0) {
               console.log(`NSTP Schedule ${schedule.ScheduleID}: No students with complete grades`);
               return {
@@ -575,25 +585,25 @@ export default function InstructorDashboard() {
                 averageGrade: 0
               };
             }
-            
+
             // Calculate class averages
             const midtermGrades = studentAverages.filter(s => s.midtermGrade !== null).map(s => s.midtermGrade!);
             const finalGrades = studentAverages.filter(s => s.finalGrade !== null).map(s => s.finalGrade!);
-            
-            const classMidtermAvg = midtermGrades.length > 0 
-              ? midtermGrades.reduce((sum, g) => sum + g, 0) / midtermGrades.length 
+
+            const classMidtermAvg = midtermGrades.length > 0
+              ? midtermGrades.reduce((sum, g) => sum + g, 0) / midtermGrades.length
               : null;
-            const classFinalAvg = finalGrades.length > 0 
-              ? finalGrades.reduce((sum, g) => sum + g, 0) / finalGrades.length 
+            const classFinalAvg = finalGrades.length > 0
+              ? finalGrades.reduce((sum, g) => sum + g, 0) / finalGrades.length
               : null;
             const classSummaryAvg = validSummaries.reduce((sum, s) => sum + s.summary!, 0) / validSummaries.length;
-            
+
             const passedCount = validSummaries.filter(s => s.summary! <= 3.0).length;
             const failedCount = validSummaries.length - passedCount;
-            
+
             console.log(`NSTP Schedule ${schedule.ScheduleID}: ${validSummaries.length} students with complete grades`);
             console.log(`NSTP averages - Midterm: ${classMidtermAvg}, Final: ${classFinalAvg}, Summary: ${classSummaryAvg}`);
-            
+
             return {
               ScheduleID: schedule.ScheduleID,
               SubjectCode: schedule.SubjectCode,
@@ -619,7 +629,7 @@ export default function InstructorDashboard() {
                 `/api/grades?role=student&userId=${student.StudentID}`,
                 { credentials: 'include' }
               );
-              
+
               if (studentGradeResponse.ok) {
                 const studentGradeData = await studentGradeResponse.json();
                 if (studentGradeData.success && studentGradeData.summary && studentGradeData.summary[schedule.ScheduleID]) {
@@ -640,7 +650,7 @@ export default function InstructorDashboard() {
 
           const studentGrades = await Promise.all(studentGradePromises);
           const validGrades = studentGrades.filter(g => g !== null && g.summary !== null);
-          
+
           console.log(`Schedule ${schedule.ScheduleID}: ${validGrades.length} students with grades out of ${studentCount} enrolled`);
 
           if (validGrades.length === 0) {
@@ -671,11 +681,11 @@ export default function InstructorDashboard() {
           const midtermAvg = midtermGrades.length > 0
             ? midtermGrades.reduce((sum, g) => sum + g, 0) / midtermGrades.length
             : null;
-          
+
           const finalAvg = finalGrades.length > 0
             ? finalGrades.reduce((sum, g) => sum + g, 0) / finalGrades.length
             : null;
-          
+
           const summaryAvg = summaryGrades.reduce((sum, g) => sum + g, 0) / summaryGrades.length;
 
           const passedCount = summaryGrades.filter(g => g <= 3.0).length;
@@ -2266,9 +2276,9 @@ export default function InstructorDashboard() {
           <TabsTrigger value="excuseLetters" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Excuse Letters
-            {excuseLetters.filter(el => el.InstructorStatus === 'pending').length > 0 && (
+            {stats.pendingExcuseLetters > 0 && (
               <Badge variant="destructive" className="ml-1 text-white text-xs px-1.5 py-0.5 min-w-[18px] h-[18px] flex items-center justify-center">
-                {excuseLetters.filter(el => el.InstructorStatus === 'pending').length}
+                {stats.pendingExcuseLetters}
               </Badge>
             )}
           </TabsTrigger>

@@ -617,13 +617,13 @@ export default function StudentDashboard() {
   // Helper function to round to nearest valid Filipino grade (matches instructor grading logic)
   const roundToValidGrade = (grade: number): number => {
     const validGrades = [1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50, 2.75, 3.00, 5.00];
-    
+
     if (validGrades.includes(grade)) return grade;
     if (grade > 3.0) return 5.00;
-    
+
     let nearest = validGrades[0];
     let minDiff = Math.abs(grade - nearest);
-    
+
     for (const validGrade of validGrades) {
       const diff = Math.abs(grade - validGrade);
       if (diff < minDiff) {
@@ -631,7 +631,7 @@ export default function StudentDashboard() {
         nearest = validGrade;
       }
     }
-    
+
     return nearest;
   };
 
@@ -924,7 +924,7 @@ export default function StudentDashboard() {
                     </table>
                     
                     <div style="margin: 30px 0; padding: 20px; background: linear-gradient(135deg, #e8f5e9 0%, #e3f2fd 100%); border: 2px solid #4caf50; border-radius: 8px; text-align: center;">
-                      <p style="margin: 0 0 5px 0; font-size: 14px; color: #666;">OVERALL GRADE POINT AVERAGE (GPA)</p>
+                      <p style="margin: 0 0 5px 0; font-size: 14px; color: #666;">(GWA) General Weighted Average</p>
                       <p style="margin: 0; font-size: 36px; font-weight: bold; color: #1a1a1a;">${overallGPA}</p>
                       ${overallGPA !== 'N/A' ? `
                         <p style="margin: 10px 0 0 0;">
@@ -1030,7 +1030,7 @@ export default function StudentDashboard() {
 
                     return (
                       <div className="text-center">
-                        <p className="text-sm font-medium text-gray-600 mb-2">OVERALL GRADE POINT AVERAGE (GPA)</p>
+                        <p className="text-sm font-medium text-gray-600 mb-2">(GWA) General Weighted Average</p>
                         <p className={`text-5xl font-bold mb-2 ${roundedGPA !== null && roundedGPA > 3.0 ? 'text-red-600' : 'text-slate-900'}`}>
                           {roundedGPA !== null ? roundedGPA.toFixed(2) : 'N/A'}
                         </p>
